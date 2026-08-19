@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/widgets/press_feedback.dart';
 
-/// The five button roles from docs/COMPONENTS.md §1.
+/// The button roles from docs/COMPONENTS.md §1, plus [inverse].
 enum AppButtonVariant {
   /// The one main action per screen.
   primary,
@@ -18,6 +18,18 @@ enum AppButtonVariant {
 
   /// SPIN only. Brand green with dark text.
   brand,
+
+  /// A near-black pill.
+  ///
+  /// Not in docs/COMPONENTS.md §1, which makes green the primary interactive
+  /// fill. Both reference designs disagree: reference_img.webp and
+  /// login_reference.webp use near-black for the main call to action and reserve
+  /// green as an accent. The references are the visual benchmark, so this
+  /// variant exists and carries the auth screens' CTAs.
+  ///
+  /// It uses the existing surfaceInverse role rather than a new colour, so it
+  /// inverts correctly in dark mode instead of turning invisible.
+  inverse,
 }
 
 /// The three button sizes from docs/COMPONENTS.md §1.
@@ -111,6 +123,19 @@ class AppButton extends StatelessWidget {
     this.semanticLabel,
     super.key,
   }) : variant = AppButtonVariant.destructive;
+
+  /// The near-black pill the reference designs use for a main action.
+  const AppButton.inverse({
+    required this.label,
+    required this.onPressed,
+    this.size = AppButtonSize.large,
+    this.leadingIcon,
+    this.trailingIcon,
+    this.isLoading = false,
+    this.isFullWidth = true,
+    this.semanticLabel,
+    super.key,
+  }) : variant = AppButtonVariant.inverse;
 
   /// SPIN, and nothing else.
   ///
@@ -233,6 +258,11 @@ class AppButton extends StatelessWidget {
       AppButtonVariant.brand => _ButtonPalette(
         background: colors.primaryBrand,
         foreground: colors.onPrimaryBrand,
+        hasShadow: true,
+      ),
+      AppButtonVariant.inverse => _ButtonPalette(
+        background: colors.surfaceInverse,
+        foreground: colors.textOnInverse,
         hasShadow: true,
       ),
     };

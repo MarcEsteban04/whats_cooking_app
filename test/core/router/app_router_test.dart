@@ -8,6 +8,7 @@ import 'package:whats_cooking/core/router/app_shell.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/widgets/navigation/app_bottom_nav.dart';
 import 'package:whats_cooking/features/auth/presentation/providers/session_provider.dart';
+import 'package:whats_cooking/features/auth/presentation/screens/welcome_screen.dart';
 
 /// Sample values for every path parameter in the route table.
 const Map<String, String> _sampleParameters = <String, String>{
@@ -240,7 +241,7 @@ void main() {
 
       await pumpApp(tester, container);
 
-      expect(find.text('Welcome'), findsOneWidget);
+      expect(find.byType(WelcomeScreen), findsOneWidget);
     });
 
     testWidgets('a protected route is refused while signed out', (
@@ -255,7 +256,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(AppShell), findsNothing);
-      expect(find.text('Welcome'), findsOneWidget);
+      expect(find.byType(WelcomeScreen), findsOneWidget);
     });
 
     testWidgets('signing in moves the app off the public zone', (
@@ -268,7 +269,7 @@ void main() {
       addTearDown(container.dispose);
 
       await pumpApp(tester, container);
-      expect(find.text('Welcome'), findsOneWidget);
+      expect(find.byType(WelcomeScreen), findsOneWidget);
 
       container
           .read(sessionProvider.notifier)
@@ -324,7 +325,7 @@ void main() {
       container.read(sessionProvider.notifier).signOut();
       await tester.pumpAndSettle();
 
-      expect(find.text('Welcome'), findsOneWidget);
+      expect(find.byType(WelcomeScreen), findsOneWidget);
     });
   });
 

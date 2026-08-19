@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whats_cooking/features/auth/presentation/screens/welcome_screen.dart';
 import 'package:whats_cooking/main.dart';
 
 void main() {
@@ -25,6 +26,6 @@ void main() {
 
     // The guard's signed-out path, end to end: splash has nothing to restore,
     // so it moves on rather than sitting there (docs/NAVIGATION_MAP.md §2).
-    expect(find.text('Welcome'), findsOneWidget);
+    expect(find.byType(WelcomeScreen), findsOneWidget);
   });
 }

@@ -11,6 +11,11 @@ import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
 import 'package:whats_cooking/core/widgets/placeholder_screen.dart';
 import 'package:whats_cooking/features/auth/domain/entities/app_session.dart';
 import 'package:whats_cooking/features/auth/presentation/providers/session_provider.dart';
+import 'package:whats_cooking/features/auth/presentation/screens/forgot_password_screen.dart';
+import 'package:whats_cooking/features/auth/presentation/screens/login_screen.dart';
+import 'package:whats_cooking/features/auth/presentation/screens/register_screen.dart';
+import 'package:whats_cooking/features/auth/presentation/screens/reset_password_screen.dart';
+import 'package:whats_cooking/features/auth/presentation/screens/welcome_screen.dart';
 
 part 'app_router.g.dart';
 
@@ -81,11 +86,30 @@ GoRouter appRouter(Ref ref) {
 
 final List<RouteBase> _publicRoutes = <RouteBase>[
   _route(AppRoute.splash, const _SplashScreen(), sprint: 'Sprint 17'),
-  _route(AppRoute.welcome, null, sprint: 'Sprint 16'),
-  _route(AppRoute.login, null, sprint: 'Sprint 16'),
-  _route(AppRoute.register, null, sprint: 'Sprint 16'),
-  _route(AppRoute.forgotPassword, null, sprint: 'Sprint 16'),
-  _route(AppRoute.resetPassword, null, sprint: 'Sprint 16'),
+  _route(AppRoute.welcome, const WelcomeScreen(), sprint: 'Sprint 16'),
+  GoRoute(
+    path: AppRoute.login.path,
+    name: AppRoute.login.routeName,
+    builder: (BuildContext context, GoRouterState state) => LoginScreen(
+      // Carried by the register screen when an address already has an account
+      // (docs/USER_FLOWS.md §2), so the user does not retype it.
+      prefilledEmail: state.uri.queryParameters['email'],
+    ),
+  ),
+  _route(AppRoute.register, const RegisterScreen(), sprint: 'Sprint 16'),
+  _route(
+    AppRoute.forgotPassword,
+    const ForgotPasswordScreen(),
+    sprint: 'Sprint 16',
+  ),
+  GoRoute(
+    path: AppRoute.resetPassword.path,
+    name: AppRoute.resetPassword.routeName,
+    builder: (BuildContext context, GoRouterState state) => ResetPasswordScreen(
+      // The recovery token from the deep link (docs/NAVIGATION_MAP.md §5).
+      token: state.uri.queryParameters['token'],
+    ),
+  ),
   _route(AppRoute.guestSpin, null, sprint: 'Sprint 29 (P1)'),
 ];
 

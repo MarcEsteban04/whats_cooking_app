@@ -1,0 +1,163 @@
+import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:whats_cooking/core/errors/app_exception.dart';
+import 'package:whats_cooking/core/errors/error_mapper.dart';
+import 'package:whats_cooking/features/auth/data/repositories/in_memory_auth_repository.dart';
+import 'package:whats_cooking/features/auth/domain/entities/app_session.dart';
+import 'package:whats_cooking/features/auth/domain/repositories/auth_repository.dart';
+import 'package:whats_cooking/features/auth/presentation/providers/session_provider.dart';
+
+part 'auth_controller.g.dart';
+
+/// The auth backend.
+///
+/// Sprint 16 wires the in-memory stand-in so the screens are a working flow;
+/// Sprint 17 overrides this with the Supabase implementation and nothing above
+/// it changes.
+@Riverpod(keepAlive: true)
+AuthRepository authRepository(Ref ref) => InMemoryAuthRepository();
+
+/// What a submitted auth form is doing.
+///
+/// A sealed state rather than a `bool isSubmitting` beside a `String? error`:
+/// those are two fields that can disagree, and the disagreement shows up as a
+/// spinner spinning over an error message (docs/ARCHITECTURE.md §3.2).
+sealed class AuthFormState {
+  const AuthFormState();
+
+  bool get isSubmitting => this is AuthSubmitting;
+
+  /// The failure to show, if any.
+  AppException? get failure => switch (this) {
+    AuthFailed(:final AppException exception) => exception,
+    _ => null,
+  };
+}
+
+/// Nothing has been submitted.
+class AuthIdle extends AuthFormState {
+  const AuthIdle();
+}
+
+/// A submission is in flight.
+class AuthSubmitting extends AuthFormState {
+  const AuthSubmitting();
+}
+
+/// The submission succeeded.
+class AuthSucceeded extends AuthFormState {
+  const AuthSucceeded();
+}
+
+/// The submission failed.
+class AuthFailed extends AuthFormState {
+  const AuthFailed(this.exception, {this.suggestLoginFor});
+
+  final AppException exception;
+
+  /// Set when sign-up hit an already-registered address.
+  ///
+  /// docs/USER_FLOWS.md §2: that case "offers a one-tap route to login with the
+  /// address pre-filled — never a dead-end error", so the screen needs the
+  /// address rather than just the message.
+  final String? suggestLoginFor;
+}
+
+/// Drives the auth forms.
+///
+/// Holds submission state only. The *session* is owned by [Session]: two places
+/// tracking whether someone is signed in is one place too many, and the router's
+/// guard reads the session, not this.
+@riverpod
+class AuthController extends _$AuthController {
+  @override
+  AuthFormState build() => const AuthIdle();
+
+  Future<void> signIn({required String email, required String password}) {
+    return _submit(
+      () => ref
+          .read(authRepositoryProvider)
+          .signIn(email: email, password: password),
+    );
+  }
+
+  Future<void> signUp({
+    required String email,
+    required String password,
+    required String displayName,
+  }) async {
+    state = const AuthSubmitting();
+
+    try {
+      final AppSession session = await ref
+          .read(authRepositoryProvider)
+          .signUp(email: email, password: password, displayName: displayName);
+
+      _adopt(session);
+      state = const AuthSucceeded();
+    } on EmailAlreadyRegistered catch (error) {
+      // Carried through as a distinct state so the screen can offer login with
+      // the address filled in, rather than showing a message and stopping.
+      state = AuthFailed(
+        const ValidationException(
+          message: 'That email already has an account',
+          field: 'email',
+        ),
+        suggestLoginFor: error.email,
+      );
+    } on Object catch (error, stackTrace) {
+      state = AuthFailed(ErrorMapper.map(error, stackTrace));
+    }
+  }
+
+  /// Requests a reset email.
+  ///
+  /// Succeeds whether or not the address exists (docs/USER_FLOWS.md §4). Only a
+  /// transport failure surfaces, because only a transport failure is something
+  /// the user can act on.
+  Future<void> sendPasswordReset({required String email}) async {
+    state = const AuthSubmitting();
+
+    try {
+      await ref.read(authRepositoryProvider).sendPasswordReset(email: email);
+      state = const AuthSucceeded();
+    } on Object catch (error, stackTrace) {
+      state = AuthFailed(ErrorMapper.map(error, stackTrace));
+    }
+  }
+
+  Future<void> updatePassword({required String newPassword}) {
+    return _submit(
+      () => ref
+          .read(authRepositoryProvider)
+          .updatePassword(newPassword: newPassword),
+    );
+  }
+
+  /// Clears a failure so a corrected form starts from a clean state.
+  void reset() => state = const AuthIdle();
+
+  Future<void> _submit(Future<AppSession> Function() operation) async {
+    state = const AuthSubmitting();
+
+    try {
+      _adopt(await operation());
+      state = const AuthSucceeded();
+    } on Object catch (error, stackTrace) {
+      state = AuthFailed(ErrorMapper.map(error, stackTrace));
+    }
+  }
+
+  /// Publishes [session] as the app's auth truth.
+  ///
+  /// This is what moves the router: its redirect watches the session, so
+  /// assigning it here is what navigates away from the auth zone. No screen
+  /// pushes a route after signing in (docs/NAVIGATION_MAP.md §4).
+  void _adopt(AppSession session) {
+    ref
+        .read(sessionProvider.notifier)
+        .signIn(
+          isOnboarded: session.isOnboarded,
+          hasHousehold: session.hasHousehold,
+        );
+  }
+}
