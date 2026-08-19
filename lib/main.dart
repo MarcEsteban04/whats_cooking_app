@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:whats_cooking/core/config/app_env.dart';
 import 'package:whats_cooking/core/errors/global_error_handler.dart';
+import 'package:whats_cooking/core/network/backend_health.dart';
+import 'package:whats_cooking/core/network/supabase_bootstrap.dart';
 import 'package:whats_cooking/core/router/app_router.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/utils/logger.dart';
@@ -22,18 +26,28 @@ Future<void> main() async {
 
     AppLog.info('Starting ${AppEnv.describe()}', name: 'main');
 
-    if (!AppEnv.isBackendConfigured) {
-      // supabase/README.md: "Without credentials it logs a warning and runs
-      // without a backend rather than crashing — a fresh clone still starts."
-      AppLog.warning(
-        'No Supabase credentials. Copy config/development.example.json to '
-        'config/development.json and run with '
-        '--dart-define-from-file=config/development.json.',
-        name: 'main',
-      );
-    }
+    // Awaited, because a session restored from secure storage has to be in place
+    // before the router runs its first redirect — otherwise a returning user
+    // sees the welcome screen for a frame.
+    //
+    // Missing credentials are handled inside: the app starts without a backend
+    // rather than crashing, so a fresh clone runs (supabase/README.md).
+    await SupabaseBootstrap.initialize();
 
-    runApp(const ProviderScope(child: WhatsCookingApp()));
+    final ProviderContainer container = ProviderContainer();
+
+    // Not awaited. The health probe's answer is a diagnosis for the log, not
+    // something the first frame depends on — waiting on a network round trip
+    // before painting would trade a startup budget for a log line
+    // (docs/ARCHITECTURE.md §12: 1.5 s cold start to interactive).
+    unawaited(container.read(backendStatusProvider.future));
+
+    runApp(
+      UncontrolledProviderScope(
+        container: container,
+        child: const WhatsCookingApp(),
+      ),
+    );
   });
 }
 
