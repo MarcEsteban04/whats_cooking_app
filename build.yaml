@@ -1,0 +1,25 @@
+# Code generation configuration for What's Cooking?
+#
+# Generated files (*.g.dart, *.freezed.dart) are git-ignored per
+# docs/CODING_STANDARDS.md §6. Regenerate with:
+#
+#   dart run build_runner build
+
+targets:
+  $default:
+    builders:
+      json_serializable:
+        options:
+          # Postgres columns are snake_case (docs/CODING_STANDARDS.md §11), Dart
+          # members are lowerCamelCase. Renaming globally keeps every DTO free of
+          # per-field @JsonKey annotations.
+          field_rename: snake
+
+          # Nested DTOs must serialize through their own toJson rather than being
+          # emitted as opaque objects.
+          explicit_to_json: true
+
+          # A malformed payload throws CheckedFromJsonException naming the field,
+          # which the data layer maps to a ServerException with a usable log line
+          # (docs/ARCHITECTURE.md §9).
+          checked: true

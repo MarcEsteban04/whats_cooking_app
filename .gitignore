@@ -51,3 +51,9 @@ app.*.map.json
 .env
 .env.*
 !.env.example
+
+# Generated code — regenerate with `dart run build_runner build`
+# (docs/CODING_STANDARDS.md §6)
+*.g.dart
+*.freezed.dart
+*.mocks.dart
