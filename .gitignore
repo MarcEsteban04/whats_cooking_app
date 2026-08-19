@@ -57,3 +57,8 @@ app.*.map.json
 *.g.dart
 *.freezed.dart
 *.mocks.dart
+
+# Machine-local build configuration (docs/LOCAL_SETUP.md §8).
+# The example is committed; the filled-in copy holds credentials and is not.
+/config/*.json
+!/config/*.example.json

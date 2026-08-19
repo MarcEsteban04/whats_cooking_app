@@ -1,0 +1,8 @@
+{
+  "APP_FLAVOR": "development",
+
+  "SUPABASE_URL": "https://your-project.supabase.co",
+  "SUPABASE_PUBLISHABLE_KEY": "sb_publishable_replace_me",
+
+  "VERBOSE_LOGGING": true
+}
