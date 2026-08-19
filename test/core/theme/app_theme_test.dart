@@ -272,7 +272,10 @@ void main() {
       await tester.pumpWidget(const ProviderScope(child: WhatsCookingApp()));
       await tester.pumpAndSettle();
 
-      final BuildContext context = tester.element(find.text("What's Cooking?"));
+      // Anchored on the Scaffold rather than on a particular screen's copy:
+      // this is a fact about the clamp, not about whichever route the guard
+      // happens to land on.
+      final BuildContext context = tester.element(find.byType(Scaffold));
       // Measured rather than read off the scaler so the assertion is about what
       // text actually does.
       return MediaQuery.textScalerOf(context).scale(10) / 10;
