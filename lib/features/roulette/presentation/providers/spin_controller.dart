@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:whats_cooking/core/domain/food_preferences.dart';
 import 'package:whats_cooking/core/domain/food_taxonomy.dart';
 import 'package:whats_cooking/core/errors/app_exception.dart';
 import 'package:whats_cooking/core/errors/error_mapper.dart';
@@ -11,10 +12,11 @@ import 'package:whats_cooking/features/meals/domain/entities/meal.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal_query.dart';
 import 'package:whats_cooking/features/meals/domain/repositories/meal_repository.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/dislikes_controller.dart';
+import 'package:whats_cooking/features/meals/presentation/providers/favorites_controller.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/meal_repository_provider.dart';
 import 'package:whats_cooking/features/profile/presentation/providers/profile_controller.dart';
 import 'package:whats_cooking/features/roulette/domain/entities/spin_filters.dart';
-import 'package:whats_cooking/features/roulette/domain/usecases/repetition_rule.dart';
+import 'package:whats_cooking/features/roulette/domain/usecases/meal_scorer.dart';
 import 'package:whats_cooking/features/roulette/presentation/providers/spin_filters_controller.dart';
 
 part 'spin_controller.g.dart';
@@ -59,10 +61,11 @@ class SpinSettled extends SpinState {
   /// Why this one, in a phrase, or null when there is nothing worth saying.
   ///
   /// design_ui §13 leaves room for a context line on the result — its own
-  /// example is *"⭐ Loved by both of you"*. This is the Sprint 32 version:
-  /// *"Not had this in a while"*. It exists because a weighted engine that
-  /// cannot say why it chose something is indistinguishable from a random one,
-  /// and the whole point of the weighting is that people notice it.
+  /// example is *"Loved by both of you"*. This is the scored version:
+  /// *"Filipino is one of your favourites"*, *"Well under budget"*, *"You have
+  /// not had this yet"*. It exists because a scored engine that cannot say why
+  /// it chose something is indistinguishable from a random one, which throws
+  /// away the point of scoring it.
   ///
   /// Only ever a *positive* reason. "We picked this despite you eating it on
   /// Tuesday" is true and is not what a result screen is for.
@@ -166,12 +169,11 @@ class SpinFailed extends SpinState {
 
 /// Drives the roulette (docs/USER_FLOWS.md §7 — *this is the product*).
 ///
-/// **Selection is weighted, as of Sprint 32.** Not scored — the full table
-/// (preference match, budget match, partner compatibility) is Sprint 33. What
-/// exists now is repetition prevention: last night's dinner is excluded
-/// outright, a meal eaten recently is less likely, and a meal sharing a cuisine
-/// with the last few is less likely again. `RepetitionRule` holds the reasoning
-/// and the numbers.
+/// **Selection is scored, as of Sprint 33.** Favourite cuisines, saved meals,
+/// how far under budget, how far inside the time limit, cuisine variety and
+/// recency each contribute points; the points become likelihoods; a weighted
+/// draw picks one. `MealScorer` holds the table and the reasoning — including
+/// what is *not* in it yet, and why.
 ///
 /// **Three layers of narrowing, and they differ in kind.** The dislikes and the
 /// session's own exclusions go into the *query*, because those are promises
@@ -246,41 +248,31 @@ class SpinController extends _$SpinController {
         return;
       }
 
-      // Repetition prevention (Sprint 32). Runs *after* the filters, because
-      // there is no point weighting meals the reader has ruled out — and before
-      // the pick, because the pick is what the weights are for.
-      final RepetitionOutcome repetition = RepetitionRule.apply(
+      // Scoring (Sprint 33). Runs *after* the filters, because there is no point
+      // scoring meals the reader has ruled out — and before the pick, because
+      // the scores are what the pick is for.
+      final ScoringOutcome scoring = MealScorer.score(
         pool: matching,
-        recent: await _recentMeals(),
-        settings: RepetitionSettings.fromWindowDays(
-          ref
-              .read(profileControllerProvider)
-              .value
-              ?.preferences
-              .repetitionWindowDays,
-        ),
+        context: await _scoringContext(filters),
       );
 
-      if (repetition.candidates.isEmpty) {
+      if (scoring.candidates.isEmpty) {
         state = _noMatch(
           filters: filters,
           eligible: eligible,
           hiddenCount: hidden.length,
-          blockedByRepetition: repetition.blocked,
+          blockedByRepetition: scoring.blocked,
         );
         return;
       }
 
-      final ScoredMeal? scored = RepetitionRule.pick(
-        repetition.candidates,
-        _random,
-      );
+      final ScoredMeal? scored = MealScorer.pick(scoring.candidates, _random);
       if (scored == null) {
         state = _noMatch(
           filters: filters,
           eligible: eligible,
           hiddenCount: hidden.length,
-          blockedByRepetition: repetition.blocked,
+          blockedByRepetition: scoring.blocked,
         );
         return;
       }
@@ -289,9 +281,10 @@ class SpinController extends _$SpinController {
 
       state = SpinSettled(
         meal: scored.meal,
-        // The reel flicks through the weighted pool, not the raw one, so what
-        // flashes past is food that could actually have won.
-        pool: repetition.candidates
+        // The reel flicks through the scored pool, not the raw one, so what
+        // flashes past is food that could actually have won — and in the order
+        // the engine liked it.
+        pool: scoring.candidates
             .map((ScoredMeal candidate) => candidate.meal)
             .toList(growable: false),
         reason: scored.highlight?.label,
@@ -358,7 +351,37 @@ class SpinController extends _$SpinController {
     );
   }
 
-  /// What the household has eaten, as the repetition rule wants it.
+  /// Everything the scorer needs about this household.
+  ///
+  /// Assembled here rather than inside [MealScorer], which is pure Dart with no
+  /// providers in it — the placement docs/ARCHITECTURE.md §5.1 specifies for the
+  /// engine, and the reason its behaviour can be checked without a device.
+  ///
+  /// The budget and the time limit come from the **filters**, not the profile, so
+  /// a tighter budget set for one evening is what gets scored against — the same
+  /// numbers Home is showing.
+  Future<ScoringContext> _scoringContext(SpinFilters filters) async {
+    final FoodPreferences? preferences = ref
+        .read(profileControllerProvider)
+        .value
+        ?.preferences;
+
+    return ScoringContext(
+      favouriteCuisines: preferences?.favouriteCuisines ?? const <Cuisine>{},
+      // Best effort, like the history below: a favourite that failed to load
+      // costs fifteen points, and failing the spin over it would cost dinner.
+      favouriteMealIds:
+          ref.read(favoritesControllerProvider).value ?? const <String>{},
+      recent: await _recentMeals(),
+      budgetPerHead: filters.maxCostPerServing,
+      maxCookingTimeMinutes: filters.maxCookingTimeMinutes,
+      settings: RepetitionSettings.fromWindowDays(
+        preferences?.repetitionWindowDays,
+      ),
+    );
+  }
+
+  /// What the household has eaten, as the scorer wants it.
   ///
   /// The days-ago arithmetic happens here rather than in the rule, which is what
   /// keeps that file a pure function with no clock in it (docs/ARCHITECTURE.md

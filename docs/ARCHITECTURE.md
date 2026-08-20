@@ -265,8 +265,8 @@ flowchart TD
     B --> C{Empty?}
     C -->|Yes| D[No-match: identify blocking constraint]
     C -->|No| E[Score each candidate]
-    E --> F[Apply recency penalty]
-    F --> G[Take top N]
+    E --> F[Weight = exp of score over temperature]
+    F --> G[Floor and cap each weight]
     G --> H[Weighted random pick]
 ```
 
@@ -286,13 +286,40 @@ ceiling, cooking-time ceiling, explicit cuisine or category selection.
 | Cooking-time match | +10 |
 | Recent meal | −15 |
 
-Selection takes the top *N* (default 10) and picks with probability proportional to score.
-This is what produces the product's required feel:
+Selection picks with probability derived from the score. This is what produces the product's
+required feel:
 
 > **It should feel random, but never feel stupid.**
 
 Pure `top-1` is deterministic and stops feeling like a roulette. Uniform random over the
 pool is what every competitor already does badly.
+
+**Two deliberate departures from the sketch above, as built in Sprint 33** (`MealScorer`):
+
+*Probability is `exp(score / temperature)`, not proportional to score.* "Proportional to
+score" is undefined once a score is negative, and every penalty here produces negative
+scores — clamping at zero would make any penalised meal not merely unlikely but impossible,
+which is an exclusion nobody asked for. The exponential is well-defined across the whole
+range and gives one honest tuning knob: `temperature` is the spread in points that makes a
+meal *e* times likelier. At 25, a favourite cuisine (+30) is about three times likelier than
+a neutral meal — felt across an evening, and still losing two times in three.
+
+*There is no top-*N* truncation.* With a sixty-meal catalogue, a top-10 cut hides five sixths
+of it behind an arithmetic rule rather than a product one, and a household would notice the
+same ten dinners circling. The same intent — nothing certain, nothing impossible — is served
+by a weight **floor** (2% of neutral odds) and **cap** (20×), which bound the draw without
+deciding in advance which meals are allowed to exist. Revisit if the catalogue reaches the
+size where scoring all of it costs something; that is a measurement, not a guess to make now.
+
+**Disliked meals are absent from the table on purpose.** They are excluded in the query
+(Sprint 25) rather than scored at −100, which is strictly stronger: −100 makes a hidden meal
+very unlikely, and "very unlikely" across enough evenings is somebody being offered the food
+they told the app never to show them. US-B-07 promises *never*.
+
+**Ingredient match and partner compatibility are declared but not yet applied** — they need a
+pantry (Sprint 50) and a second person's preferences (Sprint 41 onward). The weights exist on
+`ScoreWeights` anyway, so the gap is a stated fact rather than something a reader has to
+notice.
 
 ### 5.3 Testability
 

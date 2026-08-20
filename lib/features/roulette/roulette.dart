@@ -6,6 +6,7 @@
 library;
 
 export 'domain/entities/spin_filters.dart';
+export 'domain/usecases/meal_scorer.dart';
 export 'presentation/providers/spin_controller.dart';
 export 'presentation/providers/spin_filters_controller.dart';
 export 'presentation/screens/spin_filters_sheet.dart';

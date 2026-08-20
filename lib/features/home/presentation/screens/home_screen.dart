@@ -9,6 +9,7 @@ import 'package:whats_cooking/core/widgets/buttons/app_button.dart';
 import 'package:whats_cooking/core/widgets/dashboard/dashboard.dart';
 import 'package:whats_cooking/features/history/presentation/providers/meal_history_controller.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/dislikes_controller.dart';
+import 'package:whats_cooking/features/meals/presentation/providers/favorites_controller.dart';
 import 'package:whats_cooking/features/profile/domain/entities/user_profile.dart';
 import 'package:whats_cooking/features/profile/presentation/providers/profile_controller.dart';
 import 'package:whats_cooking/features/roulette/domain/entities/spin_filters.dart';
@@ -45,12 +46,13 @@ class HomeScreen extends ConsumerWidget {
 
     // Warmed here, deliberately, and the values are not used on this screen.
     //
-    // The spin needs all three before it can pick — the hidden set, what the
-    // household has eaten, and the profile — and fetching them cold *during* the
-    // animation is what made the first spin of a session roll nothing while
-    // every spin after it rolled properly. Asking for them while somebody is
+    // The spin needs all of these before it can pick — the hidden set, the saved
+    // set, what the household has eaten, and the profile — and fetching them cold
+    // *during* the animation is what made the first spin of a session roll
+    // nothing while every spin after it rolled properly. Asking while somebody is
     // still deciding whether to tap SPIN costs nothing they can see.
     ref.watch(dislikesControllerProvider);
+    ref.watch(favoritesControllerProvider);
     ref.watch(mealHistoryProvider);
 
     return Scaffold(
