@@ -16,6 +16,7 @@ import 'package:whats_cooking/features/auth/presentation/screens/login_screen.da
 import 'package:whats_cooking/features/auth/presentation/screens/register_screen.dart';
 import 'package:whats_cooking/features/auth/presentation/screens/reset_password_screen.dart';
 import 'package:whats_cooking/features/auth/presentation/screens/welcome_screen.dart';
+import 'package:whats_cooking/features/meals/domain/entities/meal.dart';
 import 'package:whats_cooking/features/meals/presentation/screens/disliked_meals_screen.dart';
 import 'package:whats_cooking/features/meals/presentation/screens/favorites_screen.dart';
 import 'package:whats_cooking/features/meals/presentation/screens/meal_detail_screen.dart';
@@ -242,7 +243,14 @@ final StatefulShellRoute _shellRoute = StatefulShellRoute.indexedStack(
               path: _relative(AppRoute.mealDetail, AppRoute.meals),
               name: AppRoute.mealDetail.routeName,
               builder: (BuildContext context, GoRouterState state) =>
-                  MealDetailScreen(mealId: state.pathParameters['id']!),
+                  MealDetailScreen(
+                    mealId: state.pathParameters['id']!,
+                    // The row that was tapped hands over the meal it already
+                    // has, so the screen paints before the read returns
+                    // (Sprint 27). Null on a deep link or a cold start, which
+                    // is what the skeleton is still there for.
+                    preview: state.extra is Meal ? state.extra as Meal : null,
+                  ),
               // No children. `/meals/:id/edit` is `_mealEditRoute`, on the root
               // navigator beside `/meals/new`, because the two are the same
               // screen doing the same job — see its own comment.

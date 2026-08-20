@@ -97,7 +97,7 @@ supabase/
 Edit the **migrations**, never `schema.sql`. Regenerate it with:
 
 ```bash
-tool/build_schema.sh
+bash supabase/tool/build_schema.sh
 ```
 
 Migrations are forward-only and are never edited once applied to staging. Apply

@@ -198,14 +198,37 @@ flowchart LR
 Read-through, deliberately modest — the MVP is explicitly **not** offline-first
 ([PRD.md](PRD.md) non-goal 7).
 
-| Data | Strategy | TTL |
-| ---- | -------- | --- |
-| Meal catalogue | Cache first page + accessed details | 24 h |
-| Meal detail | Cache on view | 24 h |
-| User preferences | Cache, refresh on change | Session |
-| Pantry, grocery | Network first, cache fallback | Session |
-| Meal history | Cache last 30 days | 1 h |
-| Household | Cache, refresh on change | Session |
+| Data | Strategy | TTL | Built |
+| ---- | -------- | --- | ----- |
+| Meal catalogue | Cache **unfiltered** first page | 24 h | Sprint 27 |
+| Favourite / hidden id sets | Cache, refresh on change | 6 h | Sprint 27 |
+| Meal detail | In-memory for a window after viewing | 45 s | Sprint 27 |
+| Meal detail (on disk) | Cache on view | 24 h | — |
+| User preferences | Cache, refresh on change | Session | — |
+| Pantry, grocery | Network first, cache fallback | Session | — |
+| Meal history | Cache last 30 days | 1 h | — |
+| Household | Cache, refresh on change | Session | — |
+
+**Two layers, doing different jobs.** `TimestampedStore` is the persistent one —
+`SharedPreferences`, one JSON payload per key, every key prefixed `cache.` so sign-out can
+sweep them without knowing what any feature stored. `Ref.cacheFor` is the in-memory one: it
+holds an `autoDispose` provider alive for a window after its last listener leaves, which is
+what stops the meal-detail screen re-fetching every time someone steps in and out of a list.
+
+**Only the unfiltered first page is persisted, deliberately.** A filtered page is cheap to
+re-fetch and no use offline — somebody who filtered for "under 30 minutes" and then lost
+signal needs *something to cook*, not their something — so caching every permutation would
+buy a cache-invalidation problem in exchange for nothing. The dislike set is cached beside it
+because the feed reads it *before* its first page: without it, a cold start with no signal
+fails the Meals tab before the cached catalogue is ever consulted.
+
+A cached page comes back with `MealPage.cachedAt` set and `hasMore` false, and the screen
+says so. A stale catalogue presented as current is the app lying about the one thing it is
+for. `Meal.toRow` is the inverse of `Meal.fromRow`, so the cache and the wire share one
+decoder — including its tolerance of values this build does not recognise.
+
+Auth and permission failures never fall back to the cache. The fix for those is signing in,
+and yesterday's meals would hide that from the person who needs to see it.
 
 **The roulette must work against cache alone** ([USER_FLOWS.md](USER_FLOWS.md) §18). A user
 with no signal still gets a decision — that is the core promise, and it does not get a

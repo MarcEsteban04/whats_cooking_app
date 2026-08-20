@@ -65,4 +65,33 @@ abstract final class AppFormat {
         .where((String? part) => part != null && part.isNotEmpty)
         .join(' · ');
   }
+
+  /// How long ago, in the vaguest terms that are still true (Sprint 27).
+  ///
+  /// For "showing the meals saved 20 minutes ago". Deliberately coarse: the
+  /// reader wants to know whether what they are looking at is minutes or hours
+  /// old, and "saved 23 minutes ago" claims a precision that does not help them
+  /// decide anything.
+  ///
+  /// [now] is injectable so the wording can be checked without waiting.
+  static String relativeTime(DateTime when, {DateTime? now}) {
+    final Duration elapsed = (now ?? DateTime.now()).toUtc().difference(
+      when.toUtc(),
+    );
+
+    if (elapsed.inMinutes < 1) {
+      return 'just now';
+    }
+    if (elapsed.inMinutes < 60) {
+      final int minutes = elapsed.inMinutes;
+      return '$minutes ${minutes == 1 ? 'minute' : 'minutes'} ago';
+    }
+    if (elapsed.inHours < 24) {
+      final int hours = elapsed.inHours;
+      return '$hours ${hours == 1 ? 'hour' : 'hours'} ago';
+    }
+
+    final int days = elapsed.inDays;
+    return '$days ${days == 1 ? 'day' : 'days'} ago';
+  }
 }

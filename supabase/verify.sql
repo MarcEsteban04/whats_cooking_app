@@ -102,7 +102,7 @@ index_check as (
   select
     '7. key indexes' as check_name,
     count(*)         as found,
-    5                as expected
+    7                as expected
   from pg_indexes
   where schemaname = 'public'
     and indexname in (
@@ -116,7 +116,13 @@ index_check as (
       -- Added by migration 0015, alongside the generated `cost_per_serving`
       -- column. The Meals tab filters and sorts on it, so a database missing
       -- the column fails the budget filter and the cheapest sort outright.
-      'meals_cost_per_serving_idx'
+      'meals_cost_per_serving_idx',
+      -- Added by migration 0016. The Meals tab's default sort had no usable
+      -- index before it — the trigram index on `name` answers `ilike` and
+      -- cannot order — so a database missing this one still works and pages
+      -- slowly, which is the failure mode worth catching before users find it.
+      'meals_name_id_idx',
+      'meals_own_created_at_idx'
     )
 ),
 onboarding_column_check as (

@@ -7,6 +7,7 @@ import 'package:whats_cooking/core/errors/error_presenter.dart';
 import 'package:whats_cooking/core/router/app_routes.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/utils/formatters.dart';
+import 'package:whats_cooking/core/widgets/buttons/app_button.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_icon_button.dart';
 import 'package:whats_cooking/core/widgets/dashboard/dashboard.dart';
 import 'package:whats_cooking/core/widgets/feedback/app_skeleton.dart';
@@ -167,6 +168,31 @@ class _MealsScreenState extends ConsumerState<MealsScreen> {
                           ),
                         ],
                         const SizedBox(height: AppSpacing.space5),
+                        if (current?.cachedAt
+                            case final DateTime storedAt) ...<Widget>[
+                          // Said out loud, because the alternative is the app
+                          // presenting yesterday's catalogue as today's. Not
+                          // an error — there is a usable list below it — so it
+                          // reads as a note with a retry rather than a
+                          // failure.
+                          _OfflineNotice(
+                            storedAt: storedAt,
+                            onRetry: controller.refresh,
+                          ),
+                          const SizedBox(height: AppSpacing.space4),
+                        ],
+                        if (current?.refreshFailure
+                            case final AppException f) ...<Widget>[
+                          // The list below is still a true answer to a query
+                          // that did load, so it stays and this says what
+                          // failed (Sprint 27). Above the summary, because the
+                          // figures in it are the ones that did not update.
+                          InlineErrorBanner(
+                            message: f.displayMessage ?? f.message,
+                            onRetry: controller.refresh,
+                          ),
+                          const SizedBox(height: AppSpacing.space4),
+                        ],
                         if (current != null) ...<Widget>[
                           _SummaryPanel(
                             feed: current,
@@ -272,6 +298,65 @@ class _MealsScreenState extends ConsumerState<MealsScreen> {
   /// Start fetching about two screens before the end.
   static const double _prefetchExtent = 600;
   static const double _reloadingOpacity = 0.45;
+}
+
+/// "You are offline — this is the catalogue we had" (Sprint 27).
+///
+/// A note rather than an error, and the distinction is the point: there is a
+/// working list underneath it. `ErrorState` would replace that list with an
+/// apology, and `InlineErrorBanner` would paint it in the error colour, which
+/// says something went wrong when what actually happened is the app coping.
+class _OfflineNotice extends StatelessWidget {
+  const _OfflineNotice({required this.storedAt, required this.onRetry});
+
+  final DateTime storedAt;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppColorScheme colors = context.colors;
+
+    return Semantics(
+      liveRegion: true,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colors.surfaceMuted,
+          borderRadius: AppRadius.borderMd,
+          border: Border.all(color: colors.outline),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.space4,
+            vertical: AppSpacing.space3,
+          ),
+          child: Row(
+            children: <Widget>[
+              Icon(
+                Icons.wifi_off_rounded,
+                size: AppIconSize.sm,
+                color: colors.textSecondary,
+              ),
+              const SizedBox(width: AppSpacing.space3),
+              Expanded(
+                child: Text(
+                  'No connection. Showing the meals saved '
+                  '${AppFormat.relativeTime(storedAt)}.',
+                  style: context.text.bodySmall,
+                  maxLines: 2,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.space2),
+              AppButton.tertiary(
+                label: 'Retry',
+                size: AppButtonSize.small,
+                onPressed: onRetry,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// A circular header action, as the reference draws its settings and member

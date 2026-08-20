@@ -6,9 +6,12 @@ import 'package:whats_cooking/features/meals/domain/entities/meal_query.dart';
 /// One page of the feed.
 @immutable
 class MealPage {
-  const MealPage({required this.meals, required this.hasMore});
+  const MealPage({required this.meals, required this.hasMore, this.cachedAt});
 
-  const MealPage.empty() : meals = const <Meal>[], hasMore = false;
+  const MealPage.empty()
+    : meals = const <Meal>[],
+      hasMore = false,
+      cachedAt = null;
 
   final List<Meal> meals;
 
@@ -20,14 +23,26 @@ class MealPage {
   /// and on a filtered query it is the more expensive of the two.
   final bool hasMore;
 
+  /// When this page was stored, if it came off the disk rather than the wire
+  /// (Sprint 27).
+  ///
+  /// Null on every live answer. Non-null means the network failed and this is
+  /// what the device had — which the screen has to say, because a stale
+  /// catalogue presented as current is the app lying about the one thing it is
+  /// for. It also means [hasMore] is false: there is no page two in a cache.
+  final DateTime? cachedAt;
+
+  bool get isFromCache => cachedAt != null;
+
   @override
   bool operator ==(Object other) =>
       other is MealPage &&
       other.hasMore == hasMore &&
+      other.cachedAt == cachedAt &&
       listEquals(other.meals, meals);
 
   @override
-  int get hashCode => Object.hash(Object.hashAll(meals), hasMore);
+  int get hashCode => Object.hash(Object.hashAll(meals), hasMore, cachedAt);
 }
 
 /// Reads the meal catalogue.

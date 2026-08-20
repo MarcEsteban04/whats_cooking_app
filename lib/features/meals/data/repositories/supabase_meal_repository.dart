@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:whats_cooking/core/constants/app_constants.dart';
 import 'package:whats_cooking/core/domain/food_taxonomy.dart';
 import 'package:whats_cooking/core/errors/app_exception.dart';
 import 'package:whats_cooking/core/network/remote_call.dart';
 import 'package:whats_cooking/core/network/retry_policy.dart';
+import 'package:whats_cooking/features/meals/data/datasources/meal_cache.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal_draft.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal_query.dart';
@@ -18,15 +21,100 @@ import 'package:whats_cooking/features/meals/domain/repositories/meal_repository
 /// migration 0015 exists — `cost_per_serving` had to become a column before the
 /// budget filter could be a server-side one.
 class SupabaseMealRepository implements MealRepository {
-  SupabaseMealRepository(this._client);
+  SupabaseMealRepository(this._client, {this.cache = const MealCache()});
 
   final SupabaseClient _client;
 
+  /// Where the last unfiltered first page is kept (Sprint 27).
+  final MealCache cache;
+
+  /// The catalogue's first page, from the network, falling back to the disk.
+  ///
+  /// Read-through, as docs/ARCHITECTURE.md §5 specifies, and narrower than it
+  /// sounds: only the **unfiltered first page** is written or read. A filtered
+  /// page is cheap to fetch again and no use offline — someone who filtered for
+  /// "under 30 minutes" and lost signal needs *something to cook*, not their
+  /// something — and caching every permutation would buy an invalidation problem
+  /// in exchange for that.
+  ///
+  /// The fallback is deliberately quiet about nothing. `MealPage.cachedAt` comes
+  /// back set, the screen says so, and `hasMore` is false because there is no
+  /// page two on the disk.
   @override
   Future<MealPage> search({
     required MealQuery query,
     int offset = 0,
     int limit = kMealPageSize,
+  }) async {
+    final bool isCacheable = offset == 0 && !query.hasFilters;
+
+    try {
+      final MealPage page = await _search(
+        query: query,
+        offset: offset,
+        limit: limit,
+      );
+
+      if (isCacheable) {
+        // Not awaited. A slow disk must not hold up a page that has already
+        // arrived, and a failed write costs a cache hit rather than a screen.
+        unawaited(cache.writeFeed(page.meals, now: DateTime.now()));
+      }
+
+      return page;
+    } on AppException catch (failure) {
+      // Only the two failures the disk is an answer to. A 5xx is not the same
+      // as being offline, but the response is: the device has a catalogue and
+      // the server cannot give it one. Auth and permission failures are
+      // excluded on purpose — the fix there is signing in, and yesterday's meals
+      // would hide that from the person who needs to see it.
+      if (failure is! NetworkException && failure is! ServerException) {
+        rethrow;
+      }
+
+      final MealPage? cached = await _cachedPage(
+        query,
+        isCacheable: isCacheable,
+      );
+      if (cached == null) {
+        rethrow;
+      }
+      return cached;
+    }
+  }
+
+  /// The stored page, with this reader's exclusions applied, or null.
+  Future<MealPage?> _cachedPage(
+    MealQuery query, {
+    required bool isCacheable,
+  }) async {
+    if (!isCacheable) {
+      return null;
+    }
+
+    final CachedMeals? cached = await cache.readFeed(now: DateTime.now());
+    if (cached == null) {
+      return null;
+    }
+
+    // The one place in this class where a condition is applied in Dart, and it
+    // is safe for the reason the others are not: there is no page two behind a
+    // cache, so nothing can slip through a gap between pages. It is also
+    // necessary — the page was stored under whatever the exclusions were then,
+    // and a meal hidden since must not come back through the cache (US-B-07).
+    final List<Meal> visible = query.excludedMealIds.isEmpty
+        ? cached.meals
+        : cached.meals
+              .where((Meal meal) => !query.excludedMealIds.contains(meal.id))
+              .toList();
+
+    return MealPage(meals: visible, hasMore: false, cachedAt: cached.storedAt);
+  }
+
+  Future<MealPage> _search({
+    required MealQuery query,
+    required int offset,
+    required int limit,
   }) {
     return RemoteCall.guard(
       () async {

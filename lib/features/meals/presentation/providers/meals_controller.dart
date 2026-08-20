@@ -23,6 +23,8 @@ class MealFeed {
     this.isReloading = false,
     this.isLoadingMore = false,
     this.loadMoreFailure,
+    this.refreshFailure,
+    this.cachedAt,
   }) : loadedRowCount = loadedRowCount ?? meals.length;
 
   final MealQuery query;
@@ -78,6 +80,25 @@ class MealFeed {
   /// of the list it already has.
   final AppException? loadMoreFailure;
 
+  /// Set when reloading the first page failed and this feed is what survived.
+  ///
+  /// The point of holding it rather than throwing is that the feed on screen is
+  /// still a true answer to a query that did succeed — so it stays, with a
+  /// banner saying the refresh did not land (Sprint 27). Replacing a working
+  /// list with a full-screen "No connection" because a pull-to-refresh failed in
+  /// a lift takes away the thing the reader could still use.
+  ///
+  /// Cleared by the next reload that works.
+  final AppException? refreshFailure;
+
+  /// When these meals were stored, if they came off the disk (Sprint 27).
+  ///
+  /// Null on every live feed. Non-null means the network could not answer and
+  /// this is the catalogue the device had — which the screen says out loud,
+  /// because a stale list presented as current is the app lying about the one
+  /// thing it is for.
+  final DateTime? cachedAt;
+
   bool get isEmpty => meals.isEmpty;
 
   /// How many meals this user has hidden from the feed.
@@ -95,7 +116,10 @@ class MealFeed {
     bool? isReloading,
     bool? isLoadingMore,
     AppException? loadMoreFailure,
+    AppException? refreshFailure,
+    DateTime? cachedAt,
     bool clearLoadMoreFailure = false,
+    bool clearRefreshFailure = false,
   }) {
     return MealFeed(
       query: query ?? this.query,
@@ -108,6 +132,10 @@ class MealFeed {
       loadMoreFailure: clearLoadMoreFailure
           ? null
           : loadMoreFailure ?? this.loadMoreFailure,
+      refreshFailure: clearRefreshFailure
+          ? null
+          : refreshFailure ?? this.refreshFailure,
+      cachedAt: cachedAt ?? this.cachedAt,
     );
   }
 }
@@ -121,12 +149,30 @@ class MealFeed {
 /// has the same items.
 @Riverpod(keepAlive: true)
 class MealsController extends _$MealsController {
+  /// The last query that actually loaded.
+  ///
+  /// Only advanced on success (Sprint 27). A filter tapped offline used to leave
+  /// this pointing at a query the feed had never fetched, so the next
+  /// `applyQuery` compared against it, found no change, and did nothing —
+  /// leaving the screen stuck until something else moved.
   MealQuery _query = const MealQuery();
 
+  /// Which first-page request is the current one.
+  ///
+  /// Typing "adobo" fires a request at each debounce boundary, and responses do
+  /// not have to come back in the order they were asked for: on a slow
+  /// connection the answer for "ad" can land after the answer for "adobo" and
+  /// overwrite it, leaving results that do not match the box the user is looking
+  /// at. Only the newest request may write, and this is how it knows it is.
+  int _requestId = 0;
+
   @override
-  Future<MealFeed> build() {
+  Future<MealFeed> build() async {
     _watchDislikes();
-    return _firstPage(_query);
+
+    final MealFeed feed = await _firstPage(_query);
+    _query = feed.query;
+    return feed;
   }
 
   /// Replaces the query and reloads from the first page.
@@ -138,10 +184,8 @@ class MealsController extends _$MealsController {
     if (query == _query) {
       return;
     }
-    _query = query;
 
-    _markReloading();
-    state = await AsyncValue.guard(() => _firstPage(query));
+    await _load(query);
   }
 
   /// Convenience wrappers, so screens do not each rebuild a query object.
@@ -164,6 +208,13 @@ class MealsController extends _$MealsController {
   Future<void> loadMore() async {
     final MealFeed? feed = state.value;
     if (feed == null || feed.isLoadingMore || !feed.hasMore) {
+      return;
+    }
+    if (feed.isReloading) {
+      // A first page for a different query is already in flight, and `hasMore`
+      // still describes the old one. Appending page two of the previous result
+      // set to a feed that is about to be replaced is work thrown away at best,
+      // and two result sets interleaved at worst.
       return;
     }
 
@@ -216,9 +267,51 @@ class MealsController extends _$MealsController {
   }
 
   /// Reloads the current query from the first page.
-  Future<void> refresh() async {
+  Future<void> refresh() => _load(_query);
+
+  /// Fetches the first page for [query] and installs it, or survives failing to.
+  ///
+  /// The failure handling is the part worth reading. Three outcomes:
+  ///
+  /// * **Superseded** — a newer request started while this one was in flight, so
+  ///   this answer is dropped. Late results must never win.
+  /// * **Failed with a feed on screen** — the old feed stays, with its own query
+  ///   intact, and carries the failure as a banner. What is on screen is still a
+  ///   true answer to a query that did load; blanking it because a filter tap
+  ///   failed offline takes away the only usable thing left. Reverting the query
+  ///   too is what keeps the list and the controls honest about each other.
+  /// * **Failed with nothing on screen** — there is nothing to preserve, so the
+  ///   error goes to the screen and it shows a full error state with a retry.
+  Future<void> _load(MealQuery query) async {
+    final int requestId = ++_requestId;
+    final MealFeed? previous = state.value;
+
     _markReloading();
-    state = await AsyncValue.guard(() => _firstPage(_query));
+
+    try {
+      final MealFeed feed = await _firstPage(query);
+
+      if (requestId != _requestId) {
+        return;
+      }
+      _query = feed.query;
+      state = AsyncValue<MealFeed>.data(feed);
+    } on Object catch (error, stackTrace) {
+      if (requestId != _requestId) {
+        return;
+      }
+
+      final AppException failure = ErrorMapper.map(error, stackTrace);
+
+      if (previous == null) {
+        state = AsyncValue<MealFeed>.error(failure, stackTrace);
+        return;
+      }
+
+      state = AsyncValue<MealFeed>.data(
+        previous.copyWith(isReloading: false, refreshFailure: failure),
+      );
+    }
   }
 
   /// Keeps the feed in step with the dislikes, wherever they were changed.
@@ -290,7 +383,11 @@ class MealsController extends _$MealsController {
     final MealFeed? feed = state.value;
     state = feed == null
         ? const AsyncValue<MealFeed>.loading()
-        : AsyncValue<MealFeed>.data(feed.copyWith(isReloading: true));
+        : AsyncValue<MealFeed>.data(
+            // The banner from the last failed attempt goes as soon as a new one
+            // starts. Leaving it up beside a spinner says two things at once.
+            feed.copyWith(isReloading: true, clearRefreshFailure: true),
+          );
   }
 
   Future<MealFeed> _firstPage(MealQuery query) async {
@@ -307,12 +404,19 @@ class MealsController extends _$MealsController {
     );
 
     final MealQuery effective = query.copyWith(excludedMealIds: hidden);
-    _query = effective;
 
+    // `_query` is not assigned here. It advances only once this has returned a
+    // page, so a query that failed to load never becomes the one the controller
+    // thinks it is showing.
     final MealPage page = await ref
         .read(mealRepositoryProvider)
         .search(query: effective);
 
-    return MealFeed(query: effective, meals: page.meals, hasMore: page.hasMore);
+    return MealFeed(
+      query: effective,
+      meals: page.meals,
+      hasMore: page.hasMore,
+      cachedAt: page.cachedAt,
+    );
   }
 }

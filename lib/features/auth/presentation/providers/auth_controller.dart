@@ -1,4 +1,5 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:whats_cooking/core/data/timestamped_store.dart';
 import 'package:whats_cooking/core/errors/app_exception.dart';
 import 'package:whats_cooking/core/errors/error_mapper.dart';
 import 'package:whats_cooking/features/auth/domain/entities/app_session.dart';
@@ -151,6 +152,17 @@ class AuthController extends _$AuthController {
 
     try {
       await ref.read(sessionProvider.notifier).signOut();
+
+      // Every cache goes with the session (Sprint 27). The cached meals are
+      // public, but the saved and hidden id sets stored beside them are not,
+      // and the next person to use this device must not inherit the last one's
+      // lists. Swept by key prefix rather than named here, so this does not
+      // have to know what any feature caches — or be updated when one starts.
+      //
+      // After the sign-out rather than before: a sign-out that fails should not
+      // also cost a working offline catalogue.
+      await TimestampedStore.clearAll();
+
       state = const AuthSucceeded();
     } on Object catch (error, stackTrace) {
       state = AuthFailed(ErrorMapper.map(error, stackTrace));

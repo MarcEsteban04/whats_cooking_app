@@ -128,6 +128,42 @@ class Meal {
   /// detail screen fetches by id and gets them.
   final List<MealIngredient> ingredients;
 
+  /// The row [Meal.fromRow] would decode back into this (Sprint 27).
+  ///
+  /// Written in the shape PostgREST sends rather than a format of its own, so
+  /// the cache and the network share one decoder — including its forgiveness. A
+  /// cuisine this build does not recognise round-trips as the string it was, and
+  /// comes back as [Cuisine.other] on the far side exactly as it would from the
+  /// server, instead of a cache-only format quietly normalising it.
+  ///
+  /// `cost_per_serving` is absent because it is derived here, not decoded; the
+  /// database generates its own copy for filtering.
+  Map<String, dynamic> toRow() => <String, dynamic>{
+    'id': id,
+    'name': name,
+    'description': description,
+    'cuisine': cuisine.value,
+    'category': category.value,
+    'difficulty': difficulty.value,
+    'cooking_time_minutes': cookingTimeMinutes,
+    'estimated_cost': estimatedCost,
+    'servings': servings,
+    'calories': calories,
+    'instructions': instructions,
+    'dietary_tags': <String>[
+      for (final DietaryTag tag in dietaryTags) tag.value,
+    ],
+    'tags': tags,
+    'is_public': isPublic,
+    'created_by': createdBy,
+    // Only when they were loaded. An empty list decodes as "none", which is the
+    // same thing a feed row says, so nothing is claimed that was not known.
+    if (ingredients.isNotEmpty)
+      'meal_ingredients': <Map<String, dynamic>>[
+        for (final MealIngredient item in ingredients) item.toRow(),
+      ],
+  };
+
   /// Whether this reader may edit or delete it.
   ///
   /// Author, not household — [createdBy] explains why. Returns false when the

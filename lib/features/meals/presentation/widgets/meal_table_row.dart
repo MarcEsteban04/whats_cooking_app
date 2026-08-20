@@ -98,6 +98,9 @@ class MealTableRow extends ConsumerWidget {
       onTap: () => context.pushNamed(
         AppRoute.mealDetail.routeName,
         pathParameters: <String, String>{'id': meal.id},
+        // What this row already knows, so the detail screen paints immediately
+        // instead of spending a spinner on data the app is holding (Sprint 27).
+        extra: meal,
       ),
     );
   }

@@ -48,6 +48,18 @@ class MealIngredient {
   /// percentage, per the same rule.
   final bool isStaple;
 
+  /// The row [MealIngredient.fromRow] would decode back into this (Sprint 27).
+  ///
+  /// The PostgREST shape rather than a flat one, so the cache stores what the
+  /// wire stores and there is exactly one decoder. A second, cache-only format
+  /// would be a second thing to keep in step with the query.
+  Map<String, dynamic> toRow() => <String, dynamic>{
+    'quantity': quantity,
+    'unit': unit,
+    'is_optional': isOptional,
+    'ingredients': <String, dynamic>{'name': name, 'is_staple': isStaple},
+  };
+
   bool get isNamed => name.trim().isNotEmpty;
 
   /// `500 g`, or `4 pc`.

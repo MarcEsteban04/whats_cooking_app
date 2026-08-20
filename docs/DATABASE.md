@@ -510,10 +510,21 @@ deny is indistinguishable from a working one until it is a breach.
 | `grocery_items` | `(grocery_list_id)` | List read |
 | `favorite_meals` / `disliked_meals` | `(user_id)` | Scoring |
 | `household_invites` | `(code)` unique | Redemption |
+| `meals` | `(cost_per_serving)` | Budget filter and cheapest sort (0015) |
+| `meals` | `(name, id)`, `(cooking_time_minutes, id)`, `(cost_per_serving, id)`, `(created_at desc, id)` | The Meals tab's four sorts, paged (0016) |
+| `meals` | `(created_at desc, id)` where `not is_public` | `MealRepository.mine` (0016) |
+
+**Why the sort indexes end in `id` (0016).** Every sort the feed offers is a *total* order,
+because paging depends on it — two rows that compare equal can swap places between the
+request for page one and the request for page two, and the reader sees one meal twice while
+never seeing another. A single-column index cannot serve `order by x, id`: Postgres walks it
+for `x` and then sorts the whole matching set to break ties. With the key in the index the
+ordering is already there, so `limit`/`offset` reads one page and stops. The 0008 indexes are
+still the right ones for the roulette's filter-only queries, where there is nothing to order.
 
 The ingredient-match query joins `pantry_items` to `meal_ingredients` across the catalogue —
 the heaviest read in the app, and the one most likely to regress. It is a benchmark target
-in Sprint 27, not an afterthought.
+for whenever the pantry match ships (Sprint 33), not an afterthought.
 
 ---
 
@@ -536,7 +547,7 @@ supabase/migrations/
 └── 20260820000013_delete_own_account.sql
 ```
 
-Regenerate `supabase/schema.sql` from these with `tool/build_schema.sh`, and verify a
+Regenerate `supabase/schema.sql` from these with `supabase/tool/build_schema.sh`, and verify a
 database against `supabase/verify.sql` after applying.
 
 Migrations are forward-only and never edited once applied to staging. Every one is applied to

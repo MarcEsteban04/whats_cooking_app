@@ -5,6 +5,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:whats_cooking/core/errors/app_exception.dart';
 import 'package:whats_cooking/core/errors/error_presenter.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
+import 'package:whats_cooking/core/utils/provider_cache.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_icon_button.dart';
 import 'package:whats_cooking/core/widgets/dashboard/dashboard.dart';
 import 'package:whats_cooking/core/widgets/feedback/empty_state.dart';
@@ -23,6 +24,8 @@ part 'disliked_meals_screen.g.dart';
 /// rebuilds, and the meal is gone from the list it no longer belongs on.
 @riverpod
 Future<List<Meal>> dislikedMeals(Ref ref) async {
+  ref.cacheFor(kReadCacheWindow);
+
   final Set<String> ids = await ref.watch(dislikesControllerProvider.future);
   if (ids.isEmpty) {
     return const <Meal>[];

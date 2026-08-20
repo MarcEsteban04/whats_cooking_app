@@ -1,18 +1,52 @@
+import 'dart:async';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:whats_cooking/core/constants/app_constants.dart';
 import 'package:whats_cooking/core/errors/app_exception.dart';
 import 'package:whats_cooking/core/network/remote_call.dart';
 import 'package:whats_cooking/core/network/retry_policy.dart';
+import 'package:whats_cooking/features/meals/data/datasources/meal_cache.dart';
 import 'package:whats_cooking/features/meals/domain/repositories/dislikes_repository.dart';
 
 /// [DislikesRepository] backed by PostgREST.
 class SupabaseDislikesRepository implements DislikesRepository {
-  SupabaseDislikesRepository(this._client);
+  SupabaseDislikesRepository(this._client, {this.cache = const MealCache()});
 
   final SupabaseClient _client;
 
+  /// Where the set is kept for a cold start with no signal (Sprint 27).
+  final MealCache cache;
+
+  /// The hidden set, from the network, falling back to the disk.
+  ///
+  /// This one is on the critical path and that is why it is cached at all. The
+  /// feed reads it before its first page — deliberately, because a catalogue
+  /// that might contain a hidden meal breaks the promise the feature exists for
+  /// (US-B-07) — so without a fallback here, a cold start with no signal fails
+  /// the whole Meals tab before the cached catalogue is ever consulted.
   @override
-  Future<Set<String>> mealIds() {
+  Future<Set<String>> mealIds() async {
+    try {
+      final Set<String> ids = await _mealIds();
+      unawaited(cache.writeDislikes(ids, now: DateTime.now()));
+      return ids;
+    } on AppException catch (failure) {
+      if (failure is! NetworkException && failure is! ServerException) {
+        rethrow;
+      }
+
+      // No cached set means no exclusion can be honoured, and the right answer
+      // is to fail rather than to show a catalogue that might contain something
+      // the reader hid.
+      final Set<String>? cached = await cache.readDislikes(now: DateTime.now());
+      if (cached == null) {
+        rethrow;
+      }
+      return cached;
+    }
+  }
+
+  Future<Set<String>> _mealIds() {
     return RemoteCall.guard(
       () async {
         // The `own dislikes only` policy already restricts this to `auth.uid()`,

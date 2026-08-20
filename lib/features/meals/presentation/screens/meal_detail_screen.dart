@@ -46,9 +46,23 @@ import 'package:whats_cooking/features/meals/presentation/providers/my_meals_con
 /// than showing an empty state: an unfilled heart on a meal you saved is a lie,
 /// and an outline thumb on one you hid is the same lie about a different set.
 class MealDetailScreen extends ConsumerWidget {
-  const MealDetailScreen({required this.mealId, super.key});
+  const MealDetailScreen({required this.mealId, this.preview, super.key});
 
   final String mealId;
+
+  /// The meal as the list that was tapped already knew it (Sprint 27).
+  ///
+  /// Everything on this screen except the ingredients is already on a feed row —
+  /// name, cuisine, time, cost, servings, the instructions — so waiting for a
+  /// round trip before drawing any of it spends a spinner on data the app is
+  /// holding. Passed through the route as `extra`, so it is there when the reader
+  /// tapped a row and absent when they arrived from a link or a cold start; the
+  /// skeleton is still the fallback rather than the norm.
+  ///
+  /// It is only ever a *first paint*. The read still runs, and its answer
+  /// replaces this the moment it lands — so a stale name from a list loaded
+  /// minutes ago corrects itself rather than persisting.
+  final Meal? preview;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -66,16 +80,43 @@ class MealDetailScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                _TopBar(mealId: mealId),
+                _TopBar(mealId: mealId, preview: preview),
                 Expanded(
-                  child: switch (meal) {
-                    AsyncData<Meal>(:final Meal value) => _Detail(meal: value),
-                    AsyncError<Meal>(:final Object error) => _DetailError(
-                      failure: error is AppException
-                          ? error
-                          : const UnknownException(),
-                      onRetry: () => ref.invalidate(mealDetailProvider(mealId)),
+                  child: switch ((meal, preview)) {
+                    // The read wins whenever it has landed.
+                    (AsyncData<Meal>(:final Meal value), _) => _Detail(
+                      meal: value,
                     ),
+                    // Not yet, but the list gave us most of it: draw that, and
+                    // mark the ingredients as still coming.
+                    (AsyncLoading<Meal>(), final Meal known) => _Detail(
+                      meal: known,
+                      ingredientsPending: true,
+                    ),
+                    // Failed, but the list's copy is still true. Everything
+                    // except the ingredients stays readable, with a banner
+                    // saying what did not load — a whole screen of "No
+                    // connection" over a meal we can already show is the app
+                    // being less useful than it has to be.
+                    (AsyncError<Meal>(:final Object error), final Meal known) =>
+                      _Detail(
+                        meal: known,
+                        ingredientsPending: true,
+                        failure: error is AppException
+                            ? error
+                            : const UnknownException(),
+                        onRetry: () =>
+                            ref.invalidate(mealDetailProvider(mealId)),
+                      ),
+                    // Nothing to fall back on — a deep link or a cold start.
+                    (AsyncError<Meal>(:final Object error), null) =>
+                      _DetailError(
+                        failure: error is AppException
+                            ? error
+                            : const UnknownException(),
+                        onRetry: () =>
+                            ref.invalidate(mealDetailProvider(mealId)),
+                      ),
                     _ => const _DetailSkeleton(),
                   },
                 ),
@@ -90,9 +131,10 @@ class MealDetailScreen extends ConsumerWidget {
 
 /// The circular back button, floating on the ground as §17's overlay does.
 class _TopBar extends ConsumerWidget {
-  const _TopBar({required this.mealId});
+  const _TopBar({required this.mealId, this.preview});
 
   final String mealId;
+  final Meal? preview;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -137,7 +179,10 @@ class _TopBar extends ConsumerWidget {
             ),
           // Hiding needs the meal's name to name the consequence, so the control
           // waits for the meal rather than opening a dialog with a blank in it.
-          if (ref.watch(mealDetailProvider(mealId)).value case final Meal meal)
+          // The list's copy stands in until the read lands — the name is all it
+          // needs, and it has that already.
+          if (ref.watch(mealDetailProvider(mealId)).value ?? preview
+              case final Meal meal)
             _HideButton(meal: meal),
         ],
       ),
@@ -261,9 +306,22 @@ class _HideButton extends ConsumerWidget {
 }
 
 class _Detail extends StatelessWidget {
-  const _Detail({required this.meal});
+  const _Detail({
+    required this.meal,
+    this.ingredientsPending = false,
+    this.failure,
+    this.onRetry,
+  });
 
   final Meal meal;
+
+  /// Whether this is the list's copy of the meal, so its ingredients are unknown
+  /// rather than absent — still in flight, or failed to arrive.
+  final bool ingredientsPending;
+
+  /// Set when the detail read failed and this is the list's copy standing in.
+  final AppException? failure;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -285,7 +343,7 @@ class _Detail extends StatelessWidget {
           _DietaryPanel(tags: meal.dietaryTags),
         ],
         const SizedBox(height: AppSpacing.space4),
-        _IngredientsPanel(meal: meal),
+        _IngredientsPanel(meal: meal, isPending: ingredientsPending),
         const SizedBox(height: AppSpacing.space4),
         _InstructionsPanel(steps: meal.instructions),
         if (meal.tags.isNotEmpty) ...<Widget>[
@@ -567,14 +625,41 @@ class _DietaryPanel extends StatelessWidget {
 
 /// §17's ingredient list: name on the left, amount on the right.
 class _IngredientsPanel extends StatelessWidget {
-  const _IngredientsPanel({required this.meal});
+  const _IngredientsPanel({required this.meal, this.isPending = false});
 
   final Meal meal;
+
+  /// Whether this meal came from the list that was tapped rather than from the
+  /// detail read, so its ingredients are still on their way (Sprint 27).
+  ///
+  /// The distinction matters here and nowhere else on the screen. Every other
+  /// field is already on a feed row; ingredients are the one thing the feed does
+  /// not join, so an empty list means "not loaded yet" as often as it means
+  /// "none" — and rendering "does not list its ingredients" over a request in
+  /// flight is a lie that corrects itself a second later.
+  final bool isPending;
 
   @override
   Widget build(BuildContext context) {
     final AppColorScheme colors = context.colors;
     final List<MealIngredient> ingredients = meal.ingredients;
+
+    if (ingredients.isEmpty && isPending) {
+      return const DashboardPanel(
+        title: 'Ingredients',
+        icon: AppIcons.pantry,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            AppSkeleton.textLine(),
+            SizedBox(height: AppSpacing.space3),
+            AppSkeleton.textLine(widthFactor: 0.7),
+            SizedBox(height: AppSpacing.space3),
+            AppSkeleton.textLine(widthFactor: 0.85),
+          ],
+        ),
+      );
+    }
 
     if (ingredients.isEmpty) {
       return DashboardPanel(

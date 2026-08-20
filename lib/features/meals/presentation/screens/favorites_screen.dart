@@ -7,6 +7,7 @@ import 'package:whats_cooking/core/errors/error_presenter.dart';
 import 'package:whats_cooking/core/router/app_routes.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/utils/formatters.dart';
+import 'package:whats_cooking/core/utils/provider_cache.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_icon_button.dart';
 import 'package:whats_cooking/core/widgets/dashboard/dashboard.dart';
 import 'package:whats_cooking/core/widgets/feedback/empty_state.dart';
@@ -30,6 +31,11 @@ part 'favorites_screen.g.dart';
 /// without loading twenty meals (see `FavoritesRepository`).
 @riverpod
 Future<List<Meal>> favoriteMeals(Ref ref) async {
+  // Cached for a window (Sprint 27). Re-opening Saved a moment after leaving it
+  // is common and the set behind it has not changed — and when it does change,
+  // the `watch` below rebuilds this regardless of the cache.
+  ref.cacheFor(kReadCacheWindow);
+
   final Set<String> ids = await ref.watch(favoritesControllerProvider.future);
   if (ids.isEmpty) {
     return const <Meal>[];
