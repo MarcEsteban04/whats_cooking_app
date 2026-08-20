@@ -196,15 +196,33 @@ in the same `.env.local` as the Supabase ones — and nothing downstream would
 notice. The assistant would work, and the build would ship with three billable
 credentials in it.
 
-From the repository root, with the Supabase CLI linked to the project:
+One command, from the repository root:
 
 ```bash
-supabase secrets set \
-  GROQ_AI_API_KEY=... \
-  GEMINI_AI_API_KEY=... \
-  OPENAI_API_KEY=...
+bash supabase/tool/deploy_functions.sh
+```
 
-supabase functions deploy ai-assistant
+It reads `.env.local`, works the project ref out of `SUPABASE_URL`, sets the
+secrets and deploys. The keys reach the CLI through a temporary owner-only file
+rather than the command line, because arguments are visible in the process list
+to anything else running on the machine. It prints the *names* it is setting and
+never a value.
+
+It needs one thing that is not a project key: a **personal access token**, from
+<https://supabase.com/dashboard/account/tokens>, added to `.env.local` as
+`SUPABASE_ACCESS_TOKEN`. The four `SUPABASE_*` values already there authenticate
+a *client* to a *project*; deploying a function authenticates *you* to the
+account that owns it, which is a different thing and deliberately not something a
+project key can do. `npx supabase@latest login` caches an equivalent token if you
+would rather not keep one in the file.
+
+By hand, if you prefer — the ref is the subdomain of your `SUPABASE_URL`:
+
+```bash
+npx supabase@latest secrets set --project-ref YOUR_REF \
+  GROQ_AI_API_KEY=... GEMINI_AI_API_KEY=... OPENAI_API_KEY=...
+
+npx supabase@latest functions deploy ai-assistant --project-ref YOUR_REF
 ```
 
 `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are injected
