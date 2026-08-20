@@ -25,6 +25,13 @@ Future<void> main() async {
     // else in the stack would notice.
     AppEnv.assertNoPrivilegedKey();
 
+    // And the same for an AI provider key, which is the easier mistake to make:
+    // the three keys live in the same `.env.local` as the Supabase ones, and
+    // pasting them into `config/development.json` would work — the assistant
+    // would answer, and the build would ship with three billable credentials in
+    // it. They belong on the ai-assistant Edge Function (Sprint 59).
+    AppEnv.assertNoProviderKey();
+
     AppLog.info('Starting ${AppEnv.describe()}', name: 'main');
 
     // Awaited, because a session restored from secure storage has to be in place

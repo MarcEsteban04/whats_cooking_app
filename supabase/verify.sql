@@ -11,14 +11,15 @@ tables_check as (
   select
     '1. tables' as check_name,
     count(*)    as found,
-    17          as expected
+    18          as expected
   from information_schema.tables
   where table_schema = 'public'
     and table_name in (
       'profiles','households','household_members','household_invites',
       'meals','ingredients','meal_ingredients','user_preferences',
       'favorite_meals','disliked_meals','meal_history','pantry_items',
-      'grocery_lists','grocery_items','meal_plans','vote_sessions','meal_votes'
+      'grocery_lists','grocery_items','meal_plans','vote_sessions','meal_votes',
+      'ai_usage'
     )
 ),
 rls_check as (
@@ -33,14 +34,15 @@ rls_check as (
       'profiles','households','household_members','household_invites',
       'meals','ingredients','meal_ingredients','user_preferences',
       'favorite_meals','disliked_meals','meal_history','pantry_items',
-      'grocery_lists','grocery_items','meal_plans','vote_sessions','meal_votes'
+      'grocery_lists','grocery_items','meal_plans','vote_sessions','meal_votes',
+      'ai_usage'
     )
 ),
 policy_check as (
   select
     '3. policies present' as check_name,
     count(*)             as found,
-    30                   as expected
+    31                   as expected
   from pg_policies where schemaname = 'public'
 ),
 function_check as (

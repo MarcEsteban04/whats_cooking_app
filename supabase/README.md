@@ -160,3 +160,98 @@ The practical effect: anonymous callers keep read access to the public meal
 catalogue — guest mode needs that before signup — and lose it everywhere else,
 so a carelessly written future policy still cannot expose user data to an
 unauthenticated key.
+
+---
+
+## Edge Functions
+
+### `ai-assistant` — the AI proxy
+
+The one thing this function exists for is that **the Flutter app must never hold
+an AI provider key**. Everything else it does follows from being the only place
+that can be trusted with one:
+
+* verifies the caller's JWT and reads the user id *from the token*, never from
+  the body;
+* rate limits each user (20 requests an hour) by counting rows in `ai_usage`;
+* tries **three providers in order** — Groq, then Gemini, then OpenAI — giving
+  each one 12 seconds before falling over to the next;
+* writes one `ai_usage` row per request, successful or not, which is both the
+  rate limit and the cost record;
+* returns a message written for a person, never a provider's error text.
+
+Groq is first because it is by a distance the fastest, and this sits in front of
+somebody deciding what to have for dinner. Gemini is second on cost. OpenAI is
+last because it is the most likely to be up when the other two are not, which is
+what you want from a last resort rather than a first choice.
+
+Migration 0017 creates `ai_usage`. Apply it before deploying.
+
+### AI keys
+
+The three keys live in the function's environment and nowhere else. They are
+**not** app config: `AppEnv.assertNoProviderKey()` throws on the first frame if
+one is ever compiled into the client, because the mistake is easy — the keys sit
+in the same `.env.local` as the Supabase ones — and nothing downstream would
+notice. The assistant would work, and the build would ship with three billable
+credentials in it.
+
+From the repository root, with the Supabase CLI linked to the project:
+
+```bash
+supabase secrets set \
+  GROQ_AI_API_KEY=... \
+  GEMINI_AI_API_KEY=... \
+  OPENAI_API_KEY=...
+
+supabase functions deploy ai-assistant
+```
+
+`SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are injected
+into functions automatically — do not set them by hand.
+
+At least one key is enough. Providers with no key are skipped silently rather
+than counted as failures, so running on one key is a supported state and does not
+look like an outage in `ai_usage`.
+
+Model identifiers get retired on a schedule nobody announces, so each is
+overridable without touching the code:
+
+| Variable | Default |
+| -------- | ------- |
+| `GROQ_MODEL` | `llama-3.3-70b-versatile` |
+| `GEMINI_MODEL` | `gemini-2.0-flash` |
+| `OPENAI_MODEL` | `gpt-4o-mini` |
+
+### Checking it works
+
+Deployed functions need a real user token, so the quickest check is from a signed
+in session. Grab the access token from the app's logs in a verbose build, then:
+
+```bash
+curl -i -X POST \
+  "$SUPABASE_URL/functions/v1/ai-assistant" \
+  -H "Authorization: Bearer $USER_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"purpose":"assistant","messages":[{"role":"user","content":"We have chicken and eggs and about 200 pesos. What should we cook?"}]}'
+```
+
+A healthy reply names the provider that answered:
+
+```json
+{ "text": "...", "provider": "groq", "model": "llama-3.3-70b-versatile" }
+```
+
+To see the failover working, unset the first key and call it again — `provider`
+should come back as `gemini`. `select provider, attempts, latency_ms, succeeded
+from ai_usage order by created_at desc limit 10;` shows what actually happened,
+including the attempts that failed.
+
+Expected failures, and what they mean:
+
+| Code | Status | Meaning |
+| ---- | -----: | ------- |
+| `unauthenticated` | 401 | No token, or an expired one |
+| `rate_limited` | 429 | 20 requests inside the hour |
+| `misconfigured` | 503 | No provider key set on the function |
+| `unavailable` | 503 | Every configured provider failed |

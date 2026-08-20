@@ -356,13 +356,44 @@ must not hold a secret, or when an operation must be atomic across tables.
 
 | Function | Why it cannot be client-side |
 | -------- | ---------------------------- |
-| `ai-assistant` | Holds the AI provider key |
-| `ai-fridge-scan` | Holds the AI provider key |
+| `ai-assistant` | Holds the AI provider keys — **built, Sprint 59** |
+| `ai-fridge-scan` | Holds the AI provider keys (Sprint 62; may fold into the above) |
 | `redeem-invite` | Atomic: validate, join, expire — must not half-apply |
 | `delete-account` | Cascading deletion across households |
 
 Every function authenticates the caller's JWT, applies rate limiting, and logs usage.
 **Never trust a client-supplied user ID** — read it from the verified token.
+
+#### The AI provider chain
+
+`ai-assistant` holds **three** keys and tries them in order — Groq, then Gemini, then
+OpenAI — each with its own 12-second timeout. The timeout is the point: a provider that
+returns an error is easy to handle, and a provider that accepts the connection and then
+thinks for forty seconds is what actually ruins the experience. A plain try/catch misses that
+case entirely.
+
+The order is latency first (Groq is far the fastest, and this sits in front of somebody
+deciding what to eat tonight), then cost, with OpenAI last because it is the most likely to
+be up when the other two are not — which is what you want from a last resort rather than a
+first choice. A **400 does not fail over**: a request built wrongly will be built wrongly for
+the next provider too, and trying two more spends three round trips reaching the same
+answer. A 429, a 5xx, a timeout and even a 401 all do, so one bad key cannot take the feature
+down.
+
+One `ai_usage` row is written per request whether it succeeded or not (migration 0017). That
+row is *both* the rate limit and the cost record, because two sources of truth would
+disagree — and recording failures is what makes a bad evening explainable at all: `attempts`
+above 1 is a failover that actually happened.
+
+The client cannot express which provider answers, cannot pass a model, and holds no key.
+`AppEnv.assertNoProviderKey()` throws on the first frame if one is ever compiled in, because
+nothing downstream would notice: the assistant would work perfectly and the build would ship
+with three billable credentials readable by anyone who unzips it.
+
+The system prompt lives in the function too, for the same reason the keys do — one shipped in
+the client is one a determined user can replace. Context the app sends is rendered as a
+labelled block of *facts*, explicitly not instructions, because a context value came from
+something a user typed.
 
 ---
 

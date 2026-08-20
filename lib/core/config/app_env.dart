@@ -152,6 +152,56 @@ abstract final class AppEnv {
 
   static const String _secretKeyPrefix = 'sb_secret_';
 
+  // ---------------------------------------------------------------------------
+  // AI provider keys — which the client must never have
+  // ---------------------------------------------------------------------------
+
+  /// Read only so that supplying one can be *refused*.
+  ///
+  /// Nothing in the app uses these values. They are declared because
+  /// `config/development.json` is the obvious place to paste a key, the AI keys
+  /// sit in the same `.env.local` as the Supabase ones, and pasting them there
+  /// would work — the assistant would function perfectly and ship with three
+  /// billable credentials readable by anyone who unzips the APK.
+  ///
+  /// The names match `.env.local` exactly, because a guard that checks a
+  /// different spelling than the one somebody will actually use is decoration.
+  static const String _groqKey = String.fromEnvironment('GROQ_AI_API_KEY');
+  static const String _openAiKey = String.fromEnvironment('OPENAI_API_KEY');
+  static const String _geminiKey = String.fromEnvironment('GEMINI_AI_API_KEY');
+
+  /// Fails the build's first frame if an AI provider key was supplied.
+  ///
+  /// docs/project_dev.md Sprint 59, in bold: "Never expose AI API keys inside
+  /// Flutter." docs/ARCHITECTURE.md §8.1 rule 4 says the same. This is the only
+  /// thing in the codebase that can actually catch the mistake, because
+  /// everything downstream would keep working.
+  ///
+  /// Throws rather than logging, for the same reason [assertNoPrivilegedKey]
+  /// does: there is no version of "carry on" that is safe once the key is in the
+  /// bundle. The keys belong in the `ai-assistant` function's secrets — see
+  /// supabase/README.md.
+  static void assertNoProviderKey() {
+    final List<String> supplied = <String>[
+      if (_groqKey.isNotEmpty) 'GROQ_AI_API_KEY',
+      if (_openAiKey.isNotEmpty) 'OPENAI_API_KEY',
+      if (_geminiKey.isNotEmpty) 'GEMINI_AI_API_KEY',
+    ];
+
+    if (supplied.isEmpty) {
+      return;
+    }
+
+    throw StateError(
+      'An AI provider key was compiled into the Flutter client '
+      '(${supplied.join(', ')}). These keys must never leave the server: they '
+      'are billable, they are readable by anyone who unpacks the build, and the '
+      'client has no legitimate use for them. Remove them from '
+      'config/*.json and set them on the ai-assistant Edge Function instead — '
+      'see supabase/README.md.',
+    );
+  }
+
   static const String _privilegedKeyMessage =
       'A privileged Supabase key was supplied to the Flutter client. The client '
       'must carry only the publishable (anon) key: the service_role key '
