@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,11 +7,11 @@ import 'package:go_router/go_router.dart';
 import 'package:whats_cooking/core/errors/error_presenter.dart';
 import 'package:whats_cooking/core/router/app_routes.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
-import 'package:whats_cooking/core/utils/formatters.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_button.dart';
 import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal.dart';
 import 'package:whats_cooking/features/roulette/presentation/providers/spin_controller.dart';
+import 'package:whats_cooking/features/roulette/presentation/widgets/meal_reel.dart';
 
 /// The spin (docs/design_ui.md §12, docs/DESIGN_SYSTEM.md §7).
 ///
@@ -20,21 +22,26 @@ import 'package:whats_cooking/features/roulette/presentation/providers/spin_cont
 ///
 /// The four phases and their timings are fixed in [AppRouletteMotion] rather
 /// than here, because the product's signature moment has to feel identical every
-/// time. What this widget adds is the mapping from one animation value to a
-/// **meal index**: linear through the fast cycle, then eased so the cards
-/// visibly stretch apart before stopping. That easing is the suspense — nothing
-/// else on the screen creates it.
+/// time. What this screen adds is the arrangement: a [MealReel] carrying the
+/// whole candidate pool through a window, driven by [reelOffsetAt].
+///
+/// **The reel lands on the winner rather than near it.** The travel distance is
+/// known in advance, so the pool is reordered when it arrives to put the picked
+/// meal exactly where the reel will stop. The alternative — stopping wherever it
+/// likes and then showing a different meal on the next screen — is the version of
+/// this interaction that feels rigged, and people notice within two spins.
 ///
 /// **The animation does not wait for the network and the reveal does not lie.**
-/// The pick is fetched while the cards are already flying, which is most of what
+/// The pick is fetched while the reel is already turning, which is most of what
 /// makes 2.6 seconds feel like a decision rather than a loading screen. But the
-/// reveal only happens once the pick has actually landed: if the request is
-/// slower than the animation, the cards keep turning. A reveal that beat its own
-/// answer would have to show something and then change it.
+/// reveal only happens once the pick has landed: if the request is slower than
+/// the reel, the reel stops and the line above it says so. A reveal that beat its
+/// own answer would have to show something and then change it.
 ///
 /// Capped at [AppMotion.spinMaximum] by construction, and skippable by tapping
 /// anywhere — docs/USER_FLOWS.md §7: "Suspense that outstays its welcome fails
-/// the 60-second budget."
+/// the 60-second budget." A tap does not cut the reel off mid-card; it runs the
+/// remaining travel out fast, so the landing stays exact.
 class SpinScreen extends ConsumerStatefulWidget {
   const SpinScreen({super.key});
 
@@ -46,33 +53,44 @@ class _SpinScreenState extends ConsumerState<SpinScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
 
-  /// Set once the cards have finished turning, whether by time or by a tap.
-  bool _isCycleDone = false;
+  /// The pool, reordered so the reel's landing slot holds the winner.
+  ///
+  /// Built once, the first time a settled state arrives. Rebuilding it would move
+  /// the cards under the reader mid-spin.
+  List<Meal>? _reelPool;
+
+  /// Set when the reel has come to rest.
+  bool _isReelStopped = false;
 
   /// Guards the navigation to the result, which two callbacks race toward.
   bool _hasRevealed = false;
+
+  /// The last whole card the reel passed, for the deceleration haptics.
+  int _lastTickedCard = 0;
+
+  Timer? _revealTimer;
 
   @override
   void initState() {
     super.initState();
 
-    _controller = AnimationController(
-      // The reveal is not in here: it belongs to the result route's entry
-      // transition, so the card that lands is the card that stays.
-      duration:
-          AppRouletteMotion.windUp +
-          AppRouletteMotion.fastCycle +
-          AppRouletteMotion.decelerate,
-      vsync: this,
-    )..addStatusListener(_onStatus);
+    _controller =
+        AnimationController(
+            // Three phases, not four: the fourth is the beat spent letting the
+            // landed card settle, and then the result route's own transition
+            // finishes the job.
+            duration:
+                AppRouletteMotion.windUp +
+                AppRouletteMotion.fastCycle +
+                AppRouletteMotion.decelerate,
+            vsync: this,
+          )
+          ..addStatusListener(_onStatus)
+          ..addListener(_onTick);
 
-    // Read, not watched, and in `initState` rather than `build`: starting a
-    // request from a build is a state change during build, and a rebuild must
-    // not start a second spin.
-    //
-    // Deferred by a microtask because `ref.read` is not allowed during
-    // `initState`, and re-checked for `mounted` because backing out that fast
-    // is possible and reading a disposed ref throws.
+    // Read, not watched, and deferred by a microtask because `ref.read` is not
+    // allowed during `initState`. Re-checked for `mounted` because backing out
+    // that fast is possible and reading a disposed ref throws.
     Future<void>.microtask(() {
       if (mounted) {
         ref.read(spinControllerProvider.notifier).spin();
@@ -87,57 +105,84 @@ class _SpinScreenState extends ConsumerState<SpinScreen>
     super.didChangeDependencies();
 
     // Started here rather than in `initState` because it needs the media query.
-    // Reduced motion gets no cycling at all — docs/DESIGN_SYSTEM.md §7 replaces
-    // it with a cross-fade — so the animation is skipped and the reveal waits
+    if (_isReelStopped || _controller.isAnimating || _controller.isCompleted) {
+      return;
+    }
+
+    // Reduced motion gets no reel at all — docs/DESIGN_SYSTEM.md §7 replaces the
+    // cycling with a cross-fade — so the travel is skipped and the reveal waits
     // only on the pick.
-    // `_isCycleDone` is in here because a tap stops the controller without
-    // completing it, and a later dependency change would otherwise restart the
-    // cycle the reader just skipped.
-    if (_isCycleDone || _controller.isAnimating || _controller.isCompleted) {
-      return;
-    }
     if (AppMotion.prefersReducedMotion(context)) {
-      _isCycleDone = true;
-      _maybeReveal();
+      _controller.value = 1;
+      _isReelStopped = true;
+      _scheduleReveal();
       return;
     }
+
     _controller.forward();
   }
 
   @override
   void dispose() {
+    _revealTimer?.cancel();
     _controller
       ..removeStatusListener(_onStatus)
+      ..removeListener(_onTick)
       ..dispose();
     super.dispose();
   }
 
-  void _onStatus(AnimationStatus status) {
-    if (status == AnimationStatus.completed) {
-      _isCycleDone = true;
-      _maybeReveal();
+  /// A click per card, but only while the reel is slowing.
+  ///
+  /// Fifteen clicks through the fast phase would be a buzz; five through the
+  /// deceleration is the reel being *felt* as it settles, which is what
+  /// design_ui §12 means by "haptic feedback" for a moment lasting under a
+  /// second.
+  void _onTick() {
+    final int card = reelOffsetAt(_controller.value).floor();
+    if (card == _lastTickedCard) {
+      return;
     }
+    _lastTickedCard = card;
+
+    if (_controller.value > _decelerationBegins) {
+      HapticFeedback.selectionClick();
+    }
+  }
+
+  void _onStatus(AnimationStatus status) {
+    if (status != AnimationStatus.completed || _isReelStopped) {
+      return;
+    }
+    setState(() => _isReelStopped = true);
+    _scheduleReveal();
   }
 
   /// Ends the suspense early.
   ///
-  /// Jumps rather than reverses: a tap means "show me", and easing to the end
-  /// from 40% would take longer than letting it finish.
+  /// Runs the rest of the travel out at speed rather than cutting it: a reel
+  /// frozen mid-card looks broken, and the landing has to stay exact because the
+  /// card it lands on is the meal the next screen shows.
   void _skip() {
-    if (_isCycleDone) {
+    if (_isReelStopped || !_controller.isAnimating) {
       return;
     }
-    _controller.stop();
-    _isCycleDone = true;
-    _maybeReveal();
+    _controller.animateTo(
+      1,
+      duration: AppMotion.fast,
+      curve: AppMotion.curveFast,
+    );
   }
 
-  /// Goes to the result, once both halves are ready.
-  ///
-  /// Called from the animation and from the state listener, either of which may
-  /// be last. [_hasRevealed] is what stops them both navigating.
+  /// Gives the landed card its beat before the screen changes.
+  void _scheduleReveal() {
+    _revealTimer?.cancel();
+    _revealTimer = Timer(AppRouletteMotion.reveal, _maybeReveal);
+  }
+
+  /// Goes to the result, once the reel has stopped and the pick has arrived.
   void _maybeReveal() {
-    if (_hasRevealed || !_isCycleDone || !mounted) {
+    if (_hasRevealed || !_isReelStopped || !mounted) {
       return;
     }
 
@@ -155,11 +200,33 @@ class _SpinScreenState extends ConsumerState<SpinScreen>
     }
   }
 
+  /// Reorders [pool] so the reel's landing slot holds [winner].
+  ///
+  /// A swap rather than a rotation: only one card needs to be in the right
+  /// place, and a swap cannot drop or duplicate a meal the way a mis-written
+  /// rotation can.
+  List<Meal> _plant(List<Meal> pool, Meal winner) {
+    final List<Meal> reel = List<Meal>.of(pool);
+    final int target = reelSettleIndex(reelTotalTravel) % reel.length;
+    final int current = reel.indexWhere((Meal meal) => meal.id == winner.id);
+
+    if (current < 0) {
+      // Cannot happen — the winner came out of this pool — but a reel landing on
+      // the wrong meal is the one failure here worth being defensive about.
+      reel[target] = winner;
+      return reel;
+    }
+
+    reel[current] = reel[target];
+    reel[target] = winner;
+    return reel;
+  }
+
   @override
   Widget build(BuildContext context) {
     final SpinState state = ref.watch(spinControllerProvider);
 
-    // The pick can land after the cards have stopped, and this is where that is
+    // The pick can land after the reel has stopped, and this is where that is
     // noticed. `ref.listen` rather than acting on the watched value directly:
     // navigating from a build is not allowed, and this fires after it.
     ref.listen(spinControllerProvider, (SpinState? _, SpinState next) {
@@ -167,6 +234,10 @@ class _SpinScreenState extends ConsumerState<SpinScreen>
         _maybeReveal();
       }
     });
+
+    if (state case SpinSettled(:final Meal meal, :final List<Meal> pool)) {
+      _reelPool ??= _plant(pool, meal);
+    }
 
     return Scaffold(
       backgroundColor: context.colors.background,
@@ -192,10 +263,10 @@ class _SpinScreenState extends ConsumerState<SpinScreen>
                         : null,
                   ),
                   final SpinNoMatch noMatch => _NoMatch(state: noMatch),
-                  _ => _Cycling(
+                  _ => _Spinning(
                     animation: _controller,
-                    pool: state is SpinSettled ? state.pool : const <Meal>[],
-                    isWaiting: _isCycleDone,
+                    pool: _reelPool ?? const <Meal>[],
+                    isStopped: _isReelStopped,
                   ),
                 },
               ),
@@ -205,25 +276,28 @@ class _SpinScreenState extends ConsumerState<SpinScreen>
       ),
     );
   }
+
+  /// Where the deceleration starts, as a fraction of the whole travel. Derived
+  /// from [AppRouletteMotion] so changing a phase length moves this too.
+  static final double _decelerationBegins =
+      (AppRouletteMotion.windUp + AppRouletteMotion.fastCycle).inMilliseconds /
+      (AppRouletteMotion.windUp +
+              AppRouletteMotion.fastCycle +
+              AppRouletteMotion.decelerate)
+          .inMilliseconds;
 }
 
-/// The cards, turning.
-class _Cycling extends StatelessWidget {
-  const _Cycling({
+/// The reel, with a line above it and a hint below.
+class _Spinning extends StatelessWidget {
+  const _Spinning({
     required this.animation,
     required this.pool,
-    required this.isWaiting,
+    required this.isStopped,
   });
 
   final Animation<double> animation;
-
-  /// What flicks past. Empty until the pool lands, which is what the wind-up
-  /// card covers.
   final List<Meal> pool;
-
-  /// The cards have stopped but the pick has not arrived. Rare, and honest about
-  /// itself rather than pretending to still be choosing.
-  final bool isWaiting;
+  final bool isStopped;
 
   @override
   Widget build(BuildContext context) {
@@ -231,8 +305,14 @@ class _Cycling extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
+        // Says what is happening rather than that something is. "Deciding" is
+        // equally true of a spinner; a count is the reel explaining itself.
         Text(
-          isWaiting ? 'Almost' : 'Deciding',
+          switch ((pool.isEmpty, isStopped)) {
+            (true, _) => 'LOOKING AT WHAT YOU CAN COOK',
+            (false, true) => 'ALMOST',
+            (false, false) => '${pool.length} MEALS ON THE TABLE',
+          },
           style: context.text.overline,
           textAlign: TextAlign.center,
         ),
@@ -240,140 +320,27 @@ class _Cycling extends StatelessWidget {
         AnimatedBuilder(
           animation: animation,
           builder: (BuildContext context, Widget? _) {
-            if (pool.isEmpty) {
-              return const _WindUpCard();
-            }
-
-            final int index = _mealIndex(animation.value, pool.length);
-            return _MealFlash(meal: pool[index]);
+            final double offset = reelOffsetAt(animation.value);
+            return MealReel(
+              offset: offset,
+              pool: pool,
+              settledIndex: isStopped ? reelSettleIndex(offset) : null,
+            );
           },
         ),
-        const SizedBox(height: AppSpacing.space6),
-        Text(
-          'Tap to stop',
-          style: context.text.metadata,
-          textAlign: TextAlign.center,
-        ),
-      ],
-    );
-  }
-
-  /// Which meal is showing at [t], the animation's progress from 0 to 1.
-  ///
-  /// The suspense lives in this function. Three stretches, matching
-  /// [AppRouletteMotion]:
-  ///
-  /// * **wind-up** — nothing moves. A card that starts flying on the same frame
-  ///   as the tap reads as a glitch rather than as a decision beginning.
-  /// * **fast cycle** — linear, one meal every
-  ///   [AppRouletteMotion.cyclePerMeal]. Linear on purpose: an eased fast phase
-  ///   would already be slowing down, and there would be nothing left to slow.
-  /// * **decelerate** — [AppMotion.curveSpinDecelerate] over a handful of final
-  ///   cards, so the gaps visibly stretch. This is the whole effect; the rest is
-  ///   setup.
-  static int _mealIndex(double t, int poolSize) {
-    const double windUp = 0.0909; // 200 / 2200
-    const double fast = 0.5455; //  1200 / 2200
-    final double fastTicks =
-        AppRouletteMotion.fastCycle.inMilliseconds /
-        AppRouletteMotion.cyclePerMeal.inMilliseconds;
-
-    // Deliberately few. The deceleration has to be legible as *cards*, and
-    // twenty of them easing out is a blur that stops rather than a slowdown.
-    const double slowTicks = 6;
-
-    final double ticks;
-    if (t <= windUp) {
-      ticks = 0;
-    } else if (t <= windUp + fast) {
-      ticks = ((t - windUp) / fast) * fastTicks;
-    } else {
-      final double eased = AppMotion.curveSpinDecelerate.transform(
-        ((t - windUp - fast) / (1 - windUp - fast)).clamp(0, 1),
-      );
-      ticks = fastTicks + eased * slowTicks;
-    }
-
-    return ticks.floor() % poolSize;
-  }
-}
-
-/// One meal, for the fraction of a second it is on screen.
-///
-/// The cuisine colour is what makes this read as cycling. Text alone changing at
-/// 80 ms is a flicker; a card whose whole tint changes is a card being replaced.
-class _MealFlash extends StatelessWidget {
-  const _MealFlash({required this.meal});
-
-  final Meal meal;
-
-  @override
-  Widget build(BuildContext context) {
-    final AppAccent accent = context.colors.accentFor(meal.cuisine.label);
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: accent.background,
-        borderRadius: AppRadius.borderXxxl,
-        boxShadow: context.shadows.lg,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.space6),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            Text(
-              meal.cuisine.label.toUpperCase(),
-              style: context.text.overline.copyWith(color: accent.foreground),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: AppSpacing.space3),
-            Text(
-              meal.name,
-              style: context.text.displayMedium,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: AppSpacing.space3),
-            Text(
-              AppFormat.metadata(<String?>[
-                AppFormat.cookingTime(meal.cookingTimeMinutes),
-                AppFormat.peso(meal.costPerServing),
-              ]),
-              style: context.text.metadata,
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// The card before there is anything to put in it.
-class _WindUpCard extends StatelessWidget {
-  const _WindUpCard();
-
-  @override
-  Widget build(BuildContext context) {
-    final AppColorScheme colors = context.colors;
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colors.surfaceMuted,
-        borderRadius: AppRadius.borderXxxl,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.space7),
-        child: Center(
+        const SizedBox(height: AppSpacing.space5),
+        // Fades once there is nothing left to stop, rather than sitting there
+        // telling the reader to do something that no longer works.
+        AnimatedOpacity(
+          duration: AppMotion.fast,
+          opacity: isStopped ? 0 : 1,
           child: Text(
-            'Looking at what you can cook…',
-            style: context.text.bodyMedium,
+            'Tap anywhere to stop',
+            style: context.text.metadata,
             textAlign: TextAlign.center,
           ),
         ),
-      ),
+      ],
     );
   }
 }

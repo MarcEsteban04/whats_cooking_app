@@ -29,11 +29,11 @@ The primary CTA is the strongest element on any screen it appears on (`design_ui
 
 | Variant | Fill | Text | Border | Use |
 | ------- | ---- | ---- | ------ | --- |
-| `primary` | `primary600` | `#FFFFFF` | none | The one main action per screen |
+| `primary` | `ink600` | `#FFFFFF` | none | The one main action per screen |
 | `secondary` | `surface` | `textPrimary` | 1 px `outline` | Alternative actions |
-| `tertiary` | transparent | `primary600` | none | Low-emphasis, inline |
+| `tertiary` | transparent | `ink600` | none | Low-emphasis, inline |
 | `destructive` | `error` | `#FFFFFF` | none | Delete, leave household, remove |
-| `brand` | `primary500` | `#0F2E1D` | none | **SPIN only.** Brand green with dark text — 4.81:1 |
+| `brand` | `brand` `#E8622A` | `#1A1A17` | none | **SPIN only.** The one accent, with dark text — 5.16:1 |
 
 ### Sizes
 
@@ -51,7 +51,7 @@ Large is the default for a screen's primary action and matches the 52–58 px ra
 | State | Treatment |
 | ----- | --------- |
 | Default | As specified, `shadowSm` on `primary` and `brand` only |
-| Pressed | Fill → `primary700`, scale 0.97, shadow removed |
+| Pressed | Fill → `ink700`, scale 0.97, shadow removed |
 | Disabled | Fill `neutral200`, text `neutral400`, no shadow, no press |
 | Loading | Text replaced by a 20 px indicator in the text colour; **width held constant**; disabled |
 | Full-width | `double.infinity` with the screen margin applied by the parent |
@@ -85,7 +85,7 @@ AppButton({
 | Radius | `radiusMd` — the reference’s inputs are less rounded than its buttons |
 | Fill | `surface` |
 | Border | 1 px `outline` |
-| Focused border | 2 px `primary600` |
+| Focused border | 2 px `ink600` |
 | Error border | 2 px `error` |
 | Text | `bodyMedium`, `textPrimary` |
 | Placeholder | `bodyMedium`, `textDisabled` |
@@ -169,7 +169,7 @@ action. Row height 88, padding 12, radius `radiusMd`.
 ### `result` — the roulette payoff
 
 1:1 image at `radius3xl`, `displayMedium` name centred beneath, a row of metadata pills, and
-an optional context line — *"⭐ Loved by both of you"* — in `labelSmall` on `primary600`.
+an optional context line — *"⭐ Loved by both of you"* — in `labelSmall` on `ink600`.
 This form gets `shadowXl`; it is the most important surface in the app.
 
 **All forms:** the whole card is tappable to detail. The heart is an independent target and
@@ -185,7 +185,7 @@ must not trigger navigation. Optimistic toggle with a scale-1.3-then-settle anim
 | State | Fill | Text | Border |
 | ----- | ---- | ---- | ------ |
 | Unselected | `surface` | `textSecondary` | 1 px `outline` |
-| Selected | `primary600` | `#FFFFFF` | none |
+| Selected | `ink600` | `#FFFFFF` | none |
 | Disabled | `surfaceMuted` | `textDisabled` | none |
 
 Height 36, padding 16 horizontal, `radiusFull`, `labelSmall`. Optional leading icon at
@@ -264,10 +264,10 @@ Floating capsule, not a Material `NavigationBar` (`design_ui.md` §7).
 
 | State | Icon | Label |
 | ----- | ---- | ----- |
-| Active | Filled, `primary600`, `iconMd` | `overline`, `primary600` |
+| Active | Filled, `ink600`, `iconMd` | `overline`, `ink600` |
 | Inactive | Outlined, `textTertiary`, `iconMd` | `overline`, `textTertiary` |
 
-Active items additionally carry a `primary50` pill behind the icon at 32 px height. Icon
+Active items additionally carry a `ink50` pill behind the icon at 32 px height. Icon
 transitions cross-fade over `durationFast`; there is no sliding indicator.
 
 Scrollable content requires 96 px bottom padding so nothing is ever trapped behind the bar.
@@ -332,7 +332,7 @@ content is worse than none.
 
 ### Inline indicator
 
-20 px, 2 px stroke, `primary600`. Used inside buttons and for pagination footers only.
+20 px, 2 px stroke, `ink600`. Used inside buttons and for pagination footers only.
 
 ### Optimistic actions
 
@@ -401,13 +401,13 @@ For non-blocking failures: 48 px tall, `errorSurface` fill, `radiusMd`, 20 px `e
 
 ### MatchIndicator — pantry results (`design_ui.md` §19)
 
-A horizontal track 6 px tall at `radiusFull`. Track `neutral200`; fill `primary500`.
+A horizontal track 6 px tall at `radiusFull`. Track `neutral200`; fill `brand`.
 Percentage label to the right in `numeric` on `textPrimary`.
 
 | Range | Fill | Label |
 | ----- | ---- | ----- |
-| 100% | `primary600` | You have everything |
-| 70–99% | `primary500` | *n*% available |
+| 100% | `ink600` | You have everything |
+| 70–99% | `brand` | *n*% available |
 | 40–69% | `warning` | *n*% available |
 | < 40% | `neutral400` | *n*% available |
 
@@ -416,7 +416,7 @@ Colour is reinforced by the words — the percentage is always stated, never col
 ### GroceryProgress
 
 *"6 of 10 items"* in `labelSmall` on `textSecondary`, with a 4 px track beneath filled in
-`primary600`, animating over `durationNormal` on change.
+`ink600`, animating over `durationNormal` on change.
 
 ---
 
@@ -456,10 +456,10 @@ scanning. Instruction text in `bodyLarge` beneath. 32 px between steps.
 | `large` | 96 | Profile header |
 
 Circular, `radiusFull`, 2 px `surface` ring when overlapping. Fallback is initials in
-`titleMedium` on `primary100` with `primary800` text.
+`titleMedium` on `ink100` with `ink800` text.
 
 **CoupleAvatars:** two avatars overlapping by 12 px with a 20 px heart between them, names
-beneath in `titleMedium`, and the match percentage in `headlineSmall` on `primary600`
+beneath in `titleMedium`, and the match percentage in `headlineSmall` on `ink600`
 (`design_ui.md` §20).
 
 ---
@@ -467,7 +467,7 @@ beneath in `titleMedium`, and the match percentage in `headlineSmall` on `primar
 ## 17. SectionHeader
 
 Title in `titleLarge` on `textPrimary`, optional trailing text action in `labelSmall` on
-`primary600`. 32 px above, 16 px below. Optional `bodySmall` subtitle on `textSecondary`
+`ink600`. 32 px above, 16 px below. Optional `bodySmall` subtitle on `textSecondary`
 between title and content.
 
 ---
@@ -499,9 +499,9 @@ same cuisine grid on day one and on day thirty (docs/ARCHITECTURE.md §2.3).
 
 A 4 px `radiusFull` track above a centred `metadata` counter — *"Step 3 of 7"*.
 
-Fill is `primaryBrand`, the **identity** green rather than the interactive one. This is
+Fill is `primaryBrand`, the terracotta accent rather than the interactive ink. This is
 the rare case where that is correct: the bar is not tappable, so the 4.5:1 contrast floor
-that governs interactive green does not apply, and the identity colour is what makes the
+that governs interactive ink does not apply, and the accent is what makes the
 flow feel like part of the brand rather than part of a form.
 
 The counter is not decoration. A bar alone tells you how far along you are but not how

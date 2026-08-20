@@ -57,19 +57,18 @@ void main() {
     );
   }
 
-  group('§2.2 brand green separates identity from interactive', () {
-    test('primary500 with white text falls below AA — the reason the scale '
-        'splits', () {
-      expectRatio(AppColors.neutral0, AppColors.primary500, 3.05);
-      expect(ratio(AppColors.neutral0, AppColors.primary500), lessThan(4.5));
+  group('§2.2 ink carries interaction, the one accent carries the brand', () {
+    test('the interactive fill takes white text with room to spare', () {
+      expectRatio(AppColors.neutral0, AppColors.ink600, 15.76);
     });
 
-    test('primary600 with white text reaches AA', () {
-      expectRatio(AppColors.neutral0, AppColors.primary600, 5.04);
+    test('white on the terracotta brand falls below AA — the reason the SPIN '
+        'label is dark', () {
+      expect(ratio(AppColors.neutral0, AppColors.brand), lessThan(4.5));
     });
 
-    test('the SPIN button pairs brand green with dark text', () {
-      expectRatio(AppColors.onPrimaryBrand, AppColors.primary500, 4.81);
+    test('the SPIN button pairs the brand accent with dark text', () {
+      expectRatio(AppColors.onPrimaryBrand, AppColors.brand, 5.16);
     });
   });
 
@@ -82,8 +81,8 @@ void main() {
       expectRatio(AppColors.onAccentButter, AppColors.accentButter, 6.45);
     });
 
-    test('mint', () {
-      expectRatio(AppColors.onAccentMint, AppColors.accentMint, 7.28);
+    test('stone', () {
+      expectRatio(AppColors.onAccentStone, AppColors.accentStone, 6.16);
     });
 
     test('lavender', () {
@@ -225,12 +224,12 @@ void main() {
       );
     });
 
-    test('the dark primary fill pairs with dark text', () {
-      expectRatio(AppColors.onPrimaryDark, AppColors.primary500, 6.14);
+    test('the dark brand fill pairs with dark text', () {
+      expectRatio(AppColors.onPrimaryDark, AppColors.brandDark, 7.98);
     });
 
-    test('primaryBrand is readable as dark-mode text', () {
-      expectRatio(AppColors.primary400, AppColors.darkBackground, 7.32);
+    test('the brand accent is readable as dark-mode text', () {
+      expectRatio(AppColors.brandDark, AppColors.darkBackground, 7.66);
     });
   });
 
@@ -243,7 +242,7 @@ void main() {
     for (final (String name, AppAccent accent) in <(String, AppAccent)>[
       ('peach', dark.peach),
       ('butter', dark.butter),
-      ('mint', dark.mint),
+      ('stone', dark.stone),
       ('lavender', dark.lavender),
       ('coral', dark.coral),
       ('sky', dark.sky),

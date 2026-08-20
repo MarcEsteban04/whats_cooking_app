@@ -99,7 +99,7 @@ class AppColorScheme extends ThemeExtension<AppColorScheme> {
     required this.skeletonHighlight,
     required this.peach,
     required this.butter,
-    required this.mint,
+    required this.stone,
     required this.lavender,
     required this.coral,
     required this.sky,
@@ -125,12 +125,15 @@ class AppColorScheme extends ThemeExtension<AppColorScheme> {
       textDisabled: AppColors.neutral400,
       textOnPrimary: AppColors.neutral0,
       textOnInverse: AppColors.neutral50,
-      primary: AppColors.primary600,
-      primaryPressed: AppColors.primary700,
-      primaryBrand: AppColors.primary500,
+      // Weight, not hue: the primary action is a near-black pill, and the one
+      // accent left in the palette is spent on `primaryBrand` — the SPIN button
+      // and nothing else.
+      primary: AppColors.ink600,
+      primaryPressed: AppColors.ink700,
+      primaryBrand: AppColors.brand,
       onPrimaryBrand: AppColors.onPrimaryBrand,
-      primaryContainer: AppColors.primary50,
-      onPrimaryContainer: AppColors.primary800,
+      primaryContainer: AppColors.ink50,
+      onPrimaryContainer: AppColors.ink800,
       series1: AppColors.series1,
       series2: AppColors.series2,
       seriesTrack: AppColors.seriesTrack,
@@ -144,9 +147,9 @@ class AppColorScheme extends ThemeExtension<AppColorScheme> {
         background: AppColors.accentButter,
         foreground: AppColors.onAccentButter,
       ),
-      mint: AppAccent(
-        background: AppColors.accentMint,
-        foreground: AppColors.onAccentMint,
+      stone: AppAccent(
+        background: AppColors.accentStone,
+        foreground: AppColors.onAccentStone,
       ),
       lavender: AppAccent(
         background: AppColors.accentLavender,
@@ -205,14 +208,17 @@ class AppColorScheme extends ThemeExtension<AppColorScheme> {
       textSecondary: AppColors.darkTextSecondary,
       textTertiary: AppColors.darkTextTertiary,
       textDisabled: AppColors.darkTextDisabled,
-      textOnPrimary: AppColors.onPrimaryDark,
+      textOnPrimary: AppColors.neutral900,
       textOnInverse: AppColors.neutral900,
-      primary: AppColors.primary500,
-      primaryPressed: AppColors.primary600,
-      primaryBrand: AppColors.primary400,
+      // Inverted rather than tinted. With no hue to lighten, the dark theme's
+      // primary is the light end of the same ink: a near-white pill with dark
+      // text, which is the same relationship as light mode read backwards.
+      primary: AppColors.darkTextPrimary,
+      primaryPressed: AppColors.neutral300,
+      primaryBrand: AppColors.brandDark,
       onPrimaryBrand: AppColors.onPrimaryDark,
       primaryContainer: AppColors.darkPrimaryContainer,
-      onPrimaryContainer: AppColors.primary200,
+      onPrimaryContainer: AppColors.darkTextPrimary,
       series1: AppColors.series1Dark,
       series2: AppColors.series2Dark,
       seriesTrack: AppColors.seriesTrackDark,
@@ -220,7 +226,7 @@ class AppColorScheme extends ThemeExtension<AppColorScheme> {
       skeletonHighlight: AppColors.darkSurfaceHigh,
       peach: _darkAccent(AppColors.accentPeach, AppColors.onAccentPeachDark),
       butter: _darkAccent(AppColors.accentButter, AppColors.onAccentButterDark),
-      mint: _darkAccent(AppColors.accentMint, AppColors.onAccentMintDark),
+      stone: _darkAccent(AppColors.accentStone, AppColors.onAccentStoneDark),
       lavender: _darkAccent(
         AppColors.accentLavender,
         AppColors.onAccentLavenderDark,
@@ -231,7 +237,7 @@ class AppColorScheme extends ThemeExtension<AppColorScheme> {
         color: AppColors.darkSuccess,
         onColor: AppColors.onPrimaryDark,
         surface: AppColors.darkPrimaryContainer,
-        onSurface: AppColors.primary200,
+        onSurface: AppColors.darkTextPrimary,
       ),
       warning: AppSemanticColor(
         color: AppColors.darkWarning,
@@ -299,7 +305,7 @@ class AppColorScheme extends ThemeExtension<AppColorScheme> {
   // Pastel accents.
   final AppAccent peach;
   final AppAccent butter;
-  final AppAccent mint;
+  final AppAccent stone;
   final AppAccent lavender;
   final AppAccent coral;
   final AppAccent sky;
@@ -314,7 +320,7 @@ class AppColorScheme extends ThemeExtension<AppColorScheme> {
   List<AppAccent> get accents => <AppAccent>[
     peach,
     butter,
-    mint,
+    stone,
     lavender,
     coral,
     sky,
@@ -383,7 +389,7 @@ class AppColorScheme extends ThemeExtension<AppColorScheme> {
     Color? skeletonHighlight,
     AppAccent? peach,
     AppAccent? butter,
-    AppAccent? mint,
+    AppAccent? stone,
     AppAccent? lavender,
     AppAccent? coral,
     AppAccent? sky,
@@ -419,7 +425,7 @@ class AppColorScheme extends ThemeExtension<AppColorScheme> {
       skeletonHighlight: skeletonHighlight ?? this.skeletonHighlight,
       peach: peach ?? this.peach,
       butter: butter ?? this.butter,
-      mint: mint ?? this.mint,
+      stone: stone ?? this.stone,
       lavender: lavender ?? this.lavender,
       coral: coral ?? this.coral,
       sky: sky ?? this.sky,
@@ -474,7 +480,7 @@ class AppColorScheme extends ThemeExtension<AppColorScheme> {
       )!,
       peach: AppAccent.lerp(peach, other.peach, t),
       butter: AppAccent.lerp(butter, other.butter, t),
-      mint: AppAccent.lerp(mint, other.mint, t),
+      stone: AppAccent.lerp(stone, other.stone, t),
       lavender: AppAccent.lerp(lavender, other.lavender, t),
       coral: AppAccent.lerp(coral, other.coral, t),
       sky: AppAccent.lerp(sky, other.sky, t),
@@ -718,7 +724,8 @@ abstract final class AppTheme {
       primaryContainer: colors.primaryContainer,
       onPrimaryContainer: colors.onPrimaryContainer,
 
-      // Material's `secondary` carries the brand green: the identity colour that
+      // Material's `secondary` carries the one accent in the palette: the
+      // terracotta that is the SPIN button and the leading data series, and that
       // never sits behind small white text (docs/DESIGN_SYSTEM.md §2.2).
       secondary: colors.primaryBrand,
       onSecondary: colors.onPrimaryBrand,

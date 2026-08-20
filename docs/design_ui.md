@@ -81,6 +81,12 @@ Cards should use:
 
 ### Primary Accent
 
+> **Superseded.** The green below was removed from the app in Sprint 29 at the product
+> owner's request. The palette is now warm near-black on warm white — interaction reads as
+> **weight**, not hue — with a single terracotta accent, `#E8622A`, spent only on the SPIN
+> button and the leading data series. DESIGN_SYSTEM §2.2 is the authority; this section is
+> kept as the record of what was originally specified.
+
 Use a sophisticated food-inspired green as the primary brand accent.
 
 Suggested direction:
@@ -529,7 +535,7 @@ Budget
 Favorites
 ```
 
-Selected filters should use the primary green accent.
+Selected filters use the interactive ink fill (there is no green — see the note in §2).
 
 Unselected filters should remain neutral white/gray.
 

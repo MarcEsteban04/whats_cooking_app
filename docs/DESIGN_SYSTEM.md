@@ -22,7 +22,7 @@ code. Everything comes from a token defined here.
 | --------- | --------------- |
 | Soft, warm, premium | Background is warm off-white, never pure white. Surfaces float above it. |
 | Hierarchy from type and space | Borders are a last resort. Separate with whitespace and weight. |
-| Restrained colour | Green is an accent, not a theme. Pastels are backgrounds, never fills for text. |
+| Restrained colour | Ink carries interaction; one terracotta accent carries SPIN. Pastels are backgrounds, never fills for text. |
 | Generous breathing room | 20 px screen margins minimum, 24 px card padding, 32 px between sections. |
 | Soft geometry | Nothing sharper than 8 px. Interactive pills are fully rounded. |
 | Barely-there elevation | Large blur, very low opacity, no visible edge. |
@@ -55,27 +55,38 @@ slight yellow-green cast.
 | `neutral800` | `#2A2A26` | Strong text on muted surfaces |
 | `neutral900` | `#1A1A17` | **Primary text** |
 
-### 2.2 Brand green
+### 2.2 Ink, and one accent
 
-`design_ui.md` §2 specifies `#3FA66B`. That value is preserved as the identity colour, but
-white text on it reaches only **3.05:1** — below the 4.5:1 needed for normal text. The scale
-therefore separates *identity* from *interactive*.
+**There is no brand green.** `design_ui.md` §2 specified `#3FA66B` and it has been removed
+from the app: the palette is warm near-black on warm white, and interaction is expressed by
+**weight** rather than by hue. A filled ink pill is the primary action, an outline is the
+secondary, and neither needs a colour to say which. The auth screens already worked this way
+(`login_reference.webp`), and `reference_design/dashboards_ref.webp` carries its whole
+structure in ink — this makes the rest of the app agree with both.
+
+One accent survives, because an app about food that is *entirely* monochrome reads as a
+spreadsheet. It is the terracotta the dashboards reference itself uses for the figure it
+wants read first, and it is spent on exactly two things: the **SPIN** button and the leading
+**data series**. Anywhere else is a review failure.
 
 | Token | Hex | Role |
 | ----- | --- | ---- |
-| `primary50` | `#EDF7F1` | Selected chip background, success surface |
-| `primary100` | `#D5EDE0` | Tinted container |
-| `primary200` | `#A8DCC0` | Decorative, dark-theme dividers |
-| `primary300` | `#7BC9A0` | Dark-theme accents |
-| `primary400` | `#56B583` | **Dark-theme primary text/icon colour** |
-| `primary500` | `#3FA66B` | **Brand identity.** Logo, decorative fills, progress arcs, icons. Never behind small white text. |
-| `primary600` | `#2E7D50` | **Interactive fill.** Buttons, active nav, selected states. White text = 5.04:1 ✅ |
-| `primary700` | `#276E46` | Pressed state |
-| `primary800` | `#1D5334` | Text on tinted green containers |
-| `primary900` | `#143A25` | Highest-contrast green text |
+| `ink50` | `#F2F2EF` | Selected chip background, tinted container |
+| `ink100` | `#E4E4DF` | Tinted container, one step stronger |
+| `ink200` | `#C7C7C0` | Decorative, dark-theme dividers |
+| `ink300` | `#9C9C94` | Dark-theme accents |
+| `ink400` | `#6E6E66` | Disabled fills, inactive tracks |
+| `ink500` | `#3A3A34` | Ink at reading weight |
+| `ink600` | `#232320` | **Interactive fill.** Buttons, active nav, selected states. White text = 15.76:1 ✅ |
+| `ink700` | `#141412` | Pressed state |
+| `ink800` | `#1A1A17` | Text on a tinted container |
+| `ink900` | `#0D0D0B` | Strongest ink — still warm, never `#000000` |
+| `brand` | `#E8622A` | **SPIN button and leading data series only.** Dark text = 5.16:1 ✅ |
+| `brandDark` | `#FF8551` | The same, lifted for a dark surface |
 
-> **The rule:** `primary500` when nothing sits on top of it. `primary600` the moment text or
-> an icon does.
+> **The rule:** ink for everything that is interactive, `brand` for the one action the whole
+> app exists to offer. White on `brand` reaches only **3.38:1**, which is why the SPIN label
+> is dark — the same trade the brand green made before it, at the same place in the scale.
 
 ### 2.3 Pastel accents
 
@@ -85,7 +96,7 @@ Backgrounds only. Each pairs with a fixed foreground that reaches AA.
 | ----- | ---------- | ---------- | -------- | ------------- |
 | `accentPeach` | `#FFE8D6` | `#7A4322` | 6.70:1 | Comfort food, breakfast |
 | `accentButter` | `#FFF3CC` | `#6E5410` | 6.45:1 | Snacks, desserts |
-| `accentMint` | `#D9F2E4` | `#1D5638` | 7.28:1 | Healthy, vegetarian |
+| `accentStone` | `#EBE7DE` | `#5A5346` | 6.16:1 | Healthy, vegetarian |
 | `accentLavender` | `#E8E4F5` | `#413672` | 8.44:1 | Surprise me, AI |
 | `accentCoral` | `#FFDDD6` | `#8A3524` | 6.33:1 | Spicy, meat |
 | `accentSky` | `#DDEBF7` | `#1F4E75` | 7.19:1 | Seafood, light meals |
@@ -96,7 +107,7 @@ Never place a pastel on a pastel, and never use one as a button fill.
 
 | Token | Hex | On-colour | Surface | On-surface |
 | ----- | --- | --------- | ------- | ---------- |
-| `success` | `#2E7D50` | `#FFFFFF` | `#EDF7F1` | `#1D5334` |
+| `success` | `ink600` `#232320` | `#FFFFFF` | `ink50` `#F2F2EF` | `ink800` `#1A1A17` |
 | `warning` | `#A66214` | `#FFFFFF` | `#FFF3CC` | `#6E5410` |
 | `error` | `#C4362C` | `#FFFFFF` | `#FDECEA` | `#8A2119` |
 | `info` | `#2F6FB0` | `#FFFFFF` | `#E8F1FA` | `#1F4E75` |
@@ -119,10 +130,10 @@ words — colour alone never carries meaning.
 | `textTertiary` | `neutral600` — 5.01:1 |
 | `textDisabled` | `neutral400` — decorative only |
 | `textOnPrimary` | `#FFFFFF` |
-| `primary` | `primary600` |
-| `primaryBrand` | `primary500` |
-| `primaryContainer` | `primary50` |
-| `onPrimaryContainer` | `primary800` |
+| `primary` | `ink600` |
+| `primaryBrand` | `brand` `#E8622A` |
+| `primaryContainer` | `ink50` |
+| `onPrimaryContainer` | `ink800` |
 
 ### 2.6 Dark theme roles
 
@@ -141,12 +152,12 @@ surfaces**, not shadows — shadows are invisible on dark.
 | `textSecondary` | `#B0B0A6` | 8.44:1 |
 | `textTertiary` | `#8A8A80` | 5.29:1 |
 | `textDisabled` | `#5A5A52` | |
-| `primary` | `primary500` `#3FA66B` | Fill; pair with `#06150D` text (6.14:1) |
-| `primaryBrand` | `primary400` `#56B583` | Text and icons — 7.32:1 on background |
-| `primaryContainer` | `#1B3A28` | |
-| `onPrimaryContainer` | `primary200` `#A8DCC0` | |
+| `primary` | `#F2F2EE` | Inverted, not tinted — a near-white pill with `#1A1A17` text (15.54:1) |
+| `primaryBrand` | `brandDark` `#FF8551` | Pair with `#1A0B04` text (7.98:1); 7.66:1 on background |
+| `primaryContainer` | `#2E2E29` | |
+| `onPrimaryContainer` | `#F2F2EE` | |
 | `error` | `#E5695E` | Lightened for dark contrast |
-| `success` | `#56B583` | |
+| `success` | `#F2F2EE` | Ink, not a colour — the tick carries the meaning |
 | `warning` | `#D99A3E` | |
 | `info` | `#6FA8D8` | |
 
@@ -337,7 +348,7 @@ label.
 | Result screen | 1:1 | `radius3xl` | Same |
 | Compact / list row | 1:1, 64 px | `radiusMd` | Same |
 | Planner day thumb | 1:1, 44 px | `radiusSm` | Same |
-| Avatar | 1:1 | `radiusFull` | Initials on `primary100` |
+| Avatar | 1:1 | `radiusFull` | Initials on `ink100` |
 
 Every image fades in over 250 ms, shows a shimmer skeleton while loading, and degrades to a
 deterministic pastel-plus-emoji block keyed off the meal ID — so a missing photo still looks
@@ -396,7 +407,7 @@ exempts disabled controls, and it must never carry meaningful content.
 
 ```text
 core/theme/
-├── app_colors.dart      Raw palette — neutral0..900, primary50..900, accents, semantics
+├── app_colors.dart      Raw palette — neutral0..900, ink50..900, the brand accent, pastels, semantics
 ├── app_theme.dart       ThemeData for light and dark, wiring ColorScheme
 ├── app_typography.dart  TextTheme built on GoogleFonts.inter
 ├── app_spacing.dart     space0..10 plus layout constants

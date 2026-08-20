@@ -8,3 +8,4 @@ library;
 export 'presentation/providers/spin_controller.dart';
 export 'presentation/screens/spin_result_screen.dart';
 export 'presentation/screens/spin_screen.dart';
+export 'presentation/widgets/meal_reel.dart';

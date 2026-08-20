@@ -16,9 +16,10 @@ enum AppBadgeTone {
 
 /// A small pill carrying one short fact (docs/design_ui.md §35).
 ///
-/// The reference uses two: a gold "⭐ Top" beside a name, and a green "✓
-/// Confirmed" inside a card. Both are the same shape doing the same job — one
-/// word that changes how you read the thing next to it.
+/// The reference uses two: a gold "⭐ Top" beside a name and a "✓ Confirmed"
+/// inside a card. Both are the same shape doing the same job — one word that
+/// changes how you read the thing next to it. This app's palette has no green
+/// to tint the second with, so it takes ink and leans on its tick.
 ///
 /// Kept deliberately small and wordy-averse. A badge that needs a sentence is a
 /// caption, and a screen with five badges has none.

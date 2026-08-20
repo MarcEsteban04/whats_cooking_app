@@ -16,19 +16,16 @@ enum AppButtonVariant {
   /// Delete, leave household, remove.
   destructive,
 
-  /// SPIN only. Brand green with dark text.
+  /// SPIN only. The terracotta accent with dark text.
   brand,
 
   /// A near-black pill.
   ///
-  /// Not in docs/COMPONENTS.md §1, which makes green the primary interactive
-  /// fill. Both reference designs disagree: reference_img.webp and
-  /// login_reference.webp use near-black for the main call to action and reserve
-  /// green as an accent. The references are the visual benchmark, so this
-  /// variant exists and carries the auth screens' CTAs.
-  ///
-  /// It uses the existing surfaceInverse role rather than a new colour, so it
-  /// inverts correctly in dark mode instead of turning invisible.
+  /// Once the odd one out, now the house style. It exists because both
+  /// reference designs put near-black behind the main call to action, and the
+  /// palette has since followed them: `primary` is ink too. The distinction
+  /// [inverse] keeps is the *surface* it inverts against, so it stays correct on
+  /// a dark card where `primary` would vanish.
   inverse,
 }
 
@@ -139,7 +136,7 @@ class AppButton extends StatelessWidget {
 
   /// SPIN, and nothing else.
   ///
-  /// The brand green carries dark text at 4.81:1. It is reserved for the
+  /// The terracotta accent carries dark text at 5.16:1. It is reserved for the
   /// signature action so that seeing it means exactly one thing.
   const AppButton.brand({
     required this.label,

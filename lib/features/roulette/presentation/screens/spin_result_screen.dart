@@ -217,10 +217,13 @@ class _PickCard extends StatelessWidget {
       duration: AppMotion.celebrate,
       curve: AppMotion.curveCelebrate,
       decoration: BoxDecoration(
-        // The card changes colour on acceptance rather than growing a badge:
-        // the whole surface saying "settled" is the celebration §14 asks for,
-        // and it costs no confetti library.
-        color: isDecided ? context.colors.primaryContainer : accent.background,
+        // The card **inverts** on acceptance rather than growing a badge: the
+        // whole surface flipping to ink is the celebration §14 asks for, and it
+        // costs no confetti library. Inversion rather than a tint because the
+        // palette has one accent and it belongs to the SPIN button — so the
+        // loudest thing left to say is "black", and on a page of pale cards
+        // that is loud (docs/DESIGN_SYSTEM.md §2.2).
+        color: isDecided ? context.colors.surfaceInverse : accent.background,
         borderRadius: AppRadius.borderXxxl,
         boxShadow: context.shadows.xl,
       ),
@@ -230,13 +233,21 @@ class _PickCard extends StatelessWidget {
         children: <Widget>[
           Text(
             meal.cuisine.label.toUpperCase(),
-            style: context.text.overline.copyWith(color: accent.foreground),
+            style: context.text.overline.copyWith(
+              // The pastel's paired foreground is unreadable once the card
+              // inverts, so the inverted state carries its own.
+              color: isDecided
+                  ? context.colors.textOnInverse
+                  : accent.foreground,
+            ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: AppSpacing.space3),
           Text(
             meal.name,
-            style: context.text.displayMedium,
+            style: context.text.displayMedium.copyWith(
+              color: isDecided ? context.colors.textOnInverse : null,
+            ),
             textAlign: TextAlign.center,
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
@@ -245,7 +256,9 @@ class _PickCard extends StatelessWidget {
             const SizedBox(height: AppSpacing.space2),
             Text(
               "You're eating this tonight.",
-              style: context.text.bodyMedium,
+              style: context.text.bodyMedium.copyWith(
+                color: context.colors.textOnInverse,
+              ),
               textAlign: TextAlign.center,
             ),
           ],
