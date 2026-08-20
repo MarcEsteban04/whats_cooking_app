@@ -46,7 +46,19 @@ class SupabaseMealRepository implements MealRepository {
     int offset = 0,
     int limit = kMealPageSize,
   }) async {
-    final bool isCacheable = offset == 0 && !query.hasFilters;
+    // Read and write are gated differently on purpose.
+    //
+    // Anything unfiltered starting at row zero can be *answered* from the stored
+    // page — including the roulette's pool request, which is how spinning works
+    // with no signal (docs/USER_FLOWS.md §18).
+    //
+    // Only a request for exactly one page may *replace* it, because only that
+    // request is the thing being cached. The roulette asks for the whole
+    // catalogue at once and excludes what it has already offered this session;
+    // storing that as "the first page" would persist a catalogue with meals
+    // missing for no reason a later reader could see.
+    final bool canReadCache = offset == 0 && !query.hasFilters;
+    final bool canWriteCache = canReadCache && limit == kMealPageSize;
 
     try {
       final MealPage page = await _search(
@@ -55,7 +67,7 @@ class SupabaseMealRepository implements MealRepository {
         limit: limit,
       );
 
-      if (isCacheable) {
+      if (canWriteCache) {
         // Not awaited. A slow disk must not hold up a page that has already
         // arrived, and a failed write costs a cache hit rather than a screen.
         unawaited(cache.writeFeed(page.meals, now: DateTime.now()));
@@ -72,10 +84,7 @@ class SupabaseMealRepository implements MealRepository {
         rethrow;
       }
 
-      final MealPage? cached = await _cachedPage(
-        query,
-        isCacheable: isCacheable,
-      );
+      final MealPage? cached = await _cachedPage(query, canRead: canReadCache);
       if (cached == null) {
         rethrow;
       }
@@ -86,9 +95,9 @@ class SupabaseMealRepository implements MealRepository {
   /// The stored page, with this reader's exclusions applied, or null.
   Future<MealPage?> _cachedPage(
     MealQuery query, {
-    required bool isCacheable,
+    required bool canRead,
   }) async {
-    if (!isCacheable) {
+    if (!canRead) {
       return null;
     }
 

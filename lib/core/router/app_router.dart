@@ -16,6 +16,7 @@ import 'package:whats_cooking/features/auth/presentation/screens/login_screen.da
 import 'package:whats_cooking/features/auth/presentation/screens/register_screen.dart';
 import 'package:whats_cooking/features/auth/presentation/screens/reset_password_screen.dart';
 import 'package:whats_cooking/features/auth/presentation/screens/welcome_screen.dart';
+import 'package:whats_cooking/features/home/presentation/screens/home_screen.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal.dart';
 import 'package:whats_cooking/features/meals/presentation/screens/disliked_meals_screen.dart';
 import 'package:whats_cooking/features/meals/presentation/screens/favorites_screen.dart';
@@ -29,6 +30,8 @@ import 'package:whats_cooking/features/profile/presentation/screens/appearance_s
 import 'package:whats_cooking/features/profile/presentation/screens/budget_settings_screen.dart';
 import 'package:whats_cooking/features/profile/presentation/screens/preferences_screen.dart';
 import 'package:whats_cooking/features/profile/presentation/screens/profile_screen.dart';
+import 'package:whats_cooking/features/roulette/presentation/screens/spin_result_screen.dart';
+import 'package:whats_cooking/features/roulette/presentation/screens/spin_screen.dart';
 
 part 'app_router.g.dart';
 
@@ -175,9 +178,7 @@ final StatefulShellRoute _shellRoute = StatefulShellRoute.indexedStack(
           path: AppRoute.home.path,
           name: AppRoute.home.routeName,
           pageBuilder: (BuildContext context, GoRouterState state) =>
-              const AppInstantPage<void>(
-                child: PlaceholderScreen(title: 'Home', sprint: 'Sprint 28'),
-              ),
+              const AppInstantPage<void>(child: HomeScreen()),
           routes: <RouteBase>[
             GoRoute(
               path: _relative(AppRoute.rouletteFilters, AppRoute.home),
@@ -433,20 +434,21 @@ final List<RouteBase> _fullScreenRoutes = <RouteBase>[
     name: AppRoute.roulette.routeName,
     parentNavigatorKey: rootNavigatorKey,
     pageBuilder: (BuildContext context, GoRouterState state) =>
-        const AppScaleFadePage<void>(
-          child: PlaceholderScreen(title: 'Spinning', sprint: 'Sprint 28'),
-        ),
+        const AppScaleFadePage<void>(child: SpinScreen()),
   ),
   GoRoute(
     path: AppRoute.rouletteResult.path,
     name: AppRoute.rouletteResult.routeName,
     parentNavigatorKey: rootNavigatorKey,
+    // The scale-and-fade entry *is* the reveal — docs/DESIGN_SYSTEM.md §7's
+    // fourth phase. The spin screen deliberately stops its own animation one
+    // phase short so this transition finishes the job, which is why the card
+    // that lands is the card that stays.
     pageBuilder: (BuildContext context, GoRouterState state) =>
         AppScaleFadePage<void>(
-          child: PlaceholderScreen(
-            title: "Tonight's pick",
-            sprint: 'Sprint 28',
-            detail: state.pathParameters['mealId'],
+          child: SpinResultScreen(
+            mealId: state.pathParameters['mealId']!,
+            pick: state.extra is Meal ? state.extra as Meal : null,
           ),
         ),
   ),
