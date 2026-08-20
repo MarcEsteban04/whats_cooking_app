@@ -1,20 +1,12 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:whats_cooking/core/errors/app_exception.dart';
 import 'package:whats_cooking/core/errors/error_mapper.dart';
-import 'package:whats_cooking/features/auth/data/repositories/in_memory_auth_repository.dart';
 import 'package:whats_cooking/features/auth/domain/entities/app_session.dart';
 import 'package:whats_cooking/features/auth/domain/repositories/auth_repository.dart';
+import 'package:whats_cooking/features/auth/presentation/providers/auth_repository_provider.dart';
 import 'package:whats_cooking/features/auth/presentation/providers/session_provider.dart';
 
 part 'auth_controller.g.dart';
-
-/// The auth backend.
-///
-/// Sprint 16 wires the in-memory stand-in so the screens are a working flow;
-/// Sprint 17 overrides this with the Supabase implementation and nothing above
-/// it changes.
-@Riverpod(keepAlive: true)
-AuthRepository authRepository(Ref ref) => InMemoryAuthRepository();
 
 /// What a submitted auth form is doing.
 ///
@@ -133,6 +125,22 @@ class AuthController extends _$AuthController {
     );
   }
 
+  /// Signs the user out.
+  ///
+  /// Routed through here rather than called on the session directly so a screen
+  /// gets the same submitting-and-failed states it gets for every other auth
+  /// action — a sign-out can fail too.
+  Future<void> signOut() async {
+    state = const AuthSubmitting();
+
+    try {
+      await ref.read(sessionProvider.notifier).signOut();
+      state = const AuthSucceeded();
+    } on Object catch (error, stackTrace) {
+      state = AuthFailed(ErrorMapper.map(error, stackTrace));
+    }
+  }
+
   /// Clears a failure so a corrected form starts from a clean state.
   void reset() => state = const AuthIdle();
 
@@ -150,14 +158,13 @@ class AuthController extends _$AuthController {
   /// Publishes [session] as the app's auth truth.
   ///
   /// This is what moves the router: its redirect watches the session, so
-  /// assigning it here is what navigates away from the auth zone. No screen
-  /// pushes a route after signing in (docs/NAVIGATION_MAP.md §4).
+  /// assigning it is what navigates away from the auth zone. No screen pushes a
+  /// route after signing in (docs/NAVIGATION_MAP.md §4).
+  ///
+  /// With a backend, Supabase's own event stream has usually published it
+  /// already — this makes the no-backend path work and closes the window
+  /// between a successful call and the event arriving.
   void _adopt(AppSession session) {
-    ref
-        .read(sessionProvider.notifier)
-        .signIn(
-          isOnboarded: session.isOnboarded,
-          hasHousehold: session.hasHousehold,
-        );
+    ref.read(sessionProvider.notifier).adopt(session);
   }
 }

@@ -7,6 +7,8 @@ import 'package:whats_cooking/core/router/app_routes.dart';
 import 'package:whats_cooking/core/router/app_shell.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/widgets/navigation/app_bottom_nav.dart';
+import 'package:whats_cooking/features/auth/data/repositories/in_memory_auth_repository.dart';
+import 'package:whats_cooking/features/auth/domain/entities/app_session.dart';
 import 'package:whats_cooking/features/auth/presentation/providers/session_provider.dart';
 import 'package:whats_cooking/features/auth/presentation/screens/welcome_screen.dart';
 
@@ -26,7 +28,9 @@ void main() {
     addTearDown(container.dispose);
     container
         .read(sessionProvider.notifier)
-        .signIn(isOnboarded: true, hasHousehold: true);
+        .adopt(
+          const AppSession.signedIn(isOnboarded: true, hasHousehold: true),
+        );
     return container;
   }
 
@@ -273,7 +277,9 @@ void main() {
 
       container
           .read(sessionProvider.notifier)
-          .signIn(isOnboarded: true, hasHousehold: true);
+          .adopt(
+            const AppSession.signedIn(isOnboarded: true, hasHousehold: true),
+          );
       await tester.pumpAndSettle();
 
       expect(find.byType(AppShell), findsOneWidget);
@@ -286,7 +292,9 @@ void main() {
       addTearDown(container.dispose);
       container
           .read(sessionProvider.notifier)
-          .signIn(isOnboarded: false, hasHousehold: true);
+          .adopt(
+            const AppSession.signedIn(isOnboarded: false, hasHousehold: true),
+          );
 
       await pumpApp(tester, container);
 
@@ -305,7 +313,9 @@ void main() {
       addTearDown(container.dispose);
       container
           .read(sessionProvider.notifier)
-          .signIn(isOnboarded: true, hasHousehold: false);
+          .adopt(
+            const AppSession.signedIn(isOnboarded: true, hasHousehold: false),
+          );
       final GoRouter router = container.read(appRouterProvider);
 
       await pumpApp(tester, container);
@@ -322,7 +332,17 @@ void main() {
       await pumpApp(tester, container);
       expect(find.byType(AppShell), findsOneWidget);
 
-      container.read(sessionProvider.notifier).signOut();
+      // Started, then pumped, then awaited. Sign-out goes through the
+      // repository, which delays — and inside a widget test that delay runs on
+      // the fake clock. Awaiting before pumping deadlocks: the future needs the
+      // clock advanced, and the clock only advances when the test pumps.
+      final Future<void> signOut = container
+          .read(sessionProvider.notifier)
+          .signOut();
+      // pump(duration), not pumpAndSettle: settling only advances the clock
+      // while frames are scheduled, and a bare Future.delayed schedules none.
+      await tester.pump(InMemoryAuthRepository.latency * 2);
+      await signOut;
       await tester.pumpAndSettle();
 
       expect(find.byType(WelcomeScreen), findsOneWidget);

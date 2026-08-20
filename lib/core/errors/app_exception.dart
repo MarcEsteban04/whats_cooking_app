@@ -151,3 +151,26 @@ class UnknownException extends AppException {
     super.stackTrace,
   });
 }
+
+/// Too many attempts in too short a window.
+///
+/// Its own type because docs/USER_FLOWS.md §3 gives it its own path and its own
+/// copy: "Too many attempts | Rate-limit message with wait time". Folded into
+/// [AuthFailureException] it would tell someone their details were wrong when
+/// they were not, and send them to change a password that is perfectly correct.
+///
+/// Deliberately **not** retryable. A rate limit is the one failure where an
+/// automatic retry is precisely the wrong response: it extends the lockout.
+class RateLimitException extends AppException {
+  const RateLimitException({
+    super.message = 'Too many attempts',
+    super.detail,
+    super.code,
+    super.cause,
+    super.stackTrace,
+    this.retryAfter,
+  });
+
+  /// How long to wait, when the backend says how long.
+  final Duration? retryAfter;
+}

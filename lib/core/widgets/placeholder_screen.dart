@@ -17,6 +17,7 @@ class PlaceholderScreen extends StatelessWidget {
     required this.title,
     required this.sprint,
     this.detail,
+    this.action,
     super.key,
   });
 
@@ -29,6 +30,13 @@ class PlaceholderScreen extends StatelessWidget {
   /// An optional note — a path parameter's value, usually, so a test or a
   /// developer can see the route resolved its arguments.
   final String? detail;
+
+  /// An action the placeholder can still offer.
+  ///
+  /// Used by the Profile route to expose sign-out before Sprint 20 builds the
+  /// real screen. Without it there is no way out of a signed-in app, which makes
+  /// the whole auth flow impossible to exercise by hand.
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
@@ -60,6 +68,10 @@ class PlaceholderScreen extends StatelessWidget {
                   style: context.text.metadata,
                   textAlign: TextAlign.center,
                 ),
+                if (action != null) ...<Widget>[
+                  const SizedBox(height: AppSpacing.space6),
+                  action!,
+                ],
                 if (detail != null) ...<Widget>[
                   const SizedBox(height: AppSpacing.space2),
                   Text(

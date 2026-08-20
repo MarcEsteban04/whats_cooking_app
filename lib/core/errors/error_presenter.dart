@@ -22,16 +22,23 @@ extension AppExceptionPresentation on AppException {
     // (docs/ARCHITECTURE.md §7), so arriving here means something unexpected.
     AuthFailureException() => ErrorStateKind.server,
     ValidationException() => ErrorStateKind.server,
+    // Not a server fault, but the copy tables have no entry for a rate limit and
+    // the message override below carries the real wording anyway.
+    RateLimitException() => ErrorStateKind.server,
     UnknownException() => ErrorStateKind.unknown,
   };
 
   /// A message safe to display, or null to use the kind's standard copy.
   ///
-  /// Only [ValidationException] overrides it: its message is written at the
-  /// throw site and is more specific than anything generic
-  /// ("Enter a budget above zero"). Everything else falls back to the copy
-  /// tables in docs/COMPONENTS.md §13, which were written for a person.
-  String? get displayMessage => this is ValidationException ? message : null;
+  /// Two kinds override it. A validation message is written at the throw site
+  /// and beats anything generic ("Enter a budget above zero"); a rate-limit
+  /// message names the wait, which is the only actionable thing about it.
+  /// Everything else falls back to the copy tables in docs/COMPONENTS.md §13,
+  /// which were written for a person.
+  String? get displayMessage =>
+      this is ValidationException || this is RateLimitException
+      ? message
+      : null;
 
   /// The support code to show beneath the action, if any.
   ///

@@ -35,7 +35,7 @@ abstract final class RouterGuard {
     return switch (session.status) {
       SessionStatus.restoring => _whileRestoring(route),
       SessionStatus.unauthenticated => _whenSignedOut(route, location),
-      SessionStatus.authenticated => _whenSignedIn(route, session),
+      SessionStatus.authenticated => _whenSignedIn(route, session, location),
     };
   }
 
@@ -63,7 +63,22 @@ abstract final class RouterGuard {
     ).toString();
   }
 
-  static String? _whenSignedIn(AppRoute route, AppSession session) {
+  static String? _whenSignedIn(
+    AppRoute route,
+    AppSession session,
+    String location,
+  ) {
+    // Checked first, and it has to be. A password-reset link signs the user in
+    // before they choose a new password, so every rule below would happily send
+    // them to Home — leaving them with a live session, a half-finished reset and
+    // no way back to the form. Nothing but the reset screen is reachable until
+    // the new password is set or the session is dropped.
+    if (session.isRecoveringPassword) {
+      return route == AppRoute.resetPassword
+          ? null
+          : AppRoute.resetPassword.path;
+    }
+
     if (!session.isOnboarded) {
       return route.isOnboardingZone ? null : AppRoute.onboarding.path;
     }
@@ -73,7 +88,16 @@ abstract final class RouterGuard {
     // reset-password deep link is the one exception — arriving at it with a live
     // session is exactly how a password change happens.
     if (route.allowsNoSession || route.isOnboardingZone) {
-      return route == AppRoute.resetPassword ? null : AppRoute.home.path;
+      if (route == AppRoute.resetPassword) {
+        return null;
+      }
+
+      // §18: "The user is returned to where they were after re-authenticating.
+      // Never dump them on Home." The destination was preserved on the way in by
+      // [_whenSignedOut]; this is where it is spent. Without this half, the
+      // parameter is written and never read, and a user who followed a link to a
+      // meal lands on Home having lost it.
+      return intendedDestination(location) ?? AppRoute.home.path;
     }
 
     if (route.requiresHousehold && !session.hasHousehold) {

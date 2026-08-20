@@ -111,6 +111,28 @@ abstract final class ErrorMapper {
     StackTrace? stackTrace,
   ) {
     final String message = error.message.toLowerCase();
+
+    // Checked before anything else. A 429 arrives as an AuthException like any
+    // other, and treating it as a credential failure would tell someone their
+    // password was wrong when it was simply too soon to ask again
+    // (docs/USER_FLOWS.md §3).
+    if (error.statusCode == '429' ||
+        message.contains('rate limit') ||
+        message.contains('too many requests')) {
+      final Duration? wait = _retryAfterFrom(error.message);
+
+      return RateLimitException(
+        message: wait == null
+            ? 'Too many attempts. Give it a moment and try again.'
+            : 'Too many attempts. Try again in ${wait.inSeconds} seconds.',
+        detail: error.message,
+        code: error.statusCode,
+        cause: error,
+        stackTrace: stackTrace,
+        retryAfter: wait,
+      );
+    }
+
     final bool isExpired =
         message.contains('expired') ||
         message.contains('jwt') ||
@@ -126,6 +148,22 @@ abstract final class ErrorMapper {
       stackTrace: stackTrace,
       isSessionExpired: isExpired,
     );
+  }
+
+  /// The wait from a rate-limit message, when it states one.
+  ///
+  /// Supabase phrases it as "you can only request this after 21 seconds". The
+  /// *number* is worth surfacing — it turns "try later" into something the user
+  /// can actually wait out — but the sentence is backend text and never shown,
+  /// so only the duration is lifted out of it.
+  static Duration? _retryAfterFrom(String message) {
+    final RegExpMatch? match = RegExp(
+      r'(\d+)\s*second',
+      caseSensitive: false,
+    ).firstMatch(message);
+
+    final int? seconds = int.tryParse(match?.group(1) ?? '');
+    return seconds == null ? null : Duration(seconds: seconds);
   }
 
   static AppException _fromStorage(

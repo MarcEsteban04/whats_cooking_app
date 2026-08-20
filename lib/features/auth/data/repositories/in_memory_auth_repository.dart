@@ -96,8 +96,13 @@ class InMemoryAuthRepository implements AuthRepository {
   ///
   /// Without it every submission resolves within a frame, and a spinner that
   /// never appears is a spinner nobody notices is broken.
-  static Future<void> _simulateLatency() =>
-      Future<void>.delayed(const Duration(milliseconds: 300));
+  ///
+  /// Public so a widget test can advance the fake clock by exactly this much
+  /// rather than guessing — an await on this delay before the clock moves is a
+  /// deadlock, not a slow test.
+  static const Duration latency = Duration(milliseconds: 300);
+
+  static Future<void> _simulateLatency() => Future<void>.delayed(latency);
 
   static String _normalise(String email) => email.trim().toLowerCase();
 

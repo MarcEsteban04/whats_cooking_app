@@ -76,4 +76,24 @@ abstract final class AppConstants {
 
   /// The currency the product is priced in (docs/app_feature.md).
   static const String currencyCode = 'PHP';
+
+  // ---------------------------------------------------------------------------
+  // Deep links (docs/NAVIGATION_MAP.md §5)
+  // ---------------------------------------------------------------------------
+
+  /// The app's custom scheme.
+  static const String deepLinkScheme = 'whatscooking';
+
+  /// The HTTPS host for App Links and Universal Links.
+  static const String deepLinkHost = 'whatscooking.app';
+
+  /// Where a password-reset email sends the user.
+  ///
+  /// The custom scheme rather than the HTTPS host, because App Links and
+  /// Universal Links need verified domain association files served from that
+  /// host — Sprint 69's work. Until then the scheme is the link that actually
+  /// opens the app, and a reset link that opens a web page instead is a reset
+  /// nobody completes.
+  static const String passwordResetRedirect =
+      '$deepLinkScheme://reset-password';
 }

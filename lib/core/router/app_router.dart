@@ -16,6 +16,7 @@ import 'package:whats_cooking/features/auth/presentation/screens/login_screen.da
 import 'package:whats_cooking/features/auth/presentation/screens/register_screen.dart';
 import 'package:whats_cooking/features/auth/presentation/screens/reset_password_screen.dart';
 import 'package:whats_cooking/features/auth/presentation/screens/welcome_screen.dart';
+import 'package:whats_cooking/features/auth/presentation/widgets/sign_out_button.dart';
 
 part 'app_router.g.dart';
 
@@ -315,7 +316,13 @@ final StatefulShellRoute _shellRoute = StatefulShellRoute.indexedStack(
           name: AppRoute.profile.routeName,
           pageBuilder: (BuildContext context, GoRouterState state) =>
               const AppInstantPage<void>(
-                child: PlaceholderScreen(title: 'Profile', sprint: 'Sprint 20'),
+                child: PlaceholderScreen(
+                  title: 'Profile',
+                  sprint: 'Sprint 20',
+                  // Temporary: the only way out of a signed-in app until the
+                  // real Profile screen lands.
+                  action: SignOutButton(),
+                ),
               ),
           routes: <RouteBase>[
             _child(

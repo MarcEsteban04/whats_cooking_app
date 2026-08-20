@@ -8,7 +8,9 @@ import 'package:whats_cooking/core/utils/validators.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_button.dart';
 import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
 import 'package:whats_cooking/core/widgets/inputs/app_text_field.dart';
+import 'package:whats_cooking/features/auth/domain/entities/app_session.dart';
 import 'package:whats_cooking/features/auth/presentation/providers/auth_controller.dart';
+import 'package:whats_cooking/features/auth/presentation/providers/session_provider.dart';
 import 'package:whats_cooking/features/auth/presentation/widgets/auth_scaffold.dart';
 
 /// Sets a new password after following a reset link (docs/USER_FLOWS.md §4).
@@ -19,11 +21,13 @@ import 'package:whats_cooking/features/auth/presentation/widgets/auth_scaffold.d
 class ResetPasswordScreen extends ConsumerStatefulWidget {
   const ResetPasswordScreen({this.token, super.key});
 
-  /// The recovery token from the link.
+  /// The recovery token from the link, when the link carries one.
   ///
-  /// Its absence is a real state, not an error to swallow: without it there is
-  /// nothing to authorise the change, so the screen says so and offers a resend
-  /// rather than presenting a form that cannot work.
+  /// Often it does not. Under PKCE the SDK consumes the code itself and hands
+  /// the app a recovery *session* instead, so a token only appears on the older
+  /// link format. Either authorises the change; neither being present is a real
+  /// state, and the screen says so rather than presenting a form that cannot
+  /// work.
   final String? token;
 
   @override
@@ -58,7 +62,17 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.token == null || widget.token!.isEmpty) {
+    final AppSession session = ref.watch(sessionProvider);
+
+    // Authorised by a token in the link, or by the recovery session the SDK
+    // established from it. Requiring the token alone would show "link expired"
+    // to everyone arriving through the PKCE flow — which is the flow this app
+    // actually uses, so that would be everyone.
+    final bool isAuthorised =
+        (widget.token != null && widget.token!.isNotEmpty) ||
+        session.isRecoveringPassword;
+
+    if (!isAuthorised) {
       return _InvalidLink(
         onRequestAnother: () =>
             context.goNamed(AppRoute.forgotPassword.routeName),
