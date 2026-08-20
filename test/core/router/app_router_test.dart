@@ -11,6 +11,7 @@ import 'package:whats_cooking/features/auth/data/repositories/in_memory_auth_rep
 import 'package:whats_cooking/features/auth/domain/entities/app_session.dart';
 import 'package:whats_cooking/features/auth/presentation/providers/session_provider.dart';
 import 'package:whats_cooking/features/auth/presentation/screens/welcome_screen.dart';
+import 'package:whats_cooking/features/onboarding/presentation/screens/onboarding_screen.dart';
 
 /// Sample values for every path parameter in the route table.
 const Map<String, String> _sampleParameters = <String, String>{
@@ -298,7 +299,7 @@ void main() {
 
       await pumpApp(tester, container);
 
-      expect(find.text('Onboarding'), findsOneWidget);
+      expect(find.byType(OnboardingScreen), findsOneWidget);
 
       container.read(sessionProvider.notifier).completeOnboarding();
       await tester.pumpAndSettle();

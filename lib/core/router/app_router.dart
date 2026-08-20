@@ -17,6 +17,7 @@ import 'package:whats_cooking/features/auth/presentation/screens/register_screen
 import 'package:whats_cooking/features/auth/presentation/screens/reset_password_screen.dart';
 import 'package:whats_cooking/features/auth/presentation/screens/welcome_screen.dart';
 import 'package:whats_cooking/features/auth/presentation/widgets/sign_out_button.dart';
+import 'package:whats_cooking/features/onboarding/presentation/screens/onboarding_screen.dart';
 
 part 'app_router.g.dart';
 
@@ -125,7 +126,7 @@ final List<RouteBase> _onboardingRoutes = <RouteBase>[
     path: AppRoute.onboarding.path,
     name: AppRoute.onboarding.routeName,
     builder: (BuildContext context, GoRouterState state) =>
-        const PlaceholderScreen(title: 'Onboarding', sprint: 'Sprint 18'),
+        const OnboardingScreen(),
     routes: <RouteBase>[
       GoRoute(
         path: _relative(AppRoute.onboardingHousehold, AppRoute.onboarding),
