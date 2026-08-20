@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:whats_cooking/core/constants/app_constants.dart';
-import 'package:whats_cooking/core/domain/food_preferences.dart';
 import 'package:whats_cooking/core/router/app_routes.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/utils/formatters.dart';
@@ -10,6 +9,8 @@ import 'package:whats_cooking/core/widgets/buttons/app_button.dart';
 import 'package:whats_cooking/core/widgets/dashboard/dashboard.dart';
 import 'package:whats_cooking/features/profile/domain/entities/user_profile.dart';
 import 'package:whats_cooking/features/profile/presentation/providers/profile_controller.dart';
+import 'package:whats_cooking/features/roulette/domain/entities/spin_filters.dart';
+import 'package:whats_cooking/features/roulette/presentation/providers/spin_filters_controller.dart';
 
 /// The decision surface (docs/design_ui.md §11, docs/COMPONENTS.md §7).
 ///
@@ -24,10 +25,12 @@ import 'package:whats_cooking/features/profile/presentation/providers/profile_co
 /// and "60 meals available" is not what anybody standing in their kitchen at
 /// seven o'clock wants to read. The question is the figure here.
 ///
-/// The three stat columns are the constraints the spin will actually apply, so
-/// docs/USER_FLOWS.md §6's rule holds — "current budget and party size are
-/// always visible on Home, so the user never wonders what the app is about to
-/// assume" — and each one is tappable straight through to the setting behind it.
+/// **The three stat columns show what the next spin will actually apply**, taken
+/// from the spin filters rather than from the profile. That is what makes
+/// docs/USER_FLOWS.md §6 true — "current budget and party size are always
+/// visible on Home, so the user never wonders what the app is about to assume" —
+/// and it stays true after the sheet has overridden something for one evening,
+/// which reading the profile here would not.
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
@@ -36,7 +39,7 @@ class HomeScreen extends ConsumerWidget {
     final AsyncValue<UserProfile> profile = ref.watch(
       profileControllerProvider,
     );
-    final FoodPreferences? preferences = profile.value?.preferences;
+    final SpinFilters filters = ref.watch(spinFiltersProvider);
 
     return Scaffold(
       backgroundColor: context.colors.background,
@@ -64,7 +67,12 @@ class HomeScreen extends ConsumerWidget {
                   actions: const <Widget>[],
                 ),
                 const SizedBox(height: AppSpacing.space5),
-                _SpinPanel(preferences: preferences),
+                _SpinPanel(
+                  filters: filters,
+                  servings:
+                      profile.value?.preferences.preferredServings ??
+                      AppConstants.defaultPartySize,
+                ),
                 const SizedBox(height: AppSpacing.space4),
                 const _Elsewhere(),
               ],
@@ -89,11 +97,16 @@ class HomeScreen extends ConsumerWidget {
 
 /// The centrepiece: the question, the constraints, and the button.
 class _SpinPanel extends StatelessWidget {
-  const _SpinPanel({required this.preferences});
+  const _SpinPanel({required this.filters, required this.servings});
 
-  /// Null while the profile loads. The panel renders anyway — the button is the
-  /// point, and it works without knowing the budget.
-  final FoodPreferences? preferences;
+  /// What the next spin will narrow by.
+  final SpinFilters filters;
+
+  /// How many the household is cooking for.
+  ///
+  /// A preference rather than a filter: it changes the cost a head the reader is
+  /// comparing against, not which meals are eligible.
+  final int servings;
 
   @override
   Widget build(BuildContext context) {
@@ -114,62 +127,76 @@ class _SpinPanel extends StatelessWidget {
             columns: <StatColumnData>[
               StatColumnData(
                 label: 'Budget',
-                value: preferences?.budget == null
-                    ? '—'
-                    : AppFormat.peso(preferences!.budget!),
+                value: filters.maxCostPerServing == null
+                    ? 'Any'
+                    : AppFormat.peso(filters.maxCostPerServing!),
                 unit: 'a head',
                 color: colors.series1,
-                onTap: () => _openPreferences(context),
+                onTap: () => _openFilters(context),
               ),
               StatColumnData(
                 label: 'Cooking for',
-                value: '${preferences?.preferredServings ?? 2}',
-                unit: 'people',
+                value: '$servings',
+                unit: servings == 1 ? 'person' : 'people',
                 color: colors.series2,
-                onTap: () => _openPreferences(context),
+                onTap: () => _openFilters(context),
               ),
               StatColumnData(
                 label: 'No longer than',
-                value: preferences?.maxCookingTimeMinutes == null
-                    ? 'any'
-                    : '${preferences!.maxCookingTimeMinutes}',
-                unit: preferences?.maxCookingTimeMinutes == null
-                    ? 'time'
-                    : 'min',
+                value: filters.maxCookingTimeMinutes == null
+                    ? 'Any'
+                    : '${filters.maxCookingTimeMinutes}',
+                unit: filters.maxCookingTimeMinutes == null ? 'time' : 'min',
                 color: colors.primary,
-                onTap: () => _openPreferences(context),
+                onTap: () => _openFilters(context),
               ),
             ],
           ),
           const SizedBox(height: AppSpacing.space5),
           const DashboardRule(),
           const SizedBox(height: AppSpacing.space5),
-          // The strongest call to action in the app (docs/COMPONENTS.md §36:
-          // `brand` is for this button and nothing else).
+          // The strongest call to action in the app, and the only thing wearing
+          // the palette's one accent (docs/DESIGN_SYSTEM.md §2.2).
           AppButton.brand(
             label: 'SPIN',
             size: AppButtonSize.large,
             onPressed: () => context.goNamed(AppRoute.roulette.routeName),
           ),
           const SizedBox(height: AppSpacing.space3),
-          Text(
-            AppConstants.tagline,
-            style: context.text.metadata,
-            textAlign: TextAlign.center,
+          // Says what *else* is narrowing the spin. The three columns above
+          // cannot show a cuisine or a meal type, and a reader who set one
+          // yesterday should not have to open the sheet to find out it is still
+          // on — that is the surprise §6 exists to prevent.
+          Center(
+            child: AppButton.tertiary(
+              label: _filterLabel,
+              size: AppButtonSize.small,
+              leadingIcon: AppIcons.filter,
+              onPressed: () => _openFilters(context),
+            ),
           ),
         ],
       ),
     );
   }
 
-  /// Where the numbers on this panel actually live.
+  String get _filterLabel {
+    final int chosen = filters.chosenCount;
+    if (chosen == 0) {
+      return 'Narrow it down';
+    }
+    return '$chosen ${chosen == 1 ? 'filter' : 'filters'} on';
+  }
+
+  /// The sheet that owns these numbers for one spin (docs/COMPONENTS.md §7:
+  /// "budget and party-size pills are tappable and open the filter sheet
+  /// directly — the fastest possible path to adjusting a constraint").
   ///
-  /// Sprint 30 repoints these at the roulette's filter sheet, which is a
-  /// per-spin override of the same values (docs/COMPONENTS.md §7). Until that
-  /// sheet exists, sending someone to the setting they are looking at beats
-  /// sending them to a screen that says "Sprint 30".
-  void _openPreferences(BuildContext context) {
-    context.goNamed(AppRoute.preferences.routeName);
+  /// The sheet rather than the profile, now that there is one. Somebody tapping
+  /// a budget at seven in the evening wants it changed for *tonight*; sending
+  /// them to a setting would change it for every night.
+  void _openFilters(BuildContext context) {
+    context.pushNamed(AppRoute.rouletteFilters.routeName);
   }
 }
 

@@ -10,6 +10,7 @@ import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_button.dart';
 import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal.dart';
+import 'package:whats_cooking/features/roulette/domain/entities/spin_filters.dart';
 import 'package:whats_cooking/features/roulette/presentation/providers/spin_controller.dart';
 import 'package:whats_cooking/features/roulette/presentation/widgets/meal_reel.dart';
 
@@ -345,13 +346,21 @@ class _Spinning extends StatelessWidget {
   }
 }
 
-/// Nothing to offer — a designed screen, not an error.
+/// Nothing to offer — a designed screen, not an error (docs/USER_FLOWS.md §7).
 ///
-/// docs/USER_FLOWS.md §7 requires it to name the blocking constraint and offer
-/// the one thing that would open it up. With no filters yet, the constraint is
-/// either the session's own history or the reader's hidden meals, and those want
-/// different sentences: one is "you have seen everything", the other is "you
-/// have hidden everything".
+/// Three different failures, three different sentences, because they have three
+/// different fixes and a generic "no results" leaves the reader to guess which
+/// one they are looking at:
+///
+/// * **Filtered out** — plenty of meals exist, none match. The screen quotes the
+///   blocking constraint by name and offers to drop the one filter that opens the
+///   most options, with the number it would open. That number is real: it was
+///   counted over the eligible pool before this was built.
+/// * **Exhausted** — every eligible meal has already been turned down this
+///   session. Starting again is the fix and nothing needs relaxing.
+/// * **Everything hidden** — the reader hid it all. The hidden list is the fix.
+///
+/// It never offers to relax a dietary need, at any point, for any reason.
 class _NoMatch extends ConsumerWidget {
   const _NoMatch({required this.state});
 
@@ -359,53 +368,111 @@ class _NoMatch extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final bool exhausted = state.isSessionExhausted;
-
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         Text(
-          exhausted ? 'That is everything' : 'Nothing to offer',
+          _title,
           style: context.text.headlineMedium,
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: AppSpacing.space3),
         Text(
-          exhausted
-              ? 'You have turned down all '
-                    '${state.seenThisSession} of them this time round. '
-                    'Start again and they are all back in.'
-              : state.hiddenCount > 0
-              ? 'Every meal we have is one you hid. '
-                    'Bring one back and we can offer it.'
-              : 'The catalogue is empty, which is our problem rather than '
-                    'yours.',
+          _body,
           style: context.text.bodyMedium,
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: AppSpacing.space6),
-        if (exhausted)
-          AppButton.primary(
-            label: 'Start again',
-            onPressed: () =>
-                ref.read(spinControllerProvider.notifier).startOver(),
-          )
-        else if (state.hiddenCount > 0)
-          AppButton.primary(
-            label: 'Hidden meals',
-            onPressed: () =>
-                context.pushNamed(AppRoute.dislikedMeals.routeName),
-          ),
-        const SizedBox(height: AppSpacing.space3),
-        AppButton.tertiary(
-          label: 'Back',
-          onPressed: () {
-            ref.read(spinControllerProvider.notifier).reset();
-            context.goNamed(AppRoute.home.routeName);
-          },
-        ),
+        ..._actions(context, ref),
       ],
     );
+  }
+
+  String get _title {
+    if (state.isFilteredOut) {
+      // The reader's own words back at them, not "no results found". They set a
+      // budget and a time limit; the headline should sound like it knows that.
+      return 'Nothing fits';
+    }
+    if (state.isSessionExhausted) {
+      return 'That is everything';
+    }
+    return 'Nothing to offer';
+  }
+
+  String get _body {
+    if (state.blockingSentence case final String sentence) {
+      return sentence;
+    }
+    if (state.isSessionExhausted) {
+      return 'You have turned down all ${state.seenThisSession} of them this '
+          'time round. Start again and they are all back in.';
+    }
+    if (state.hiddenCount > 0) {
+      return 'Every meal we have is one you hid. Bring one back and we can '
+          'offer it.';
+    }
+    return 'The catalogue is empty, which is our problem rather than yours.';
+  }
+
+  List<Widget> _actions(BuildContext context, WidgetRef ref) {
+    return <Widget>[
+      // The one-tap relaxation §7 asks for. Named and quantified, because
+      // "loosen a filter" is a request to trust the app and "37 meals" is a
+      // reason to.
+      if (state.mostRelaxable case final SpinConstraint constraint)
+        AppButton.primary(
+          // The constraint's own name rather than its current value: "Drop the
+          // budget" is an instruction, and "Drop under ₱150 a head" is a
+          // fragment somebody has to re-read.
+          label: 'Drop ${constraint.label}',
+          onPressed: () => ref
+              .read(spinControllerProvider.notifier)
+              .relaxAndSpin(constraint),
+        )
+      else if (state.isSessionExhausted)
+        AppButton.primary(
+          label: 'Start again',
+          onPressed: () =>
+              ref.read(spinControllerProvider.notifier).startOver(),
+        )
+      else if (state.hiddenCount > 0)
+        AppButton.primary(
+          label: 'Hidden meals',
+          onPressed: () => context.pushNamed(AppRoute.dislikedMeals.routeName),
+        ),
+
+      if (state.mostRelaxable != null) ...<Widget>[
+        const SizedBox(height: AppSpacing.space2),
+        Text(
+          '${state.wouldOpen} ${state.wouldOpen == 1 ? 'meal' : 'meals'} '
+          'would come back.',
+          style: context.text.metadata,
+          textAlign: TextAlign.center,
+        ),
+      ],
+
+      const SizedBox(height: AppSpacing.space3),
+
+      // Always offered when anything is filtering, because the app's suggestion
+      // is a guess about which filter the reader minds least — and they know.
+      if (state.filters.hasChosen)
+        AppButton.secondary(
+          label: 'Change the filters',
+          onPressed: () =>
+              context.pushNamed(AppRoute.rouletteFilters.routeName),
+        ),
+
+      const SizedBox(height: AppSpacing.space2),
+      AppButton.tertiary(
+        label: 'Back',
+        size: AppButtonSize.small,
+        onPressed: () {
+          ref.read(spinControllerProvider.notifier).reset();
+          context.goNamed(AppRoute.home.routeName);
+        },
+      ),
+    ];
   }
 }

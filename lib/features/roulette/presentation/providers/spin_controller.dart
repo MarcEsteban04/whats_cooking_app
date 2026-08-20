@@ -9,6 +9,8 @@ import 'package:whats_cooking/features/meals/domain/entities/meal_query.dart';
 import 'package:whats_cooking/features/meals/domain/repositories/meal_repository.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/dislikes_controller.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/meal_repository_provider.dart';
+import 'package:whats_cooking/features/roulette/domain/entities/spin_filters.dart';
+import 'package:whats_cooking/features/roulette/presentation/providers/spin_filters_controller.dart';
 
 part 'spin_controller.g.dart';
 
@@ -53,21 +55,76 @@ class SpinSettled extends SpinState {
 /// Nothing could be offered, and this says which of the two reasons it was.
 ///
 /// docs/USER_FLOWS.md §7: "The no-match state is a designed screen, not an
-/// error. It names the specific blocking constraint." With no filters yet
-/// (Sprint 30) there are exactly two ways to get here, and they want different
-/// words — one is a compliment about how much you have browsed, the other is a
-/// consequence of hiding food.
+/// error. It names the specific blocking constraint — *'Nothing under ₱150 that
+/// also takes under 20 minutes'* — and offers the single filter whose relaxation
+/// opens the most options. It is never an empty grey screen."
+///
+/// Everything that sentence needs is computed before this is constructed, which
+/// is why the type is this wide. The screen renders the answer; it does not go
+/// looking for it.
 class SpinNoMatch extends SpinState {
-  const SpinNoMatch({required this.seenThisSession, required this.hiddenCount});
+  const SpinNoMatch({
+    required this.filters,
+    required this.blocking,
+    required this.seenThisSession,
+    required this.hiddenCount,
+    required this.eligibleCount,
+    this.mostRelaxable,
+    this.wouldOpen = 0,
+  });
+
+  /// What was applied when nothing came back.
+  final SpinFilters filters;
+
+  /// The active constraints, worst first — the one costing the most meals leads,
+  /// because that is the one the sentence should name first.
+  final List<SpinConstraint> blocking;
 
   /// How many this session has already offered.
   final int seenThisSession;
 
-  /// How many meals the user has hidden.
+  /// How many meals the reader has hidden.
   final int hiddenCount;
 
-  /// Whether the session's own exclusions are what emptied the pool.
-  bool get isSessionExhausted => seenThisSession > 0;
+  /// How many meals were eligible before the reader's filters were applied.
+  ///
+  /// The number that tells the two failures apart: nothing eligible at all is a
+  /// hiding or exhaustion problem, and plenty eligible with nothing matching is a
+  /// filter problem.
+  final int eligibleCount;
+
+  /// The one filter to offer dropping, or null when no single drop helps.
+  ///
+  /// Never [SpinConstraint.dietary]. The app does not offer to relax that, ever
+  /// (docs/PRD.md principle 3).
+  final SpinConstraint? mostRelaxable;
+
+  /// How many meals dropping [mostRelaxable] would offer.
+  final int wouldOpen;
+
+  /// Whether the reader's own filters are what emptied the pool.
+  bool get isFilteredOut => eligibleCount > 0 && blocking.isNotEmpty;
+
+  /// Whether the session's own exclusions are what emptied it.
+  bool get isSessionExhausted => eligibleCount == 0 && seenThisSession > 0;
+
+  /// The specific sentence §7 asks for, or null when there is no filter to blame.
+  ///
+  /// Built from the two worst offenders rather than all of them: "nothing under
+  /// ₱150 that also takes under 20 minutes" is a sentence somebody reads, and the
+  /// five-clause version is one they skip.
+  String? get blockingSentence {
+    if (!isFilteredOut) {
+      return null;
+    }
+
+    final String first = filters.describe(blocking.first);
+    if (blocking.length == 1) {
+      return 'Nothing $first.';
+    }
+    return 'Nothing $first that is also '
+        '${filters.describe(blocking[1])}.';
+  }
 }
 
 /// The pool could not be read.
@@ -79,12 +136,18 @@ class SpinFailed extends SpinState {
 
 /// Drives the roulette (docs/USER_FLOWS.md §7 — *this is the product*).
 ///
-/// **Selection here is deliberately naive.** It is a uniform pick from
-/// everything eligible: no scoring, no weighting, no recency penalty. Those are
-/// Sprints 29 and 30, and pretending otherwise now would mean a scoring model
-/// tuned against a candidate pool that does not exist yet. What *is* already
-/// honoured is the part that is not negotiable — hidden meals never appear, and
-/// no meal is offered twice in one session.
+/// **Selection is still a uniform pick.** No scoring, no weighting, no recency
+/// penalty — those are Sprint 34's, and tuning a model against a candidate pool
+/// that has just changed shape would be work thrown away. What is honoured is
+/// everything that is not negotiable: hidden meals never appear, no meal is
+/// offered twice in a session, and the reader's filters are hard.
+///
+/// **Two layers of narrowing, and they are different in kind.** The dislikes and
+/// the session's own exclusions go into the query, because those are promises
+/// rather than choices and must not depend on client code running correctly. The
+/// reader's filters are applied here, over the whole eligible pool, because that
+/// is what makes the no-match state able to say *which* filter is costing them
+/// dinner — see [SpinFilters] for the trade in full.
 ///
 /// `keepAlive`, because [_seenThisSession] is the session. Losing it when the
 /// spin screen closes would let Try Again offer the same meal again, which
@@ -135,21 +198,83 @@ class SpinController extends _$SpinController {
           .read(mealRepositoryProvider)
           .search(query: query, limit: kSpinPoolSize);
 
-      if (page.meals.isEmpty) {
-        state = SpinNoMatch(
-          seenThisSession: _seenThisSession.length,
+      final SpinFilters filters = ref.read(spinFiltersProvider);
+      final List<Meal> eligible = page.meals;
+      final List<Meal> candidates = eligible
+          .where(filters.allows)
+          .toList(growable: false);
+
+      if (candidates.isEmpty) {
+        state = _noMatch(
+          filters: filters,
+          eligible: eligible,
           hiddenCount: hidden.length,
         );
         return;
       }
 
-      final Meal pick = page.meals[_random.nextInt(page.meals.length)];
+      final Meal pick = candidates[_random.nextInt(candidates.length)];
       _seenThisSession.add(pick.id);
 
-      state = SpinSettled(meal: pick, pool: page.meals);
+      state = SpinSettled(meal: pick, pool: candidates);
     } on Object catch (error, stackTrace) {
       state = SpinFailed(ErrorMapper.map(error, stackTrace));
     }
+  }
+
+  /// Works out what to say when nothing matched.
+  ///
+  /// docs/USER_FLOWS.md §7 asks for two things — name the blocking constraint,
+  /// and offer the single filter whose relaxation opens the most options — and
+  /// both are answered here by counting rather than guessing. For each active
+  /// filter, how many of the eligible meals would come back if *that one* were
+  /// dropped. The largest wins, and it is a real number the screen can quote.
+  ///
+  /// This is the reason the filters are applied client-side at all: on the server
+  /// each of those questions is another round trip, and there are up to five of
+  /// them at the exact moment the reader is already waiting.
+  SpinNoMatch _noMatch({
+    required SpinFilters filters,
+    required List<Meal> eligible,
+    required int hiddenCount,
+  }) {
+    // Sorted by what each one costs, so the sentence leads with the filter doing
+    // the most damage rather than whichever happens to be declared first.
+    final Map<SpinConstraint, int> opens = <SpinConstraint, int>{
+      for (final SpinConstraint constraint in filters.active)
+        if (constraint.isRelaxable)
+          constraint: eligible.where(filters.without(constraint).allows).length,
+    };
+
+    final List<SpinConstraint> blocking = filters.active.toList()
+      ..sort(
+        (SpinConstraint a, SpinConstraint b) =>
+            (opens[b] ?? -1).compareTo(opens[a] ?? -1),
+      );
+
+    SpinConstraint? best;
+    int bestCount = 0;
+    for (final (SpinConstraint constraint, int count) in opens.entries.map(
+      (MapEntry<SpinConstraint, int> e) => (e.key, e.value),
+    )) {
+      if (count > bestCount) {
+        best = constraint;
+        bestCount = count;
+      }
+    }
+
+    return SpinNoMatch(
+      filters: filters,
+      blocking: blocking,
+      seenThisSession: _seenThisSession.length,
+      hiddenCount: hiddenCount,
+      eligibleCount: eligible.length,
+      // Only offered when dropping it actually helps. "Relax the budget" that
+      // opens nothing is worse than no suggestion: it spends the reader's tap
+      // and returns them to the same screen.
+      mostRelaxable: bestCount > 0 ? best : null,
+      wouldOpen: bestCount,
+    );
   }
 
   /// Ends the session: this is what we are eating.
@@ -170,6 +295,18 @@ class SpinController extends _$SpinController {
   /// already seen it today.
   Future<void> startOver() {
     _seenThisSession.clear();
+    return spin();
+  }
+
+  /// Drops one filter and spins again — the no-match state's one tap out.
+  ///
+  /// Goes through the filters controller rather than spinning with a local copy,
+  /// because the relaxation has to *stick*: a reader who accepts "drop the time
+  /// limit" and then taps Try Again should not have it silently reimposed.
+  Future<void> relaxAndSpin(SpinConstraint constraint) {
+    ref
+        .read(spinFiltersControllerProvider.notifier)
+        .replace(ref.read(spinFiltersProvider).without(constraint));
     return spin();
   }
 

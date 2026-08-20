@@ -30,6 +30,7 @@ import 'package:whats_cooking/features/profile/presentation/screens/appearance_s
 import 'package:whats_cooking/features/profile/presentation/screens/budget_settings_screen.dart';
 import 'package:whats_cooking/features/profile/presentation/screens/preferences_screen.dart';
 import 'package:whats_cooking/features/profile/presentation/screens/profile_screen.dart';
+import 'package:whats_cooking/features/roulette/presentation/screens/spin_filters_sheet.dart';
 import 'package:whats_cooking/features/roulette/presentation/screens/spin_result_screen.dart';
 import 'package:whats_cooking/features/roulette/presentation/screens/spin_screen.dart';
 
@@ -184,12 +185,7 @@ final StatefulShellRoute _shellRoute = StatefulShellRoute.indexedStack(
               path: _relative(AppRoute.rouletteFilters, AppRoute.home),
               name: AppRoute.rouletteFilters.routeName,
               pageBuilder: (BuildContext context, GoRouterState state) =>
-                  const AppSheetPage<void>(
-                    child: PlaceholderScreen(
-                      title: 'Roulette filters',
-                      sprint: 'Sprint 30',
-                    ),
-                  ),
+                  const AppSheetPage<void>(child: SpinFiltersSheet()),
             ),
           ],
         ),

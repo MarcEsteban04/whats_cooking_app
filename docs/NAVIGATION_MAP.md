@@ -74,7 +74,7 @@ the user between partially-saved steps.
 | Path | Name | Auth | Notes |
 | ---- | ---- | ---- | ----- |
 | `/home` | `home` | AO | Default tab |
-| `/home/filters` | `rouletteFilters` | AO | Bottom sheet |
+| `/home/filters` | `rouletteFilters` | AO | Bottom sheet. Budget, time, meal type, cuisine and effort; dietary needs shown but locked |
 | `/home/spin` | `roulette` | AO | Full-screen, no bottom nav |
 | `/home/result/:mealId` | `rouletteResult` | AO | Full-screen |
 | `/home/decided/:historyId` | `decided` | AO | Post-acceptance celebration |
