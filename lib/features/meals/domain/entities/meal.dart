@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:whats_cooking/core/domain/food_taxonomy.dart';
 import 'package:whats_cooking/core/utils/formatters.dart';
+import 'package:whats_cooking/features/meals/domain/entities/meal_ingredient.dart';
 
 /// A meal from the catalogue, or one a household wrote itself.
 ///
@@ -34,6 +35,7 @@ class Meal {
     this.dietaryTags = const <DietaryTag>{},
     this.tags = const <String>[],
     this.isPublic = true,
+    this.ingredients = const <MealIngredient>[],
   });
 
   /// Decodes one PostgREST row.
@@ -70,6 +72,17 @@ class Meal {
       // Defaults to public so a query that did not select the column cannot
       // label the whole catalogue as household-written.
       isPublic: row['is_public'] as bool? ?? true,
+      // Present only when the query asked for the join. The feed does not —
+      // twenty meals x six ingredients is a payload nothing on that screen
+      // renders — so an empty list here means "not loaded" as often as it
+      // means "none", and only the detail screen may assume otherwise.
+      ingredients: <MealIngredient>[
+        for (final Object? entry
+            in (row['meal_ingredients'] as List<Object?>? ?? const <Object?>[]))
+          if (entry is Map<String, dynamic>)
+            if (MealIngredient.fromRow(entry) case final MealIngredient item)
+              if (item.isNamed) item,
+      ],
     );
   }
 
@@ -97,6 +110,12 @@ class Meal {
 
   /// Whether this is a catalogue meal rather than one a household wrote.
   final bool isPublic;
+
+  /// What it is made of, when the query asked for it.
+  ///
+  /// Empty on a feed row, because the feed does not join the link table. The
+  /// detail screen fetches by id and gets them.
+  final List<MealIngredient> ingredients;
 
   /// Whether this meal belongs to the reader's household.
   ///
@@ -136,7 +155,8 @@ class Meal {
         other.isPublic == isPublic &&
         listEquals(other.instructions, instructions) &&
         setEquals(other.dietaryTags, dietaryTags) &&
-        listEquals(other.tags, tags);
+        listEquals(other.tags, tags) &&
+        listEquals(other.ingredients, ingredients);
   }
 
   @override
@@ -155,6 +175,7 @@ class Meal {
     Object.hashAll(instructions),
     Object.hashAllUnordered(dietaryTags),
     Object.hashAll(tags),
+    Object.hashAll(ingredients),
   );
 
   @override

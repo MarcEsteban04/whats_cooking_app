@@ -17,6 +17,7 @@ import 'package:whats_cooking/features/auth/presentation/screens/register_screen
 import 'package:whats_cooking/features/auth/presentation/screens/reset_password_screen.dart';
 import 'package:whats_cooking/features/auth/presentation/screens/welcome_screen.dart';
 import 'package:whats_cooking/features/meals/presentation/screens/create_meal_screen.dart';
+import 'package:whats_cooking/features/meals/presentation/screens/meal_detail_screen.dart';
 import 'package:whats_cooking/features/meals/presentation/screens/meals_screen.dart';
 import 'package:whats_cooking/features/onboarding/presentation/screens/onboarding_screen.dart';
 import 'package:whats_cooking/features/profile/presentation/screens/account_settings_screen.dart';
@@ -231,11 +232,7 @@ final StatefulShellRoute _shellRoute = StatefulShellRoute.indexedStack(
               path: _relative(AppRoute.mealDetail, AppRoute.meals),
               name: AppRoute.mealDetail.routeName,
               builder: (BuildContext context, GoRouterState state) =>
-                  PlaceholderScreen(
-                    title: 'Meal detail',
-                    sprint: 'Sprint 23',
-                    detail: state.pathParameters['id'],
-                  ),
+                  MealDetailScreen(mealId: state.pathParameters['id']!),
               routes: <RouteBase>[
                 GoRoute(
                   path: _relative(AppRoute.mealEdit, AppRoute.mealDetail),

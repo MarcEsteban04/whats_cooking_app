@@ -2,6 +2,7 @@ import 'package:whats_cooking/core/domain/food_taxonomy.dart';
 import 'package:whats_cooking/core/errors/app_exception.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal_draft.dart';
+import 'package:whats_cooking/features/meals/domain/entities/meal_ingredient.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal_query.dart';
 import 'package:whats_cooking/features/meals/domain/repositories/meal_repository.dart';
 
@@ -119,6 +120,23 @@ class InMemoryMealRepository implements MealRepository {
     return meal;
   }
 
+  @override
+  Future<Meal> byId(String id) async {
+    await Future<void>.delayed(latency);
+
+    if (failReads) {
+      throw const ServerException();
+    }
+
+    for (final Meal meal in _meals) {
+      if (meal.id == id) {
+        return meal;
+      }
+    }
+
+    throw const NotFoundException(message: 'We could not find that meal');
+  }
+
   /// The same order the database produces.
   ///
   /// The id tiebreaker is not decoration. `List.sort` is not stable in Dart, so
@@ -163,6 +181,23 @@ class InMemoryMealRepository implements MealRepository {
         'Add the marinade and vinegar. Do not stir until it boils.',
         'Simmer covered, then reduce until the sauce coats.',
       ],
+      ingredients: <MealIngredient>[
+        MealIngredient(name: 'chicken thigh', quantity: 800, unit: 'g'),
+        MealIngredient(
+          name: 'soy sauce',
+          quantity: 120,
+          unit: 'ml',
+          isStaple: true,
+        ),
+        MealIngredient(
+          name: 'vinegar',
+          quantity: 80,
+          unit: 'ml',
+          isStaple: true,
+        ),
+        MealIngredient(name: 'garlic', quantity: 6, unit: 'pc', isStaple: true),
+        MealIngredient(name: 'bay leaf', quantity: 3, unit: 'pc'),
+      ],
       tags: <String>['comfort', 'make_ahead', 'one_pot'],
     ),
     const Meal(
@@ -204,6 +239,16 @@ class InMemoryMealRepository implements MealRepository {
         'Dip in beaten egg and fry until set on both sides.',
       ],
       dietaryTags: <DietaryTag>{DietaryTag.vegetarian},
+      ingredients: <MealIngredient>[
+        MealIngredient(name: 'eggplant', quantity: 2, unit: 'pc'),
+        MealIngredient(name: 'egg', quantity: 3, unit: 'pc'),
+        MealIngredient(
+          name: 'tomato',
+          quantity: 1,
+          unit: 'pc',
+          isOptional: true,
+        ),
+      ],
       tags: <String>['budget', 'meatless', 'quick'],
     ),
     const Meal(
@@ -246,6 +291,11 @@ class InMemoryMealRepository implements MealRepository {
         'Fry until the sugar caramelises dark gold.',
       ],
       dietaryTags: <DietaryTag>{DietaryTag.vegetarian},
+      ingredients: <MealIngredient>[
+        MealIngredient(name: 'banana', quantity: 4, unit: 'pc'),
+        MealIngredient(name: 'lumpia wrapper', quantity: 8, unit: 'pc'),
+        MealIngredient(name: 'brown sugar', quantity: 100, unit: 'g'),
+      ],
       tags: <String>['street_food', 'fried', 'quick'],
     ),
     const Meal(
@@ -325,6 +375,12 @@ class InMemoryMealRepository implements MealRepository {
         'Toss the sliced beef with corn starch and soy sauce.',
         'Blanch the broccoli for ninety seconds and drain it well.',
         'Sear the beef in a smoking pan, then bring everything together.',
+      ],
+      ingredients: <MealIngredient>[
+        MealIngredient(name: 'beef sirloin', quantity: 450, unit: 'g'),
+        MealIngredient(name: 'broccoli', quantity: 400, unit: 'g'),
+        MealIngredient(name: 'oyster sauce', quantity: 60, unit: 'ml'),
+        MealIngredient(name: 'corn starch', quantity: 20, unit: 'g'),
       ],
       tags: <String>['quick', 'stir_fry', 'high_protein'],
     ),

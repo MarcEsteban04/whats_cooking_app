@@ -155,6 +155,32 @@ class SupabaseMealRepository implements MealRepository {
     );
   }
 
+  @override
+  Future<Meal> byId(String id) {
+    return RemoteCall.guard(
+      () async {
+        // `maybeSingle` rather than `single`: Row Level Security makes a meal
+        // this household may not see indistinguishable from one that does not
+        // exist — both come back as no rows — and that is the right behaviour.
+        // `single` would raise a PostgREST error where a not-found is what the
+        // screen wants to show.
+        final Map<String, dynamic>? row = await _client
+            .from(_table)
+            .select(_detailColumns)
+            .eq('id', id)
+            .maybeSingle();
+
+        if (row == null) {
+          throw const NotFoundException(message: 'We could not find that meal');
+        }
+
+        return Meal.fromRow(row);
+      },
+      label: 'meals.byId',
+      timeout: AppConstants.requestTimeout,
+    );
+  }
+
   /// Resolves each ingredient name to a row, adding any that are new, then links
   /// them to the meal.
   ///
@@ -277,4 +303,18 @@ class SupabaseMealRepository implements MealRepository {
       'id, name, description, cuisine, category, difficulty, '
       'cooking_time_minutes, estimated_cost, servings, calories, '
       'instructions, dietary_tags, tags, is_public';
+
+  /// The feed columns plus the ingredient join.
+  ///
+  /// Two hops: PostgREST nests a joined table under its own name, and the second
+  /// reaches through the link table into the shared vocabulary — which is why an
+  /// ingredient's name arrives at `meal_ingredients[].ingredients.name` rather
+  /// than flat.
+  ///
+  /// Paid for here and nowhere else. On the feed it would be twenty rows times
+  /// six ingredients that no card renders.
+  static const String _detailColumns =
+      '$_columns, '
+      'meal_ingredients(quantity, unit, is_optional, '
+      'ingredients(name, is_staple))';
 }

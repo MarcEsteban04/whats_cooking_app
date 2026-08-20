@@ -39,6 +39,20 @@ abstract final class AppFormat {
   static String people(int count) => count == 1 ? '1 person' : '$count people';
 
   /// `85%`.
+  /// Capitalises the first letter and leaves the rest alone.
+  ///
+  /// For the shared ingredient vocabulary, which is stored lower-case by a
+  /// database check constraint. Only the first letter: "chicken thigh" should
+  /// read as "Chicken thigh", not as "Chicken Thigh" — it is one ingredient,
+  /// not a title.
+  static String sentenceCase(String value) {
+    final String trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      return trimmed;
+    }
+    return trimmed[0].toUpperCase() + trimmed.substring(1);
+  }
+
   static String percent(double fraction) => '${(fraction * 100).round()}%';
 
   /// Joins metadata with the interpunct separator the design uses throughout:

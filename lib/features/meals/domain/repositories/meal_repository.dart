@@ -52,6 +52,15 @@ abstract interface class MealRepository {
   /// no way to write into the public catalogue from the app. Whether a custom
   /// meal can ever be promoted into it is still open (docs/DATABASE.md §9 Q8).
   Future<Meal> create(MealDraft draft);
+
+  /// One meal, with its ingredients.
+  ///
+  /// Separate from [search] because the join is only worth paying for here:
+  /// twenty feed rows times six ingredients is a payload the feed renders none
+  /// of. Throws a not-found failure when the id matches nothing the caller may
+  /// see — which covers both a deleted meal and another household's private
+  /// one, deliberately, since telling those apart would leak the difference.
+  Future<Meal> byId(String id);
 }
 
 /// The page size for the feed.

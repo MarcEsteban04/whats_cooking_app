@@ -680,6 +680,9 @@ class _SmallPageRepository implements MealRepository {
 
   @override
   Future<Meal> create(MealDraft draft) => _inner.create(draft);
+
+  @override
+  Future<Meal> byId(String id) => _inner.byId(id);
 }
 
 /// A repository whose reads can be held open, for observing the reloading state.
@@ -706,4 +709,7 @@ class _SlowRepository implements MealRepository {
 
   @override
   Future<Meal> create(MealDraft draft) => _inner.create(draft);
+
+  @override
+  Future<Meal> byId(String id) => _inner.byId(id);
 }
