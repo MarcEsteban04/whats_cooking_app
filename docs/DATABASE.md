@@ -67,7 +67,7 @@ erDiagram
 
 ```sql
 create type meal_category  as enum ('breakfast','lunch','dinner','snack','dessert');
-create type meal_type      as enum ('breakfast','lunch','dinner','snack');
+create type meal_type      as enum ('breakfast','lunch','dinner','snack','dessert');
 create type difficulty     as enum ('easy','medium','hard');
 create type household_role as enum ('owner','member');
 create type invite_status  as enum ('pending','accepted','expired','revoked');
@@ -77,6 +77,8 @@ create type dietary_tag    as enum (
   'gluten_free','dairy_free','nut_free','low_carb','keto'
 );
 ```
+
+`meal_type` gained `dessert` in migration 0018: the catalogue has desserts and the roulette can offer one, so recording what was eaten had nowhere honest to put it. It also gives the planner a fifth slot in a day.
 
 Cuisine is **`text` with a check constraint**, not an enum — the catalogue will gain cuisines
 over time, and altering an enum in production is far more disruptive than editing a
@@ -228,6 +230,7 @@ Private to the user. Created by trigger on signup.
 | `default_budget` | `numeric(10,2)` | |
 | `max_cooking_time` | `smallint` | Minutes |
 | `preferred_servings` | `smallint` not null default 2 | |
+| `repetition_window_days` | `smallint` 0–60 | Days before a meal may be offered again. Null = app default; **0 = the household does not mind repeats** (0019) |
 | `created_at` / `updated_at` | `timestamptz` | |
 
 ### 4.9 `favorite_meals` and `disliked_meals`

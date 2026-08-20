@@ -148,6 +148,19 @@ class _ResultState extends ConsumerState<_Result> {
     }
   }
 
+  /// Why the engine chose this, when it has something to say (Sprint 32).
+  ///
+  /// Matched on the meal id, so a stale state from a previous spin cannot put
+  /// last spin's reason under this spin's meal.
+  String? get _reason {
+    if (ref.watch(spinControllerProvider)
+        case SpinSettled(:final Meal meal, :final String? reason)
+        when meal.id == widget.meal.id) {
+      return reason;
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final Meal meal = widget.meal;
@@ -163,6 +176,18 @@ class _ResultState extends ConsumerState<_Result> {
         ),
         const SizedBox(height: AppSpacing.space4),
         _PickCard(meal: meal, isDecided: false),
+        // design_ui §13's context line — its own example is "⭐ Loved by both of
+        // you". This is the Sprint 32 version, and it is here because a weighted
+        // engine that cannot say *why* it chose something is indistinguishable
+        // from a random one, which throws away the whole point of the weighting.
+        if (_reason case final String reason) ...<Widget>[
+          const SizedBox(height: AppSpacing.space3),
+          Text(
+            reason,
+            style: context.text.metadata,
+            textAlign: TextAlign.center,
+          ),
+        ],
         if (_failure case final AppException problem) ...<Widget>[
           const SizedBox(height: AppSpacing.space4),
           // Inline rather than a snackbar. The tap failed and the meal is still

@@ -106,6 +106,20 @@ class _PreferencesScreenState extends ConsumerState<PreferencesScreen> {
               () => _edited = preferences.copyWith(dietaryTags: tags),
             ),
           ),
+          const SectionHeader(
+            title: 'Repeating a meal',
+            subtitle: 'How long before we can offer it again.',
+          ),
+          RepetitionWindowPicker(
+            days: preferences.repetitionWindowDays,
+            onChanged: (int? days) => setState(
+              () => _edited = days == null
+                  // Back to the default, which is not the same as zero — so it
+                  // has to clear rather than assign.
+                  ? preferences.copyWith(clearRepetitionWindow: true)
+                  : preferences.copyWith(repetitionWindowDays: days),
+            ),
+          ),
         ],
       ),
     );

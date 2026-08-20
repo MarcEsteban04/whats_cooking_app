@@ -2,14 +2,19 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:whats_cooking/core/domain/food_taxonomy.dart';
 import 'package:whats_cooking/core/errors/app_exception.dart';
 import 'package:whats_cooking/core/errors/error_mapper.dart';
+import 'package:whats_cooking/features/history/domain/entities/meal_history_entry.dart';
+import 'package:whats_cooking/features/history/presentation/providers/meal_history_controller.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal_query.dart';
 import 'package:whats_cooking/features/meals/domain/repositories/meal_repository.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/dislikes_controller.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/meal_repository_provider.dart';
+import 'package:whats_cooking/features/profile/presentation/providers/profile_controller.dart';
 import 'package:whats_cooking/features/roulette/domain/entities/spin_filters.dart';
+import 'package:whats_cooking/features/roulette/domain/usecases/repetition_rule.dart';
 import 'package:whats_cooking/features/roulette/presentation/providers/spin_filters_controller.dart';
 
 part 'spin_controller.g.dart';
@@ -40,7 +45,7 @@ class SpinRunning extends SpinState {
 
 /// A meal was chosen.
 class SpinSettled extends SpinState {
-  const SpinSettled({required this.meal, required this.pool});
+  const SpinSettled({required this.meal, required this.pool, this.reason});
 
   final Meal meal;
 
@@ -50,6 +55,18 @@ class SpinSettled extends SpinState {
   /// this is the pool it was drawn from — so what flashes past is food the user
   /// could actually have got.
   final List<Meal> pool;
+
+  /// Why this one, in a phrase, or null when there is nothing worth saying.
+  ///
+  /// design_ui §13 leaves room for a context line on the result — its own
+  /// example is *"⭐ Loved by both of you"*. This is the Sprint 32 version:
+  /// *"Not had this in a while"*. It exists because a weighted engine that
+  /// cannot say why it chose something is indistinguishable from a random one,
+  /// and the whole point of the weighting is that people notice it.
+  ///
+  /// Only ever a *positive* reason. "We picked this despite you eating it on
+  /// Tuesday" is true and is not what a result screen is for.
+  final String? reason;
 }
 
 /// Nothing could be offered, and this says which of the two reasons it was.
@@ -71,6 +88,7 @@ class SpinNoMatch extends SpinState {
     required this.eligibleCount,
     this.mostRelaxable,
     this.wouldOpen = 0,
+    this.blockedByRepetition = 0,
   });
 
   /// What was applied when nothing came back.
@@ -102,8 +120,20 @@ class SpinNoMatch extends SpinState {
   /// How many meals dropping [mostRelaxable] would offer.
   final int wouldOpen;
 
+  /// How many matched everything but were eaten too recently (Sprint 32).
+  ///
+  /// Its own number rather than folded into the others, because it is the one
+  /// emptiness with a good explanation: the filters were fine and the household
+  /// has simply eaten all of it lately. "Nothing fits" would be a lie about
+  /// that, and the fix is different — wait a day, or widen the window.
+  final int blockedByRepetition;
+
   /// Whether the reader's own filters are what emptied the pool.
-  bool get isFilteredOut => eligibleCount > 0 && blocking.isNotEmpty;
+  bool get isFilteredOut =>
+      blockedByRepetition == 0 && eligibleCount > 0 && blocking.isNotEmpty;
+
+  /// Whether everything that matched had been eaten too recently.
+  bool get isAllTooRecent => blockedByRepetition > 0;
 
   /// Whether the session's own exclusions are what emptied it.
   bool get isSessionExhausted => eligibleCount == 0 && seenThisSession > 0;
@@ -136,18 +166,21 @@ class SpinFailed extends SpinState {
 
 /// Drives the roulette (docs/USER_FLOWS.md §7 — *this is the product*).
 ///
-/// **Selection is still a uniform pick.** No scoring, no weighting, no recency
-/// penalty — those are Sprint 34's, and tuning a model against a candidate pool
-/// that has just changed shape would be work thrown away. What is honoured is
-/// everything that is not negotiable: hidden meals never appear, no meal is
-/// offered twice in a session, and the reader's filters are hard.
+/// **Selection is weighted, as of Sprint 32.** Not scored — the full table
+/// (preference match, budget match, partner compatibility) is Sprint 33. What
+/// exists now is repetition prevention: last night's dinner is excluded
+/// outright, a meal eaten recently is less likely, and a meal sharing a cuisine
+/// with the last few is less likely again. `RepetitionRule` holds the reasoning
+/// and the numbers.
 ///
-/// **Two layers of narrowing, and they are different in kind.** The dislikes and
-/// the session's own exclusions go into the query, because those are promises
+/// **Three layers of narrowing, and they differ in kind.** The dislikes and the
+/// session's own exclusions go into the *query*, because those are promises
 /// rather than choices and must not depend on client code running correctly. The
-/// reader's filters are applied here, over the whole eligible pool, because that
-/// is what makes the no-match state able to say *which* filter is costing them
-/// dinner — see [SpinFilters] for the trade in full.
+/// reader's *filters* are applied over the whole eligible pool, which is what
+/// lets the no-match state say which one is costing them dinner. And
+/// *repetition* is applied last, over what survived the filters, because there
+/// is no point weighting meals the reader has already ruled out.
+
 ///
 /// `keepAlive`, because [_seenThisSession] is the session. Losing it when the
 /// spin screen closes would let Try Again offer the same meal again, which
@@ -200,11 +233,11 @@ class SpinController extends _$SpinController {
 
       final SpinFilters filters = ref.read(spinFiltersProvider);
       final List<Meal> eligible = page.meals;
-      final List<Meal> candidates = eligible
+      final List<Meal> matching = eligible
           .where(filters.allows)
           .toList(growable: false);
 
-      if (candidates.isEmpty) {
+      if (matching.isEmpty) {
         state = _noMatch(
           filters: filters,
           eligible: eligible,
@@ -213,10 +246,56 @@ class SpinController extends _$SpinController {
         return;
       }
 
-      final Meal pick = candidates[_random.nextInt(candidates.length)];
-      _seenThisSession.add(pick.id);
+      // Repetition prevention (Sprint 32). Runs *after* the filters, because
+      // there is no point weighting meals the reader has ruled out — and before
+      // the pick, because the pick is what the weights are for.
+      final RepetitionOutcome repetition = RepetitionRule.apply(
+        pool: matching,
+        recent: await _recentMeals(),
+        settings: RepetitionSettings.fromWindowDays(
+          ref
+              .read(profileControllerProvider)
+              .value
+              ?.preferences
+              .repetitionWindowDays,
+        ),
+      );
 
-      state = SpinSettled(meal: pick, pool: candidates);
+      if (repetition.candidates.isEmpty) {
+        state = _noMatch(
+          filters: filters,
+          eligible: eligible,
+          hiddenCount: hidden.length,
+          blockedByRepetition: repetition.blocked,
+        );
+        return;
+      }
+
+      final ScoredMeal? scored = RepetitionRule.pick(
+        repetition.candidates,
+        _random,
+      );
+      if (scored == null) {
+        state = _noMatch(
+          filters: filters,
+          eligible: eligible,
+          hiddenCount: hidden.length,
+          blockedByRepetition: repetition.blocked,
+        );
+        return;
+      }
+
+      _seenThisSession.add(scored.meal.id);
+
+      state = SpinSettled(
+        meal: scored.meal,
+        // The reel flicks through the weighted pool, not the raw one, so what
+        // flashes past is food that could actually have won.
+        pool: repetition.candidates
+            .map((ScoredMeal candidate) => candidate.meal)
+            .toList(growable: false),
+        reason: scored.highlight?.label,
+      );
     } on Object catch (error, stackTrace) {
       state = SpinFailed(ErrorMapper.map(error, stackTrace));
     }
@@ -237,6 +316,7 @@ class SpinController extends _$SpinController {
     required SpinFilters filters,
     required List<Meal> eligible,
     required int hiddenCount,
+    int blockedByRepetition = 0,
   }) {
     // Sorted by what each one costs, so the sentence leads with the filter doing
     // the most damage rather than whichever happens to be declared first.
@@ -274,7 +354,49 @@ class SpinController extends _$SpinController {
       // and returns them to the same screen.
       mostRelaxable: bestCount > 0 ? best : null,
       wouldOpen: bestCount,
+      blockedByRepetition: blockedByRepetition,
     );
+  }
+
+  /// What the household has eaten, as the repetition rule wants it.
+  ///
+  /// The days-ago arithmetic happens here rather than in the rule, which is what
+  /// keeps that file a pure function with no clock in it (docs/ARCHITECTURE.md
+  /// §5.1). Midnight-to-midnight rather than elapsed hours: a meal eaten at
+  /// eleven last night was "yesterday", not "thirteen hours ago", and a window
+  /// measured in hours would let it back a day early for anyone who eats late.
+  ///
+  /// Best effort. The roulette is worth using without a history — a new
+  /// household has none at all — so a failed read means no repetition rules
+  /// rather than no spin.
+  Future<List<RecentMeal>> _recentMeals() async {
+    try {
+      final List<MealHistoryEntry> history = await ref.read(
+        mealHistoryProvider.future,
+      );
+      final DateTime now = DateTime.now();
+      final DateTime today = DateTime(now.year, now.month, now.day);
+
+      return <RecentMeal>[
+        for (final MealHistoryEntry entry in history)
+          if (entry.meal?.cuisine case final Cuisine cuisine)
+            RecentMeal(
+              mealId: entry.mealId,
+              cuisine: cuisine,
+              daysAgo: today
+                  .difference(
+                    DateTime(
+                      entry.eatenAt.year,
+                      entry.eatenAt.month,
+                      entry.eatenAt.day,
+                    ),
+                  )
+                  .inDays,
+            ),
+      ];
+    } on Object {
+      return const <RecentMeal>[];
+    }
   }
 
   /// Ends the session: this is what we are eating.

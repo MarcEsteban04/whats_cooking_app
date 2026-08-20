@@ -21,6 +21,7 @@ class FoodPreferences {
     this.budget,
     this.maxCookingTimeMinutes,
     this.cookingFor,
+    this.repetitionWindowDays,
   });
 
   final Set<Cuisine> favouriteCuisines;
@@ -44,6 +45,19 @@ class FoodPreferences {
 
   final CookingFor? cookingFor;
 
+  /// Days a meal is out of the running after being eaten (Sprint 32).
+  ///
+  /// Null means the app's default. **0 means the household does not mind
+  /// repeats** — the same distinction [budget] draws, and it matters more here:
+  /// treating 0 as unset would override somebody who deliberately said they do
+  /// not care, which is a perfectly reasonable answer for one person cooking for
+  /// one.
+  ///
+  /// Bounded 0–60 by the column. Past sixty a catalogue this size cannot fill
+  /// the window, and an engine with nothing left to offer is a worse outcome
+  /// than a repeat.
+  final int? repetitionWindowDays;
+
   /// Servings to store, defaulting to the product's assumption of two.
   int get preferredServings =>
       cookingFor?.servings ?? AppConstants.defaultPartySize;
@@ -58,7 +72,8 @@ class FoodPreferences {
       dietaryTags.isNotEmpty ||
       budget != null ||
       maxCookingTimeMinutes != null ||
-      cookingFor != null;
+      cookingFor != null ||
+      repetitionWindowDays != null;
 
   FoodPreferences copyWith({
     Set<Cuisine>? favouriteCuisines,
@@ -67,8 +82,10 @@ class FoodPreferences {
     int? budget,
     int? maxCookingTimeMinutes,
     CookingFor? cookingFor,
+    int? repetitionWindowDays,
     bool clearBudget = false,
     bool clearMaxCookingTime = false,
+    bool clearRepetitionWindow = false,
   }) {
     return FoodPreferences(
       favouriteCuisines: favouriteCuisines ?? this.favouriteCuisines,
@@ -82,6 +99,9 @@ class FoodPreferences {
           ? null
           : (maxCookingTimeMinutes ?? this.maxCookingTimeMinutes),
       cookingFor: cookingFor ?? this.cookingFor,
+      repetitionWindowDays: clearRepetitionWindow
+          ? null
+          : (repetitionWindowDays ?? this.repetitionWindowDays),
     );
   }
 
@@ -93,7 +113,8 @@ class FoodPreferences {
         _sameSet(other.dietaryTags, dietaryTags) &&
         other.budget == budget &&
         other.maxCookingTimeMinutes == maxCookingTimeMinutes &&
-        other.cookingFor == cookingFor;
+        other.cookingFor == cookingFor &&
+        other.repetitionWindowDays == repetitionWindowDays;
   }
 
   @override
@@ -104,6 +125,7 @@ class FoodPreferences {
     budget,
     maxCookingTimeMinutes,
     cookingFor,
+    repetitionWindowDays,
   );
 
   /// Value equality over the collections, not identity.

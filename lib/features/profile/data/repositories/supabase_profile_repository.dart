@@ -50,15 +50,11 @@ class SupabaseProfileRepository implements ProfileRepository {
             .eq('id', id)
             .maybeSingle();
 
-        final Map<String, dynamic>? preferences = await _client
-            .from(_preferencesTable)
-            .select(
-              'favorite_cuisines, dietary_tags, default_budget, '
-              'max_cooking_time, preferred_servings, '
-              'disliked_ingredient_names',
-            )
-            .eq('user_id', id)
-            .maybeSingle();
+        // Tolerant of a database that has not had the latest migration
+        // pasted into it yet — see `SupabaseOnboardingRepository.readPreferences`.
+        // Without it, one un-applied migration takes out the whole profile.
+        final Map<String, dynamic>? preferences =
+            await SupabaseOnboardingRepository.readPreferences(_client, id);
 
         if (profile == null) {
           // The signup trigger creates this row, so its absence means
@@ -114,10 +110,14 @@ class SupabaseProfileRepository implements ProfileRepository {
   @override
   Future<void> updatePreferences(FoodPreferences preferences) {
     return RemoteCall.guard(
-      () => _client
-          .from(_preferencesTable)
-          .update(SupabaseOnboardingRepository.columnsFor(preferences))
-          .eq('user_id', _userId),
+      // Shared with onboarding, and tolerant of a database that has not had the
+      // latest migration pasted into it yet — it drops what the schema cannot
+      // hold and says so in the log rather than failing the save outright.
+      () => SupabaseOnboardingRepository.writePreferences(
+        _client,
+        _userId,
+        preferences,
+      ),
       label: 'updatePreferences',
       policy: RetryPolicy.standard,
       timeout: AppConstants.requestTimeout,
@@ -210,7 +210,9 @@ class SupabaseProfileRepository implements ProfileRepository {
   static const Duration _uploadTimeout = Duration(seconds: 45);
 
   static const String _profilesTable = 'profiles';
-  static const String _preferencesTable = 'user_preferences';
+  // `user_preferences` is not named here any more: both the read and the write
+  // go through `SupabaseOnboardingRepository`, which owns the column list and
+  // the migration-lag fallback that goes with it.
   static const String _avatarsBucket = 'avatars';
   static const String _deleteAccountFunction = 'delete_own_account';
 }

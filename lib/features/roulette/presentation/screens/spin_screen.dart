@@ -390,6 +390,9 @@ class _NoMatch extends ConsumerWidget {
   }
 
   String get _title {
+    if (state.isAllTooRecent) {
+      return 'You have had them all';
+    }
     if (state.isFilteredOut) {
       // The reader's own words back at them, not "no results found". They set a
       // budget and a time limit; the headline should sound like it knows that.
@@ -402,6 +405,13 @@ class _NoMatch extends ConsumerWidget {
   }
 
   String get _body {
+    if (state.isAllTooRecent) {
+      final int blocked = state.blockedByRepetition;
+      final String noun = blocked == 1 ? 'meal' : 'meals';
+      return 'All $blocked $noun that fit have been eaten too recently. '
+          'Give it a day, or shorten how long we wait before offering '
+          'something again.';
+    }
     if (state.blockingSentence case final String sentence) {
       return sentence;
     }
@@ -421,7 +431,16 @@ class _NoMatch extends ConsumerWidget {
       // The one-tap relaxation §7 asks for. Named and quantified, because
       // "loosen a filter" is a request to trust the app and "37 meals" is a
       // reason to.
-      if (state.mostRelaxable case final SpinConstraint constraint)
+      // The repetition window is a setting rather than a filter, so the way
+      // out is the preference that owns it — not a one-tap relaxation.
+      // Offering "ignore what we ate recently, just this once" would undo the
+      // one rule the household explicitly asked for.
+      if (state.isAllTooRecent)
+        AppButton.primary(
+          label: 'Change how often we repeat',
+          onPressed: () => context.pushNamed(AppRoute.preferences.routeName),
+        )
+      else if (state.mostRelaxable case final SpinConstraint constraint)
         AppButton.primary(
           // The constraint's own name rather than its current value: "Drop the
           // budget" is an instruction, and "Drop under ₱150 a head" is a

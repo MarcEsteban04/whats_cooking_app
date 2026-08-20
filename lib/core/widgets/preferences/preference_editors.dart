@@ -315,3 +315,66 @@ Set<T> _toggled<T>(Set<T> source, T value, bool isSelected) {
   }
   return next;
 }
+
+/// How long before the roulette may offer the same meal again (Sprint 32).
+///
+/// A choice rather than a number field, because the question is not "how many
+/// days" — it is "how often do you mind repeating". Households differ more here
+/// than anywhere else in these preferences: one cooks a rotation of six things
+/// and wants three days, another never repeats inside a month.
+///
+/// **"We do not mind" is a real option, not an absent one.** Somebody cooking for
+/// one may genuinely be happy eating the same thing twice, and an app that
+/// treated that as unset would keep overriding them. Zero is stored, and the
+/// engine honours it.
+class RepetitionWindowPicker extends StatelessWidget {
+  const RepetitionWindowPicker({
+    required this.days,
+    required this.onChanged,
+    super.key,
+  });
+
+  /// Null means the app's default. Zero means no exclusion at all.
+  final int? days;
+
+  /// Called with null to go back to the default.
+  final ValueChanged<int?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        SelectableTile(
+          title: 'Use the default',
+          caption: 'A couple of days',
+          emoji: '🎲',
+          isSelected: days == null,
+          onSelected: () => onChanged(null),
+        ),
+        const SizedBox(height: AppSpacing.space3),
+        for (final (int option, String title, String caption)
+            in _options) ...<Widget>[
+          SelectableTile(
+            title: title,
+            caption: caption,
+            emoji: option == 0 ? '🔁' : '📅',
+            isSelected: days == option,
+            onSelected: () => onChanged(option),
+          ),
+          const SizedBox(height: AppSpacing.space3),
+        ],
+      ],
+    );
+  }
+
+  /// Deliberately coarse. "Six days or seven" is not a distinction anybody has
+  /// an opinion about, and offering it would imply the engine is more precise
+  /// than it is.
+  static const List<(int, String, String)> _options = <(int, String, String)>[
+    (0, 'We do not mind', 'Repeats are fine'),
+    (3, 'Three days', 'A short rotation'),
+    (7, 'A week', 'One of each, most weeks'),
+    (30, 'A month', 'Never the same thing twice'),
+  ];
+}

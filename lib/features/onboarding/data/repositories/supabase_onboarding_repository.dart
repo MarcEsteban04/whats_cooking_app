@@ -5,6 +5,7 @@ import 'package:whats_cooking/core/domain/food_taxonomy.dart';
 import 'package:whats_cooking/core/errors/app_exception.dart';
 import 'package:whats_cooking/core/network/remote_call.dart';
 import 'package:whats_cooking/core/network/retry_policy.dart';
+import 'package:whats_cooking/core/utils/logger.dart';
 import 'package:whats_cooking/features/onboarding/domain/entities/onboarding_answers.dart';
 import 'package:whats_cooking/features/onboarding/domain/repositories/onboarding_repository.dart';
 
@@ -40,15 +41,10 @@ class SupabaseOnboardingRepository implements OnboardingRepository {
       () async {
         final String id = _userId;
 
-        final Map<String, dynamic>? preferences = await _client
-            .from(_preferencesTable)
-            .select(
-              'favorite_cuisines, dietary_tags, default_budget, '
-              'max_cooking_time, preferred_servings, '
-              'disliked_ingredient_names',
-            )
-            .eq('user_id', id)
-            .maybeSingle();
+        final Map<String, dynamic>? preferences = await readPreferences(
+          _client,
+          id,
+        );
 
         final Map<String, dynamic>? profile = await _client
             .from(_profilesTable)
@@ -72,10 +68,7 @@ class SupabaseOnboardingRepository implements OnboardingRepository {
       () async {
         final String id = _userId;
 
-        await _client
-            .from(_preferencesTable)
-            .update(columnsFor(answers.preferences))
-            .eq('user_id', id);
+        await writePreferences(_client, id, answers.preferences);
 
         final String? name = answers.displayName?.trim();
         if (name != null && name.isNotEmpty) {
@@ -110,11 +103,134 @@ class SupabaseOnboardingRepository implements OnboardingRepository {
     );
   }
 
+  /// Every `user_preferences` column this build reads.
+  static const String preferenceColumns =
+      'favorite_cuisines, dietary_tags, default_budget, '
+      'max_cooking_time, preferred_servings, repetition_window_days, '
+      'disliked_ingredient_names';
+
+  /// The same list, minus anything a database might not have yet.
+  ///
+  /// See [readPreferences] — this exists so a build can land before its
+  /// migration and still work.
+  static const String _establishedPreferenceColumns =
+      'favorite_cuisines, dietary_tags, default_budget, '
+      'max_cooking_time, preferred_servings, '
+      'disliked_ingredient_names';
+
+  /// Columns added recently enough that a database may not have them.
+  ///
+  /// Emptied as migrations become universal. A name lingering here after
+  /// everything has been migrated costs one fallback path that never runs, which
+  /// is cheap; a name *missing* from it costs a broken profile screen.
+  static const Set<String> _recentColumns = <String>{
+    // Migration 0019, Sprint 32.
+    'repetition_window_days',
+  };
+
+  /// Reads the preferences row, tolerating a database that has not caught up.
+  ///
+  /// **Why this is not just a `select`.** Migrations here are applied by hand, so
+  /// the app and the schema move independently — and a build that names a column
+  /// the database does not have gets a 400 on the whole query, not a null for
+  /// that field. Without this, shipping Sprint 32's code before pasting Sprint
+  /// 32's migration took out the entire profile read: no name, no budget, no
+  /// dietary needs, on every screen that asks.
+  ///
+  /// So a `42703` (undefined column) is retried once without the recent
+  /// additions, and shouts in the log. Everything else rethrows — this is a
+  /// narrow allowance for one ordering problem, not a general "try again with
+  /// less".
+  static Future<Map<String, dynamic>?> readPreferences(
+    supabase.SupabaseClient client,
+    String userId,
+  ) async {
+    try {
+      return await client
+          .from(_preferencesTable)
+          .select(preferenceColumns)
+          .eq('user_id', userId)
+          .maybeSingle();
+    } on supabase.PostgrestException catch (error) {
+      if (!_isUndefinedColumn(error)) {
+        rethrow;
+      }
+
+      AppLog.warning(
+        'user_preferences is missing a column this build reads — apply the '
+        'latest migration in supabase/migrations. Falling back for now.',
+        name: 'preferences',
+        data: <String, Object?>{'expected': _recentColumns.join(', ')},
+      );
+
+      return client
+          .from(_preferencesTable)
+          .select(_establishedPreferenceColumns)
+          .eq('user_id', userId)
+          .maybeSingle();
+    }
+  }
+
+  /// Writes the preferences row, tolerating the same lag.
+  ///
+  /// The write has the same problem as the read and one extra wrinkle: dropping a
+  /// column here means an answer the user gave is *silently not saved*. So it
+  /// says so in the log, loudly, rather than looking like a save that worked.
+  static Future<void> writePreferences(
+    supabase.SupabaseClient client,
+    String userId,
+    FoodPreferences preferences,
+  ) async {
+    final Map<String, dynamic> columns = columnsFor(preferences);
+
+    try {
+      await client
+          .from(_preferencesTable)
+          .update(columns)
+          .eq('user_id', userId);
+      return;
+    } on supabase.PostgrestException catch (error) {
+      if (!_isUndefinedColumn(error)) {
+        rethrow;
+      }
+    }
+
+    AppLog.warning(
+      'user_preferences is missing a column this build writes — the following '
+      'were NOT saved. Apply the latest migration.',
+      name: 'preferences',
+      data: <String, Object?>{'dropped': _recentColumns.join(', ')},
+    );
+
+    await client
+        .from(_preferencesTable)
+        .update(<String, dynamic>{
+          for (final MapEntry<String, dynamic> entry in columns.entries)
+            if (!_recentColumns.contains(entry.key)) entry.key: entry.value,
+        })
+        .eq('user_id', userId);
+  }
+
+  /// Whether [error] is PostgREST saying a column does not exist.
+  ///
+  /// **`code` is the HTTP status, not the SQLSTATE.** A missing column arrives as
+  /// `code: 400` with the real `42703` buried in `message`, which is the raw
+  /// PostgREST body as a JSON string — so a check against `code` alone silently
+  /// never matches, which is exactly the bug this replaced. Both are inspected,
+  /// because the SDK's shape here is not something to rely on.
+  static bool _isUndefinedColumn(supabase.PostgrestException error) {
+    return error.code == _undefinedColumn ||
+        error.message.contains(_undefinedColumn);
+  }
+
+  /// Postgres SQLSTATE for `undefined_column`.
+  static const String _undefinedColumn = '42703';
+
   /// The `user_preferences` columns for [preferences].
   ///
-  /// Shared with the profile repository, which writes the same six fields from
-  /// the same model — one mapping, so the two cannot disagree about which column
-  /// a dietary tag goes in.
+  /// Shared with the profile repository, which writes the same fields from the
+  /// same model — one mapping, so the two cannot disagree about which column a
+  /// dietary tag goes in.
   static Map<String, dynamic> columnsFor(FoodPreferences preferences) {
     return <String, dynamic>{
       'favorite_cuisines': preferences.favouriteCuisines
@@ -130,6 +246,10 @@ class SupabaseOnboardingRepository implements OnboardingRepository {
       // types on their first day, so the text is kept and reconciled later
       // (supabase/migrations/…_onboarding_dislikes.sql).
       'disliked_ingredient_names': preferences.dislikedFoods,
+      // Null is meaningful here and 0 is not the same thing: null means "use
+      // the app default", 0 means "we do not mind repeats". Sent either way so
+      // clearing the answer is possible.
+      'repetition_window_days': preferences.repetitionWindowDays,
     };
   }
 
@@ -163,6 +283,9 @@ class SupabaseOnboardingRepository implements OnboardingRepository {
       cookingFor: CookingFor.fromServings(
         (row['preferred_servings'] as num?)?.toInt(),
       ),
+      // Null stays null. It means "use the app default", which the engine treats
+      // differently from the 0 that means "we do not mind repeats".
+      repetitionWindowDays: (row['repetition_window_days'] as num?)?.toInt(),
     );
   }
 
