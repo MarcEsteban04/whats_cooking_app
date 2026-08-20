@@ -575,9 +575,26 @@ property to preserve if the function is ever changed.
 
 | # | Question | Resolve by |
 | - | -------- | ---------- |
-| Q4 | Initial catalogue size and cuisine split | Sprint 21 |
 | Q5 | Cost estimates — national average, or per-household override table? | Sprint 23 |
 | Q7 | Household size cap — enforce 2, or allow up to 5? | Sprint 41 |
 | Q8 | Custom meals private, or promotable into the public catalogue? | Sprint 26 |
 | — | Does `meal_history` need a `rating` column for preference learning? | Sprint 37 |
 | — | Unit conversion (g ↔ kg, ml ↔ cup) — normalise on write, or convert on read? | Sprint 50 |
+
+### Resolved
+
+**Q4 — Initial catalogue size and cuisine split.** Settled in Sprint 21 at **60 public
+meals**: Filipino 20, Japanese 8, Korean 7, Chinese 7, Italian 7, Mexican 5, American 6.
+Across categories: breakfast 6, lunch 14, dinner 25, snack 6, dessert 9.
+
+The number comes from what has to survive Sprint 30's filters intersecting and Sprint 32's
+refusal to repeat. A spin that finds nothing is the one failure this product cannot survive,
+and sixty leaves roughly a dozen candidates in the narrowest realistic case — one cuisine,
+under thirty minutes, under two hundred pesos. The Filipino third is [MVP_SCOPE.md](MVP_SCOPE.md)'s
+"Filipino-leaning" made concrete: a roulette that keeps landing on carbonara is a roulette
+these users stop trusting.
+
+Sprint 21 also added migration 0014, a partial unique index on `lower(name)` where
+`is_public`. It makes the seed re-runnable, and it is a real catalogue invariant besides —
+two public meals with the same name are indistinguishable to the person choosing between
+them.

@@ -10,6 +10,42 @@
 `schema.sql` is safe to re-run — everything is `create ... if not exists` or
 `create or replace`.
 
+## Seeding the meal catalogue
+
+The schema gives you empty tables. Without the catalogue the roulette has
+nothing to land on, so this is part of setting up, not an optional extra.
+
+Paste each file in order and **Run**:
+
+| File | What it adds |
+| ---- | ------------ |
+| [`seed/01_ingredients.sql`](seed/01_ingredients.sql) | 137 ingredients, ten of them marked as staples |
+| [`seed/02_meals.sql`](seed/02_meals.sql) | 60 public meals across seven cuisines and all five categories |
+| [`seed/03_meal_ingredients.sql`](seed/03_meal_ingredients.sql) | 310 links saying what each meal is made of |
+| [`seed/04_verify_seed.sql`](seed/04_verify_seed.sql) | 24 checks. Every row must read `PASS` |
+
+Order matters: 02 joins on the ingredient names from 01, and 03 on the meal
+names from 02.
+
+All three are safe to re-run. Meals are upserted on `lower(name)`, so meal ids
+survive and the favourites and history that point at them survive with them.
+Ingredient links are rebuilt from scratch each time, which means removing an
+ingredient from a recipe here removes it from the database too.
+
+**Household-private custom meals are never touched** by any of this. The seed
+only ever writes rows where `is_public` is true.
+
+`04_verify_seed.sql` is worth reading even when it passes. It checks the things
+that make a catalogue *usable* rather than merely present: that no cuisine or
+category is too thin to spin, that the quick and cheap filters land on
+something, and — most importantly — that the dietary tags tell the truth.
+Dietary tags are a hard filter, so a wrong one does not skew a score, it offers
+someone food they will not eat.
+
+`test/tooling/meal_seed_test.dart` asks the same questions of the files rather
+than the database, and runs in CI. It is the cheaper place to find a misspelt
+ingredient or a vegan meal with fish sauce in it.
+
 ## Connecting the app
 
 **Project Settings → API**, then:
@@ -47,7 +83,8 @@ supabase/
 ├── migrations/   Source of truth, applied in filename order
 ├── schema.sql    All migrations concatenated, for pasting in one go
 ├── verify.sql    Post-apply checks — every row must read PASS
-└── seed/         Catalogue seed data (Sprint 21)
+├── seed/         The meal catalogue, plus its own verification
+└── tests/        Pasteable SQL that proves the schema enforces something
 ```
 
 Edit the **migrations**, never `schema.sql`. Regenerate it with:

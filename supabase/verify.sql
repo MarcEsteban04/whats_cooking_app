@@ -102,13 +102,17 @@ index_check as (
   select
     '7. key indexes' as check_name,
     count(*)         as found,
-    3                as expected
+    4                as expected
   from pg_indexes
   where schemaname = 'public'
     and indexname in (
       'meal_history_recent_idx',
       'household_members_user_idx',
-      'meals_name_trgm_idx'
+      'meals_name_trgm_idx',
+      -- Added by migration 0014. It is a correctness constraint rather than a
+      -- performance index: without it, re-running the catalogue seed duplicates
+      -- every meal.
+      'meals_public_name_uk'
     )
 ),
 onboarding_column_check as (
