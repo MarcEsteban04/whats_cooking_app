@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:whats_cooking/core/domain/food_taxonomy.dart';
 import 'package:whats_cooking/core/errors/app_exception.dart';
 import 'package:whats_cooking/core/router/app_routes.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_button.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_icon_button.dart';
 import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
+import 'package:whats_cooking/core/widgets/inputs/app_text_field.dart';
+import 'package:whats_cooking/core/widgets/preferences/preference_editors.dart';
 import 'package:whats_cooking/features/onboarding/domain/entities/onboarding_answers.dart';
 import 'package:whats_cooking/features/onboarding/domain/entities/onboarding_step.dart';
 import 'package:whats_cooking/features/onboarding/presentation/providers/onboarding_controller.dart';
 import 'package:whats_cooking/features/onboarding/presentation/widgets/onboarding_progress.dart';
-import 'package:whats_cooking/features/onboarding/presentation/widgets/onboarding_steps.dart';
 
 /// Onboarding: one route, seven questions, internal paging.
 ///
@@ -287,58 +289,65 @@ class _StepBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return switch (step) {
-      OnboardingStep.name => NameStep(
+      OnboardingStep.name => AppTextField(
         controller: nameController,
-        onChanged: () => onAnswersChanged(
-          answers.copyWith(displayName: nameController.text),
+        label: 'Your name',
+        hint: 'Marc',
+        textCapitalization: TextCapitalization.words,
+        textInputAction: TextInputAction.done,
+        // No validator: the step is skippable, and a required-field error on a
+        // question nobody has to answer is exactly the friction §5 warns costs
+        // you the user.
+        onChanged: (String value) =>
+            onAnswersChanged(answers.copyWith(displayName: value)),
+      ),
+
+      OnboardingStep.cuisines => CuisinePicker(
+        selected: answers.preferences.favouriteCuisines,
+        onChanged: (Set<Cuisine> selected) => onAnswersChanged(
+          answers.withPreferences(favouriteCuisines: selected),
         ),
       ),
 
-      OnboardingStep.cuisines => CuisinesStep(
-        selected: answers.favouriteCuisines,
-        onChanged: (Set<Cuisine> selected) =>
-            onAnswersChanged(answers.copyWith(favouriteCuisines: selected)),
-      ),
-
-      OnboardingStep.dislikes => DislikesStep(
-        foods: answers.dislikedFoods,
+      OnboardingStep.dislikes => DislikesEditor(
+        foods: answers.preferences.dislikedFoods,
         onChanged: (List<String> foods) =>
-            onAnswersChanged(answers.copyWith(dislikedFoods: foods)),
+            onAnswersChanged(answers.withPreferences(dislikedFoods: foods)),
       ),
 
-      OnboardingStep.dietary => DietaryStep(
-        selected: answers.dietaryTags,
+      OnboardingStep.dietary => DietaryPicker(
+        selected: answers.preferences.dietaryTags,
         onChanged: (Set<DietaryTag> tags) =>
-            onAnswersChanged(answers.copyWith(dietaryTags: tags)),
+            onAnswersChanged(answers.withPreferences(dietaryTags: tags)),
       ),
 
-      OnboardingStep.budget => BudgetStep(
-        budget: answers.budget,
+      OnboardingStep.budget => BudgetPicker(
+        budget: answers.preferences.budget,
         onChanged: (int? budget) => onAnswersChanged(
           budget == null
-              ? answers.copyWith(clearBudget: true)
-              : answers.copyWith(budget: budget),
+              ? answers.withPreferences(clearBudget: true)
+              : answers.withPreferences(budget: budget),
         ),
       ),
 
-      OnboardingStep.cookingTime => CookingTimeStep(
-        minutes: answers.maxCookingTimeMinutes,
+      OnboardingStep.cookingTime => CookingTimePicker(
+        minutes: answers.preferences.maxCookingTimeMinutes,
         onChanged: (int? minutes) => onAnswersChanged(
           minutes == null
-              ? answers.copyWith(clearMaxCookingTime: true)
-              : answers.copyWith(maxCookingTimeMinutes: minutes),
+              ? answers.withPreferences(clearMaxCookingTime: true)
+              : answers.withPreferences(maxCookingTimeMinutes: minutes),
         ),
       ),
 
       OnboardingStep.cookingFor => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          CookingForStep(
-            selected: answers.cookingFor,
+          CookingForPicker(
+            selected: answers.preferences.cookingFor,
             onChanged: (CookingFor choice) =>
-                onAnswersChanged(answers.copyWith(cookingFor: choice)),
+                onAnswersChanged(answers.withPreferences(cookingFor: choice)),
           ),
-          if (answers.cookingFor?.invitesHousehold ?? false) ...<Widget>[
+          if (answers.invitesHousehold) ...<Widget>[
             const SizedBox(height: AppSpacing.space5),
             // §5 puts the household prompt here because it is "the
             // highest-intent moment for couple mode — the user is already

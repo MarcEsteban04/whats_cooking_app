@@ -10,6 +10,7 @@ import 'package:whats_cooking/core/network/supabase_bootstrap.dart';
 import 'package:whats_cooking/core/router/app_router.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/utils/logger.dart';
+import 'package:whats_cooking/features/profile/presentation/providers/theme_mode_controller.dart';
 
 Future<void> main() async {
   // Installed before anything else runs, so an error thrown during startup is
@@ -62,6 +63,7 @@ class WhatsCookingApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final GoRouter router = ref.watch(appRouterProvider);
+    final ThemeMode themeMode = ref.watch(themeModeControllerProvider);
 
     return MaterialApp.router(
       title: "What's Cooking?",
@@ -70,11 +72,12 @@ class WhatsCookingApp extends ConsumerWidget {
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
 
-      // The OS setting decides. docs/design_ui.md §1 rules out a dark interface
-      // *by default*, not dark mode itself, and an app that ignores the system
-      // preference is the one thing a premium app never does. A manual override
-      // arrives with the appearance setting in Sprint 20.
-      themeMode: ThemeMode.system,
+      // The user's choice, defaulting to the OS setting. docs/design_ui.md §1
+      // rules out a dark interface *by default*, not dark mode itself, and an app
+      // that ignores the system preference is the one thing a premium app never
+      // does — so system is the default and the override is theirs to set
+      // (docs/USER_FLOWS.md §17).
+      themeMode: themeMode,
 
       builder: _clampTextScale,
     );

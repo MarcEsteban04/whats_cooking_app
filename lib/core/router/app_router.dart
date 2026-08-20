@@ -16,8 +16,12 @@ import 'package:whats_cooking/features/auth/presentation/screens/login_screen.da
 import 'package:whats_cooking/features/auth/presentation/screens/register_screen.dart';
 import 'package:whats_cooking/features/auth/presentation/screens/reset_password_screen.dart';
 import 'package:whats_cooking/features/auth/presentation/screens/welcome_screen.dart';
-import 'package:whats_cooking/features/auth/presentation/widgets/sign_out_button.dart';
 import 'package:whats_cooking/features/onboarding/presentation/screens/onboarding_screen.dart';
+import 'package:whats_cooking/features/profile/presentation/screens/account_settings_screen.dart';
+import 'package:whats_cooking/features/profile/presentation/screens/appearance_settings_screen.dart';
+import 'package:whats_cooking/features/profile/presentation/screens/budget_settings_screen.dart';
+import 'package:whats_cooking/features/profile/presentation/screens/preferences_screen.dart';
+import 'package:whats_cooking/features/profile/presentation/screens/profile_screen.dart';
 
 part 'app_router.g.dart';
 
@@ -316,27 +320,19 @@ final StatefulShellRoute _shellRoute = StatefulShellRoute.indexedStack(
           path: AppRoute.profile.path,
           name: AppRoute.profile.routeName,
           pageBuilder: (BuildContext context, GoRouterState state) =>
-              const AppInstantPage<void>(
-                child: PlaceholderScreen(
-                  title: 'Profile',
-                  sprint: 'Sprint 20',
-                  // Temporary: the only way out of a signed-in app until the
-                  // real Profile screen lands.
-                  action: SignOutButton(),
-                ),
-              ),
+              const AppInstantPage<void>(child: ProfileScreen()),
           routes: <RouteBase>[
-            _child(
-              AppRoute.preferences,
-              AppRoute.profile,
-              'Preferences',
-              sprint: 'Sprint 35',
+            GoRoute(
+              path: _relative(AppRoute.preferences, AppRoute.profile),
+              name: AppRoute.preferences.routeName,
+              builder: (BuildContext context, GoRouterState state) =>
+                  const PreferencesScreen(),
             ),
-            _child(
-              AppRoute.budgetSettings,
-              AppRoute.profile,
-              'Budget',
-              sprint: 'Sprint 38',
+            GoRoute(
+              path: _relative(AppRoute.budgetSettings, AppRoute.profile),
+              name: AppRoute.budgetSettings.routeName,
+              builder: (BuildContext context, GoRouterState state) =>
+                  const BudgetSettingsScreen(),
             ),
             _child(
               AppRoute.statistics,
@@ -359,17 +355,20 @@ final StatefulShellRoute _shellRoute = StatefulShellRoute.indexedStack(
                   'Notifications',
                   sprint: 'Sprint 49 (P2)',
                 ),
-                _child(
-                  AppRoute.appearanceSettings,
-                  AppRoute.settings,
-                  'Appearance',
-                  sprint: 'Sprint 20',
+                GoRoute(
+                  path: _relative(
+                    AppRoute.appearanceSettings,
+                    AppRoute.settings,
+                  ),
+                  name: AppRoute.appearanceSettings.routeName,
+                  builder: (BuildContext context, GoRouterState state) =>
+                      const AppearanceSettingsScreen(),
                 ),
-                _child(
-                  AppRoute.accountSettings,
-                  AppRoute.settings,
-                  'Account',
-                  sprint: 'Sprint 20',
+                GoRoute(
+                  path: _relative(AppRoute.accountSettings, AppRoute.settings),
+                  name: AppRoute.accountSettings.routeName,
+                  builder: (BuildContext context, GoRouterState state) =>
+                      const AccountSettingsScreen(),
                 ),
               ],
             ),

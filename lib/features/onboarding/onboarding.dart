@@ -4,6 +4,8 @@
 /// (docs/CODING_STANDARDS.md §3).
 library;
 
+export 'package:whats_cooking/core/domain/food_preferences.dart';
+export 'package:whats_cooking/core/domain/food_taxonomy.dart';
 export 'package:whats_cooking/features/onboarding/domain/entities/onboarding_answers.dart';
 export 'package:whats_cooking/features/onboarding/domain/entities/onboarding_step.dart';
 export 'package:whats_cooking/features/onboarding/presentation/providers/onboarding_controller.dart';

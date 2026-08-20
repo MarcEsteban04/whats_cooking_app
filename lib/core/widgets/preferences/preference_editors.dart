@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:whats_cooking/core/constants/app_constants.dart';
+import 'package:whats_cooking/core/domain/food_taxonomy.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/utils/formatters.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_icon_button.dart';
@@ -7,48 +8,26 @@ import 'package:whats_cooking/core/widgets/chips/app_filter_chip.dart';
 import 'package:whats_cooking/core/widgets/chips/cuisine_chip.dart';
 import 'package:whats_cooking/core/widgets/inputs/app_text_field.dart';
 import 'package:whats_cooking/core/widgets/preferences/selectable_tile.dart';
-import 'package:whats_cooking/features/onboarding/domain/entities/onboarding_answers.dart';
 
-/// The seven question bodies.
+/// The six preference editors.
 ///
-/// Two shapes, chosen by the rule in docs/COMPONENTS.md §18b: **chips where the
-/// answer set is large and multi-select, tiles where the answers are few and each
-/// deserves reading.** "A chip row reads as *pick several from many* and a tile
-/// list reads as *pick one, and read it properly*."
+/// In `core/widgets/preferences/` because docs/COMPONENTS.md §18b puts them
+/// there: "Onboarding introduced these; profile now shares them… once a second
+/// feature needed them — a user must meet the same cuisine grid on day one and on
+/// day thirty."
 ///
-/// So cuisines, dislikes and dietary needs are chips; budget, cooking time and
-/// who-you-cook-for are tiles.
+/// Each takes a plain value and reports a plain value. None of them knows about
+/// onboarding's step model or the profile's save button, which is what lets both
+/// use them unchanged.
+///
+/// The shape of each follows §18b's rule: **chips where the answer set is large
+/// and multi-select, tiles where the answers are few and each deserves reading.**
+/// "A chip row reads as *pick several from many* and a tile list reads as *pick
+/// one, and read it properly*."
 
-/// Step 1 — the name.
-class NameStep extends StatelessWidget {
-  const NameStep({
-    required this.controller,
-    required this.onChanged,
-    super.key,
-  });
-
-  final TextEditingController controller;
-  final VoidCallback onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppTextField(
-      controller: controller,
-      label: 'Your name',
-      hint: 'Marc',
-      textCapitalization: TextCapitalization.words,
-      textInputAction: TextInputAction.done,
-      // No validator. The step is skippable, and a required-field error on a
-      // question nobody has to answer is the kind of friction §5 warns costs
-      // you the user.
-      onChanged: (_) => onChanged(),
-    );
-  }
-}
-
-/// Step 2 — favourite cuisines.
-class CuisinesStep extends StatelessWidget {
-  const CuisinesStep({
+/// Favourite cuisines — many, multi-select, so chips.
+class CuisinePicker extends StatelessWidget {
+  const CuisinePicker({
     required this.selected,
     required this.onChanged,
     super.key,
@@ -68,37 +47,64 @@ class CuisinesStep extends StatelessWidget {
             cuisine: cuisine.label,
             emoji: cuisine.emoji,
             isSelected: selected.contains(cuisine),
-            onSelected: (bool isSelected) {
-              onChanged(
-                <Cuisine>{...selected, if (isSelected) cuisine}..removeWhere(
-                  (Cuisine item) => !isSelected && item == cuisine,
-                ),
-              );
-            },
+            onSelected: (bool isSelected) =>
+                onChanged(_toggled<Cuisine>(selected, cuisine, isSelected)),
           ),
       ],
     );
   }
 }
 
-/// Step 3 — foods to avoid.
+/// Dietary needs — many, multi-select, so chips.
+class DietaryPicker extends StatelessWidget {
+  const DietaryPicker({
+    required this.selected,
+    required this.onChanged,
+    super.key,
+  });
+
+  final Set<DietaryTag> selected;
+  final ValueChanged<Set<DietaryTag>> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: AppSpacing.space2,
+      runSpacing: AppSpacing.space2,
+      children: <Widget>[
+        for (final DietaryTag tag in DietaryTag.values)
+          AppFilterChip(
+            label: tag.label,
+            isSelected: selected.contains(tag),
+            onSelected: (bool isSelected) =>
+                onChanged(_toggled<DietaryTag>(selected, tag, isSelected)),
+          ),
+      ],
+    );
+  }
+}
+
+/// Foods to avoid — free text, because the answer set is the user's vocabulary.
 ///
-/// Free text rather than a list to pick from, because the ingredient catalogue
-/// cannot cover what people actually avoid on their first day — "bagoong",
-/// "cilantro", "anything with bones". §5 calls a disliked food "the single most
-/// valuable thing a user can tell us", so the input must not be narrower than
-/// their vocabulary.
-class DislikesStep extends StatefulWidget {
-  const DislikesStep({required this.foods, required this.onChanged, super.key});
+/// A list to pick from cannot cover what people actually avoid on their first
+/// day: "bagoong", "coriander", "anything with bones". docs/USER_FLOWS.md §5
+/// calls a disliked food "the single most valuable thing a user can tell us", so
+/// the input must not be narrower than what they would say.
+class DislikesEditor extends StatefulWidget {
+  const DislikesEditor({
+    required this.foods,
+    required this.onChanged,
+    super.key,
+  });
 
   final List<String> foods;
   final ValueChanged<List<String>> onChanged;
 
   @override
-  State<DislikesStep> createState() => _DislikesStepState();
+  State<DislikesEditor> createState() => _DislikesEditorState();
 }
 
-class _DislikesStepState extends State<DislikesStep> {
+class _DislikesEditorState extends State<DislikesEditor> {
   final TextEditingController _controller = TextEditingController();
 
   @override
@@ -110,15 +116,17 @@ class _DislikesStepState extends State<DislikesStep> {
   void _add() {
     final String value = _controller.text.trim();
 
-    // Silently ignores blanks and duplicates. The schema rejects both anyway
+    // Blanks, duplicates and anything past the ceiling are ignored in silence.
+    // The schema rejects all three anyway
     // (supabase/migrations/…_onboarding_dislikes.sql), and an error message for
-    // adding the same thing twice is noise.
-    if (value.isEmpty ||
-        widget.foods.any(
-          (String food) => food.toLowerCase() == value.toLowerCase(),
-        ) ||
-        widget.foods.length >= _maxFoods) {
+    // adding the same thing twice is noise rather than help.
+    final bool isDuplicate = widget.foods.any(
+      (String food) => food.toLowerCase() == value.toLowerCase(),
+    );
+
+    if (value.isEmpty || isDuplicate || widget.foods.length >= maxFoods) {
       _controller.clear();
+      setState(() {});
       return;
     }
 
@@ -156,9 +164,9 @@ class _DislikesStepState extends State<DislikesStep> {
                 AppFilterChip(
                   label: food,
                   icon: AppIcons.clear,
+                  // Rendered selected, and tapping removes it: these are things
+                  // the user added, so taking one back is the only action left.
                   isSelected: true,
-                  // Selected-looking and tapping removes it: these are things
-                  // the user added, so the only action left is to take one back.
                   onSelected: (_) => widget.onChanged(
                     widget.foods.where((String item) => item != food).toList(),
                   ),
@@ -170,52 +178,21 @@ class _DislikesStepState extends State<DislikesStep> {
     );
   }
 
-  /// The schema's ceiling.
-  static const int _maxFoods = 50;
+  /// The schema's ceiling on the array.
+  static const int maxFoods = 50;
 }
 
-/// Step 4 — dietary needs.
-class DietaryStep extends StatelessWidget {
-  const DietaryStep({
-    required this.selected,
+/// Default budget — few options, each worth reading, so tiles.
+class BudgetPicker extends StatelessWidget {
+  const BudgetPicker({
+    required this.budget,
     required this.onChanged,
     super.key,
   });
 
-  final Set<DietaryTag> selected;
-  final ValueChanged<Set<DietaryTag>> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: AppSpacing.space2,
-      runSpacing: AppSpacing.space2,
-      children: <Widget>[
-        for (final DietaryTag tag in DietaryTag.values)
-          AppFilterChip(
-            label: tag.label,
-            isSelected: selected.contains(tag),
-            onSelected: (bool isSelected) {
-              onChanged(
-                <DietaryTag>{
-                  ...selected,
-                  if (isSelected) tag,
-                }..removeWhere((DietaryTag item) => !isSelected && item == tag),
-              );
-            },
-          ),
-      ],
-    );
-  }
-}
-
-/// Step 5 — the default budget.
-class BudgetStep extends StatelessWidget {
-  const BudgetStep({required this.budget, required this.onChanged, super.key});
-
   final int? budget;
 
-  /// Null clears the budget, which means *no preference* rather than zero.
+  /// Null clears it, which means *no preference* rather than zero.
   final ValueChanged<int?> onChanged;
 
   @override
@@ -244,7 +221,7 @@ class BudgetStep extends StatelessWidget {
     );
   }
 
-  String _captionFor(int preset) => switch (preset) {
+  static String _captionFor(int preset) => switch (preset) {
     100 => 'Cheap and cheerful',
     200 => 'A normal weeknight',
     300 => 'A bit of a treat',
@@ -252,9 +229,9 @@ class BudgetStep extends StatelessWidget {
   };
 }
 
-/// Step 6 — maximum cooking time.
-class CookingTimeStep extends StatelessWidget {
-  const CookingTimeStep({
+/// Maximum cooking time — few options, so tiles.
+class CookingTimePicker extends StatelessWidget {
+  const CookingTimePicker({
     required this.minutes,
     required this.onChanged,
     super.key,
@@ -297,9 +274,9 @@ class CookingTimeStep extends StatelessWidget {
   ];
 }
 
-/// Step 7 — who you cook for.
-class CookingForStep extends StatelessWidget {
-  const CookingForStep({
+/// Who you cook for — three options, so tiles.
+class CookingForPicker extends StatelessWidget {
+  const CookingForPicker({
     required this.selected,
     required this.onChanged,
     super.key,
@@ -317,11 +294,7 @@ class CookingForStep extends StatelessWidget {
           SelectableTile(
             title: option.label,
             caption: option.caption,
-            emoji: switch (option) {
-              CookingFor.justMe => '🍽️',
-              CookingFor.withPartner => '❤️',
-              CookingFor.family => '👨‍👩‍👧',
-            },
+            emoji: option.emoji,
             isSelected: selected == option,
             onSelected: () => onChanged(option),
           ),
@@ -330,4 +303,15 @@ class CookingForStep extends StatelessWidget {
       ],
     );
   }
+}
+
+/// [source] with [value] added or removed.
+Set<T> _toggled<T>(Set<T> source, T value, bool isSelected) {
+  final Set<T> next = <T>{...source};
+  if (isSelected) {
+    next.add(value);
+  } else {
+    next.remove(value);
+  }
+  return next;
 }

@@ -33,9 +33,7 @@ class PlaceholderScreen extends StatelessWidget {
 
   /// An action the placeholder can still offer.
   ///
-  /// Used by the Profile route to expose sign-out before Sprint 20 builds the
-  /// real screen. Without it there is no way out of a signed-in app, which makes
-  /// the whole auth flow impossible to exercise by hand.
+  /// Kept for any route that needs a way forward before its real screen exists.
   final Widget? action;
 
   @override

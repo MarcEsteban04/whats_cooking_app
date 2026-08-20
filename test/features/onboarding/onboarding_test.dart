@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whats_cooking/core/domain/food_preferences.dart';
+import 'package:whats_cooking/core/domain/food_taxonomy.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_button.dart';
 import 'package:whats_cooking/core/widgets/preferences/selectable_tile.dart';
@@ -146,7 +148,7 @@ void main() {
       expect(repository.saves, hasLength(1));
 
       controller().update(
-        state().answers.copyWith(
+        state().answers.withPreferences(
           favouriteCuisines: <Cuisine>{Cuisine.filipino},
         ),
       );
@@ -160,7 +162,7 @@ void main() {
       controller().update(state().answers.copyWith(displayName: 'Marc'));
       await controller().advance();
       controller().update(
-        state().answers.copyWith(
+        state().answers.withPreferences(
           favouriteCuisines: <Cuisine>{Cuisine.japanese},
         ),
       );
@@ -168,7 +170,7 @@ void main() {
 
       expect(repository.saves.last.displayName, 'Marc');
       expect(
-        repository.saves.last.favouriteCuisines,
+        repository.saves.last.preferences.favouriteCuisines,
         contains(Cuisine.japanese),
       );
     });
@@ -199,7 +201,9 @@ void main() {
     test('a resumed run starts from what was stored', () async {
       repository.stored = const OnboardingAnswers(
         displayName: 'Marc',
-        favouriteCuisines: <Cuisine>{Cuisine.filipino},
+        preferences: FoodPreferences(
+          favouriteCuisines: <Cuisine>{Cuisine.filipino},
+        ),
       );
 
       final ProviderContainer resumed = ProviderContainer(
@@ -391,13 +395,13 @@ void main() {
       await pumpScreen(tester);
 
       controller().update(
-        state().answers.copyWith(cookingFor: CookingFor.justMe),
+        state().answers.withPreferences(cookingFor: CookingFor.justMe),
       );
       await tester.pumpAndSettle();
       expect(find.text('Cook together?'), findsNothing);
 
       controller().update(
-        state().answers.copyWith(cookingFor: CookingFor.withPartner),
+        state().answers.withPreferences(cookingFor: CookingFor.withPartner),
       );
       await tester.pumpAndSettle();
 
@@ -533,23 +537,26 @@ void main() {
   group('answers', () {
     test('a cleared budget is different from zero', () {
       // Null means no preference; the engine treats the two very differently.
-      const OnboardingAnswers withBudget = OnboardingAnswers(budget: 300);
+      const FoodPreferences withBudget = FoodPreferences(budget: 300);
 
       expect(withBudget.copyWith(clearBudget: true).budget, isNull);
       expect(withBudget.copyWith(budget: 0).budget, 0);
     });
 
     test('copyWith cannot accidentally clear', () {
-      const OnboardingAnswers answers = OnboardingAnswers(budget: 300);
+      const OnboardingAnswers answers = OnboardingAnswers(
+        preferences: FoodPreferences(budget: 300),
+      );
 
-      expect(answers.copyWith(displayName: 'Marc').budget, 300);
+      expect(answers.copyWith(displayName: 'Marc').preferences.budget, 300);
     });
 
     test('servings default to two when nobody answered', () {
       expect(const OnboardingAnswers().preferredServings, 2);
       expect(
-        const OnboardingAnswers(cookingFor: CookingFor.justMe)
-            .preferredServings,
+        const OnboardingAnswers(
+          preferences: FoodPreferences(cookingFor: CookingFor.justMe),
+        ).preferredServings,
         1,
       );
     });

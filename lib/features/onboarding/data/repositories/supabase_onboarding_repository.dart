@@ -1,5 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 import 'package:whats_cooking/core/constants/app_constants.dart';
+import 'package:whats_cooking/core/domain/food_preferences.dart';
+import 'package:whats_cooking/core/domain/food_taxonomy.dart';
 import 'package:whats_cooking/core/errors/app_exception.dart';
 import 'package:whats_cooking/core/network/remote_call.dart';
 import 'package:whats_cooking/core/network/retry_policy.dart';
@@ -54,7 +56,10 @@ class SupabaseOnboardingRepository implements OnboardingRepository {
             .eq('id', id)
             .maybeSingle();
 
-        return _answersFrom(preferences: preferences, profile: profile);
+        return OnboardingAnswers(
+          displayName: profile?['display_name'] as String?,
+          preferences: preferencesFrom(preferences),
+        );
       },
       label: 'loadOnboarding',
       timeout: AppConstants.requestTimeout,
@@ -69,21 +74,7 @@ class SupabaseOnboardingRepository implements OnboardingRepository {
 
         await _client
             .from(_preferencesTable)
-            .update(<String, dynamic>{
-              'favorite_cuisines': answers.favouriteCuisines
-                  .map((Cuisine cuisine) => cuisine.value)
-                  .toList(),
-              'dietary_tags': answers.dietaryTags
-                  .map((DietaryTag tag) => tag.value)
-                  .toList(),
-              'default_budget': answers.budget,
-              'max_cooking_time': answers.maxCookingTimeMinutes,
-              'preferred_servings': answers.preferredServings,
-              // Names rather than ids: the ingredient catalogue cannot match what
-              // someone types on their first day, so the text is kept and reconciled
-              // later (supabase/migrations/…_onboarding_dislikes.sql).
-              'disliked_ingredient_names': answers.dislikedFoods,
-            })
+            .update(columnsFor(answers.preferences))
             .eq('user_id', id);
 
         final String? name = answers.displayName?.trim();
@@ -99,7 +90,8 @@ class SupabaseOnboardingRepository implements OnboardingRepository {
       },
       label: 'saveOnboarding',
       // Idempotent, so a retry is safe — and this runs after every step, where a
-      // transient failure losing an answer is exactly what §5 forbids.
+      // transient failure losing an answer is exactly what
+      // docs/USER_FLOWS.md §5 forbids.
       policy: RetryPolicy.standard,
       timeout: AppConstants.requestTimeout,
     );
@@ -118,33 +110,58 @@ class SupabaseOnboardingRepository implements OnboardingRepository {
     );
   }
 
-  OnboardingAnswers _answersFrom({
-    required Map<String, dynamic>? preferences,
-    required Map<String, dynamic>? profile,
-  }) {
-    if (preferences == null && profile == null) {
-      return const OnboardingAnswers();
+  /// The `user_preferences` columns for [preferences].
+  ///
+  /// Shared with the profile repository, which writes the same six fields from
+  /// the same model — one mapping, so the two cannot disagree about which column
+  /// a dietary tag goes in.
+  static Map<String, dynamic> columnsFor(FoodPreferences preferences) {
+    return <String, dynamic>{
+      'favorite_cuisines': preferences.favouriteCuisines
+          .map((Cuisine cuisine) => cuisine.value)
+          .toList(),
+      'dietary_tags': preferences.dietaryTags
+          .map((DietaryTag tag) => tag.value)
+          .toList(),
+      'default_budget': preferences.budget,
+      'max_cooking_time': preferences.maxCookingTimeMinutes,
+      'preferred_servings': preferences.preferredServings,
+      // Names rather than ids: the ingredient catalogue cannot match what someone
+      // types on their first day, so the text is kept and reconciled later
+      // (supabase/migrations/…_onboarding_dislikes.sql).
+      'disliked_ingredient_names': preferences.dislikedFoods,
+    };
+  }
+
+  /// [FoodPreferences] from a `user_preferences` row.
+  static FoodPreferences preferencesFrom(Map<String, dynamic>? row) {
+    if (row == null) {
+      return const FoodPreferences();
     }
 
-    final List<String> cuisines = _stringList(
-      preferences?['favorite_cuisines'],
-    );
-    final List<String> tags = _stringList(preferences?['dietary_tags']);
-
-    return OnboardingAnswers(
-      displayName: profile?['display_name'] as String?,
-      // Unknown values are dropped rather than crashing the resume: a cuisine
-      // removed from the app should not make onboarding unopenable for whoever
-      // had picked it.
-      favouriteCuisines: cuisines.map(_cuisineFor).whereType<Cuisine>().toSet(),
-      dietaryTags: tags.map(_dietaryTagFor).whereType<DietaryTag>().toSet(),
-      dislikedFoods: _stringList(preferences?['disliked_ingredient_names']),
+    return FoodPreferences(
+      // Unrecognised values are dropped rather than throwing: a cuisine retired
+      // from the app should not make the screen unopenable for whoever picked it.
+      favouriteCuisines: _stringList(row['favorite_cuisines'])
+          .map(Cuisine.fromValue)
+          .whereType<Cuisine>()
+          .toSet(),
+      dietaryTags: _stringList(row['dietary_tags'])
+          .map(DietaryTag.fromValue)
+          .whereType<DietaryTag>()
+          .toSet(),
+      dislikedFoods: _stringList(row['disliked_ingredient_names']),
       // numeric(10,2) arrives as a num; the UI works in whole pesos.
-      budget: (preferences?['default_budget'] as num?)?.round(),
-      maxCookingTimeMinutes: (preferences?['max_cooking_time'] as num?)
-          ?.toInt(),
-      cookingFor: _cookingForServings(
-        (preferences?['preferred_servings'] as num?)?.toInt(),
+      budget: (row['default_budget'] as num?)?.round(),
+      maxCookingTimeMinutes: (row['max_cooking_time'] as num?)?.toInt(),
+      // `preferred_servings` is `not null default 2`, so this genuinely cannot
+      // tell "chose me and my partner" from "never answered". It resolves to the
+      // matching option, pre-selecting the likelier answer rather than losing a
+      // real one — and the household branch fires from an explicit tap, never
+      // from loaded state, so a pre-selected tile cannot push anyone into setup
+      // they did not ask for.
+      cookingFor: CookingFor.fromServings(
+        (row['preferred_servings'] as num?)?.toInt(),
       ),
     );
   }
@@ -154,46 +171,6 @@ class SupabaseOnboardingRepository implements OnboardingRepository {
       return value.map((Object? item) => '$item').toList();
     }
     return const <String>[];
-  }
-
-  static Cuisine? _cuisineFor(String value) {
-    for (final Cuisine cuisine in Cuisine.values) {
-      if (cuisine.value == value) {
-        return cuisine;
-      }
-    }
-    return null;
-  }
-
-  static DietaryTag? _dietaryTagFor(String value) {
-    for (final DietaryTag tag in DietaryTag.values) {
-      if (tag.value == value) {
-        return tag;
-      }
-    }
-    return null;
-  }
-
-  /// The [CookingFor] whose servings match [servings], if any.
-  ///
-  /// `preferred_servings` is `not null default 2`, so a resumed run genuinely
-  /// **cannot** tell "chose me and my partner" from "never answered". This
-  /// resolves it to the matching option, which pre-selects the likelier answer
-  /// rather than losing a real one.
-  ///
-  /// That ambiguity is contained deliberately: the household branch fires from an
-  /// explicit tap in the UI, never from loaded state, so a pre-selected tile
-  /// cannot push someone into household setup they did not ask for.
-  static CookingFor? _cookingForServings(int? servings) {
-    if (servings == null) {
-      return null;
-    }
-    for (final CookingFor option in CookingFor.values) {
-      if (option.servings == servings) {
-        return option;
-      }
-    }
-    return null;
   }
 
   static const String _preferencesTable = 'user_preferences';
