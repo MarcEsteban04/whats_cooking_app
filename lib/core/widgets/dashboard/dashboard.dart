@@ -239,23 +239,32 @@ class StatTrio extends StatelessWidget {
   Widget build(BuildContext context) {
     final AppColorScheme colors = context.colors;
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        for (final (int index, StatColumnData column) in columns.indexed) ...[
-          if (index > 0)
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.space3,
+    // `IntrinsicHeight` because the dividers stretch to the tallest column, and
+    // stretch needs a bounded height — inside a `ListView` there is none, and the
+    // Row hands its children h=Infinity instead. That threw "BoxConstraints
+    // forces an infinite height" and took the whole panel down with it.
+    //
+    // Affordable here in a way it would not be in a list: this is one row of
+    // three short columns per panel, not one per item.
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          for (final (int index, StatColumnData column) in columns.indexed) ...[
+            if (index > 0)
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.space3,
+                ),
+                child: SizedBox(
+                  width: 1,
+                  child: ColoredBox(color: colors.outline),
+                ),
               ),
-              child: SizedBox(
-                width: 1,
-                child: ColoredBox(color: colors.outline),
-              ),
-            ),
-          Expanded(child: _StatColumn(data: column)),
+            Expanded(child: _StatColumn(data: column)),
+          ],
         ],
-      ],
+      ),
     );
   }
 }
@@ -664,23 +673,27 @@ class DashboardActionRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final AppColorScheme colors = context.colors;
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        for (final (int index, DashboardAction action) in actions.indexed) ...[
-          if (index > 0)
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.space2,
+    // Same reason as `StatTrio`: full-height dividers need a bounded height.
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          for (final (int index, DashboardAction action)
+              in actions.indexed) ...[
+            if (index > 0)
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.space2,
+                ),
+                child: SizedBox(
+                  width: 1,
+                  child: ColoredBox(color: colors.outline),
+                ),
               ),
-              child: SizedBox(
-                width: 1,
-                child: ColoredBox(color: colors.outline),
-              ),
-            ),
-          Expanded(child: _ActionTile(action: action)),
+            Expanded(child: _ActionTile(action: action)),
+          ],
         ],
-      ],
+      ),
     );
   }
 }
