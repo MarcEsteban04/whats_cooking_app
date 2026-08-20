@@ -1,80 +1,118 @@
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/utils/formatters.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_icon_button.dart';
 import 'package:whats_cooking/core/widgets/cards/app_card.dart';
 import 'package:whats_cooking/core/widgets/chips/metadata_pill.dart';
-import 'package:whats_cooking/core/widgets/feedback/app_skeleton.dart';
 
 /// Everything a [MealCard] renders.
 ///
 /// A presentation model rather than the domain `Meal` entity, because `core/`
-/// cannot depend on a feature (docs/ARCHITECTURE.md §2.3) and the meals feature
-/// does not exist until Sprint 21. When it does, a mapper in that feature turns
-/// its entity into this — which also keeps the card renderable from a search
-/// result, a planner row or an AI suggestion, none of which carry a full meal.
+/// cannot depend on a feature (docs/ARCHITECTURE.md §2.3). It also keeps the
+/// card renderable from a search result, a planner row or an AI suggestion,
+/// none of which carry a full meal.
 @immutable
 class MealCardData {
   const MealCardData({
     required this.id,
     required this.name,
+    this.description,
     this.cuisine,
+    this.category,
+    this.difficulty,
     this.cookingTimeMinutes,
     this.estimatedCost,
     this.servings,
-    this.imageUrl,
-    this.emoji,
     this.isFavorite = false,
+    this.isMine = false,
     this.contextLine,
   });
 
-  /// Seeds the pastel fallback, so a photo-less meal keeps the same colour
-  /// across launches (docs/DESIGN_SYSTEM.md §9).
+  /// Seeds the card's accent, so a meal keeps the same colour across launches
+  /// (docs/DESIGN_SYSTEM.md §9).
   final String id;
   final String name;
+
+  /// The first line or two of the meal's own description.
+  ///
+  /// The card carries no imagery, so this is what fills the space a photograph
+  /// used to — and it is better at the job, because it says something about the
+  /// food rather than merely decorating it.
+  final String? description;
+
   final String? cuisine;
+  final String? category;
+  final String? difficulty;
   final int? cookingTimeMinutes;
+
+  /// Pesos, for [servings] people.
   final num? estimatedCost;
   final int? servings;
-  final String? imageUrl;
 
-  /// Shown in the pastel fallback when [imageUrl] is missing or fails.
-  final String? emoji;
   final bool isFavorite;
+
+  /// Marks a meal this household wrote itself, so it is distinguishable from the
+  /// catalogue in a feed that mixes both.
+  final bool isMine;
 
   /// The result form's optional line — "Loved by both of you".
   final String? contextLine;
 
-  /// `Japanese · 30 min`, with missing parts dropped.
-  String get metadataLine => AppFormat.metadata(<String?>[
-    cuisine,
-    cookingTimeMinutes == null
-        ? null
-        : AppFormat.cookingTime(cookingTimeMinutes!),
-  ]);
+  /// `Filipino · Dinner`, with missing parts dropped.
+  String get contextLabel => AppFormat.metadata(<String?>[cuisine, category]);
+
+  /// What one plate costs, which is what every budget question in the app means.
+  num? get costPerServing => estimatedCost == null || servings == null
+      ? estimatedCost
+      : estimatedCost! / servings!;
 
   String? get formattedCost =>
       estimatedCost == null ? null : AppFormat.peso(estimatedCost!);
+
+  /// `₱65 a head`, the figure a reader can actually compare between meals.
+  String? get formattedCostPerServing {
+    final num? each = costPerServing;
+    return each == null ? null : '${AppFormat.peso(each)} a head';
+  }
 }
 
 /// The three forms of the meal card (docs/COMPONENTS.md §4).
 enum MealCardVariant {
-  /// The Meals tab: full width, 4:3 image, heart floating top-right.
+  /// The Meals tab: full width, name-led, a row of metadata.
   feed,
 
-  /// History, planner, search: a 64 px square image and a stacked title.
+  /// History, planner, search: a single line with its metadata beneath.
   compact,
 
-  /// The roulette payoff: 1:1 image, the name in `displayMedium`, metadata
-  /// pills. The most important surface in the app, and the only one with
-  /// `shadowXl`.
+  /// The roulette payoff: the name in `displayMedium` and metadata pills.
   result,
 }
 
 /// A meal, in one of three forms.
+///
+/// **No imagery, deliberately.** docs/COMPONENTS.md §4 and docs/design_ui.md §15
+/// both describe a 4:3 photograph as the card's leading element, and this card
+/// used to draw one — falling back, per docs/DESIGN_SYSTEM.md §9, to a pastel
+/// block keyed off the meal id when no photo existed.
+///
+/// No photo ever existed. The catalogue ships sixty meals with no
+/// rights-cleared photography behind them, so every card in the app was that
+/// fallback: a 4:3 area of flat colour taking up two-thirds of the card and
+/// saying nothing. Three attempts at making it say something — a bigger glyph, a
+/// gradient, a glyph on a legible disc — each looked better than the last and
+/// none of them looked like food.
+///
+/// So the imagery is gone rather than faked. What replaces it is the thing a
+/// reader actually wants: the name, a line of the meal's own description, and
+/// the four numbers that decide dinner — cost a head, time, difficulty, and who
+/// it feeds. A card that is honest about being text is worth more than one
+/// pretending to be a photograph, and five of them fit where one and a half used
+/// to.
+///
+/// If photography arrives, it comes back as a deliberate change, with the
+/// licensing and hosting decided first.
 ///
 /// In every form the whole card navigates to detail and the heart is an
 /// independent target that must not trigger navigation (§4) — which is why the
@@ -137,57 +175,84 @@ class _FeedForm extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final AppColorScheme colors = context.colors;
+    final AppAccent accent = colors.accentFor(meal.cuisine ?? meal.id);
 
+    final bool hasHeart = onFavoriteToggled != null;
+
+    // The heart is a sibling of the card, not a child of it. docs/COMPONENTS.md
+    // §4: "The heart is an independent target and must not trigger navigation" —
+    // and inside the card it would be both, because `AppCard` owns the tap
+    // region and its semantic label would swallow the heart's own.
     return Stack(
       children: <Widget>[
         AppCard(
           onTap: onTap,
           semanticLabel: _semanticLabel(meal),
-          padding: EdgeInsets.zero,
-          clipContent: true,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              AspectRatio(
-                aspectRatio: _feedAspectRatio,
-                child: MealImage(meal: meal),
-              ),
               Padding(
-                padding: const EdgeInsets.all(AppLayout.cardPaddingCompact),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      meal.name,
-                      style: context.text.titleMedium,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (meal.metadataLine.isNotEmpty) ...<Widget>[
-                      const SizedBox(height: AppSpacing.space1),
-                      Text(
-                        meal.metadataLine,
-                        style: context.text.metadata,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                    if (meal.formattedCost != null) ...<Widget>[
-                      const SizedBox(height: AppSpacing.space2),
-                      Text(
-                        meal.formattedCost!,
-                        style: context.text.numeric.copyWith(
-                          color: colors.textPrimary,
-                        ),
-                      ),
-                    ],
-                  ],
+                // Reserves the corner the heart floats over, so a long name
+                // wraps before it reaches it rather than running underneath.
+                padding: EdgeInsets.only(right: hasHeart ? _heartGutter : 0),
+                child: Text(
+                  meal.name,
+                  style: context.text.titleLarge,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
+              ),
+              if (meal.description case final String description) ...<Widget>[
+                const SizedBox(height: AppSpacing.space2),
+                Text(
+                  description,
+                  style: context.text.bodySmall.copyWith(
+                    color: colors.textSecondary,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+              const SizedBox(height: AppSpacing.space4),
+              // Wraps rather than truncates, so nothing is lost at 1.3x scale.
+              Wrap(
+                spacing: AppSpacing.space2,
+                runSpacing: AppSpacing.space2,
+                children: <Widget>[
+                  // The cuisine carries the colour. It is the one piece of metadata
+                  // that groups meals rather than measuring them, so it is also the
+                  // one worth tinting — and a tinted word is colour with a meaning,
+                  // where a coloured block was colour standing in for a photograph.
+                  if (meal.cuisine case final String cuisine)
+                    _AccentPill(label: cuisine, accent: accent),
+                  if (meal.isMine)
+                    _AccentPill(
+                      label: 'Yours',
+                      accent: AppAccent(
+                        background: colors.primaryContainer,
+                        foreground: colors.onPrimaryContainer,
+                      ),
+                    ),
+                  if (meal.formattedCostPerServing case final String cost)
+                    MetadataPill(label: cost, isNumeric: true),
+                  if (meal.cookingTimeMinutes case final int minutes)
+                    MetadataPill(
+                      label: AppFormat.cookingTime(minutes),
+                      icon: AppIcons.cookingTime,
+                    ),
+                  if (meal.difficulty case final String difficulty)
+                    MetadataPill(label: difficulty, icon: AppIcons.difficulty),
+                  if (meal.servings case final int servings)
+                    MetadataPill(
+                      label: AppFormat.servings(servings),
+                      icon: AppIcons.servings,
+                    ),
+                ],
               ),
             ],
           ),
         ),
-        if (onFavoriteToggled != null)
+        if (hasHeart)
           Positioned(
             top: AppSpacing.space2,
             right: AppSpacing.space2,
@@ -201,7 +266,38 @@ class _FeedForm extends StatelessWidget {
     );
   }
 
-  static const double _feedAspectRatio = 4 / 3;
+  /// The width the floating heart needs, plus the gap beside it.
+  static const double _heartGutter = 44;
+}
+
+/// A pill whose fill carries a meaning rather than a decoration.
+class _AccentPill extends StatelessWidget {
+  const _AccentPill({required this.label, required this.accent});
+
+  final String label;
+  final AppAccent accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: accent.background,
+        borderRadius: AppRadius.borderFull,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.space3,
+          vertical: AppSpacing.space1,
+        ),
+        child: Text(
+          label,
+          style: context.text.labelSmall.copyWith(color: accent.foreground),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+    );
+  }
 }
 
 class _CompactForm extends StatelessWidget {
@@ -217,6 +313,9 @@ class _CompactForm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final AppColorScheme colors = context.colors;
+    final AppAccent accent = colors.accentFor(meal.cuisine ?? meal.id);
+
     return AppCard(
       variant: AppCardVariant.compact,
       onTap: onTap,
@@ -224,12 +323,15 @@ class _CompactForm extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.space3),
       child: Row(
         children: <Widget>[
-          ClipRRect(
-            borderRadius: AppRadius.borderMd,
-            child: SizedBox.square(
-              dimension: _thumbnailSize,
-              child: MealImage(meal: meal),
+          // A slim rail where the thumbnail used to be. It holds the meal's
+          // colour without pretending to hold its photograph, and it keeps the
+          // row's left edge aligned with the feed card above it.
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: accent.foreground,
+              borderRadius: AppRadius.borderFull,
             ),
+            child: const SizedBox(width: _railWidth, height: _railHeight),
           ),
           const SizedBox(width: AppSpacing.space3),
           Expanded(
@@ -243,14 +345,10 @@ class _CompactForm extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                if (meal.metadataLine.isNotEmpty ||
-                    meal.formattedCost != null) ...<Widget>[
+                if (_metadata.isNotEmpty) ...<Widget>[
                   const SizedBox(height: AppSpacing.space1),
                   Text(
-                    AppFormat.metadata(<String?>[
-                      meal.metadataLine.isEmpty ? null : meal.metadataLine,
-                      meal.formattedCost,
-                    ]),
+                    _metadata,
                     style: context.text.metadata,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -268,7 +366,16 @@ class _CompactForm extends StatelessWidget {
     );
   }
 
-  static const double _thumbnailSize = 64;
+  String get _metadata => AppFormat.metadata(<String?>[
+    meal.cuisine,
+    meal.cookingTimeMinutes == null
+        ? null
+        : AppFormat.cookingTime(meal.cookingTimeMinutes!),
+    meal.formattedCost,
+  ]);
+
+  static const double _railWidth = 4;
+  static const double _railHeight = 40;
 }
 
 class _ResultForm extends StatelessWidget {
@@ -285,6 +392,7 @@ class _ResultForm extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final AppColorScheme colors = context.colors;
+    final AppAccent accent = colors.accentFor(meal.cuisine ?? meal.id);
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -296,45 +404,47 @@ class _ResultForm extends StatelessWidget {
         padding: const EdgeInsets.all(AppLayout.cardPadding),
         child: Column(
           children: <Widget>[
-            Stack(
-              children: <Widget>[
-                ClipRRect(
-                  borderRadius: AppRadius.borderXxxl,
-                  child: AspectRatio(
-                    aspectRatio: 1,
-                    child: MealImage(meal: meal),
-                  ),
+            if (onFavoriteToggled != null)
+              Align(
+                alignment: Alignment.centerRight,
+                child: FavoriteButton(
+                  isFavorite: meal.isFavorite,
+                  onToggled: onFavoriteToggled!,
+                  mealName: meal.name,
                 ),
-                if (onFavoriteToggled != null)
-                  Positioned(
-                    top: AppSpacing.space2,
-                    right: AppSpacing.space2,
-                    child: FavoriteButton(
-                      isFavorite: meal.isFavorite,
-                      onToggled: onFavoriteToggled!,
-                      mealName: meal.name,
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.space5),
+              ),
+            if (meal.cuisine case final String cuisine) ...<Widget>[
+              _AccentPill(label: cuisine, accent: accent),
+              const SizedBox(height: AppSpacing.space4),
+            ],
             Text(
               meal.name,
               style: context.text.displayMedium,
               textAlign: TextAlign.center,
-              maxLines: 2,
+              maxLines: 3,
               overflow: TextOverflow.ellipsis,
             ),
-            if (meal.contextLine != null) ...<Widget>[
+            if (meal.contextLine case final String context_) ...<Widget>[
               const SizedBox(height: AppSpacing.space2),
               Text(
-                meal.contextLine!,
+                context_,
                 style: context.text.labelSmall.copyWith(color: colors.primary),
                 textAlign: TextAlign.center,
               ),
             ],
-            const SizedBox(height: AppSpacing.space4),
-            // Wraps rather than truncates, so nothing is lost at 1.3x scale.
+            if (meal.description case final String description) ...<Widget>[
+              const SizedBox(height: AppSpacing.space3),
+              Text(
+                description,
+                style: context.text.bodyMedium.copyWith(
+                  color: colors.textSecondary,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+            const SizedBox(height: AppSpacing.space5),
             Wrap(
               alignment: WrapAlignment.center,
               spacing: AppSpacing.space2,
@@ -359,59 +469,6 @@ class _ResultForm extends StatelessWidget {
       ),
     );
   }
-}
-
-/// A meal photo, its loading skeleton and its fallback.
-///
-/// docs/DESIGN_SYSTEM.md §9: every image fades in, shimmers while loading, and
-/// "degrades to a deterministic pastel-plus-emoji block keyed off the meal ID —
-/// so a missing photo still looks composed, and looks the *same* on every
-/// launch."
-class MealImage extends StatelessWidget {
-  const MealImage({required this.meal, super.key});
-
-  final MealCardData meal;
-
-  @override
-  Widget build(BuildContext context) {
-    final String? url = meal.imageUrl;
-
-    if (url == null || url.isEmpty) {
-      return _MealImageFallback(meal: meal);
-    }
-
-    return CachedNetworkImage(
-      imageUrl: url,
-      fit: BoxFit.cover,
-      fadeInDuration: AppMotion.resolve(context, AppMotion.normal),
-      placeholder: (BuildContext context, String _) => const AppSkeleton(),
-      errorWidget: (BuildContext context, String _, Object _) =>
-          _MealImageFallback(meal: meal),
-    );
-  }
-}
-
-class _MealImageFallback extends StatelessWidget {
-  const _MealImageFallback({required this.meal});
-
-  final MealCardData meal;
-
-  @override
-  Widget build(BuildContext context) {
-    final AppAccent accent = context.colors.accentFor(meal.id);
-
-    return ColoredBox(
-      color: accent.background,
-      child: Center(
-        child: Text(
-          meal.emoji ?? _defaultEmoji,
-          style: const TextStyle(fontSize: AppIconSize.lg),
-        ),
-      ),
-    );
-  }
-
-  static const String _defaultEmoji = '🍽️';
 }
 
 /// The heart on a meal card (docs/COMPONENTS.md §4).
@@ -505,7 +562,7 @@ class _FavoriteButtonState extends State<FavoriteButton>
 String _semanticLabel(MealCardData meal) {
   return AppFormat.metadata(<String?>[
     meal.name,
-    meal.metadataLine.isEmpty ? null : meal.metadataLine,
-    meal.formattedCost,
+    meal.contextLabel.isEmpty ? null : meal.contextLabel,
+    meal.formattedCostPerServing,
   ]);
 }

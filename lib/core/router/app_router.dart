@@ -16,6 +16,8 @@ import 'package:whats_cooking/features/auth/presentation/screens/login_screen.da
 import 'package:whats_cooking/features/auth/presentation/screens/register_screen.dart';
 import 'package:whats_cooking/features/auth/presentation/screens/reset_password_screen.dart';
 import 'package:whats_cooking/features/auth/presentation/screens/welcome_screen.dart';
+import 'package:whats_cooking/features/meals/presentation/screens/create_meal_screen.dart';
+import 'package:whats_cooking/features/meals/presentation/screens/meals_screen.dart';
 import 'package:whats_cooking/features/onboarding/presentation/screens/onboarding_screen.dart';
 import 'package:whats_cooking/features/profile/presentation/screens/account_settings_screen.dart';
 import 'package:whats_cooking/features/profile/presentation/screens/appearance_settings_screen.dart';
@@ -189,18 +191,19 @@ final StatefulShellRoute _shellRoute = StatefulShellRoute.indexedStack(
           path: AppRoute.meals.path,
           name: AppRoute.meals.routeName,
           pageBuilder: (BuildContext context, GoRouterState state) =>
-              const AppInstantPage<void>(
-                child: PlaceholderScreen(title: 'Meals', sprint: 'Sprint 22'),
-              ),
+              const AppInstantPage<void>(child: MealsScreen()),
           // Literal segments are declared before `:id`, because GoRouter matches
           // in declaration order — with `:id` first, `/meals/search` would
           // resolve to a meal whose id is "search".
           routes: <RouteBase>[
-            _child(
-              AppRoute.mealSearch,
-              AppRoute.meals,
-              'Search meals',
-              sprint: 'Sprint 22',
+            GoRoute(
+              path: _relative(AppRoute.mealSearch, AppRoute.meals),
+              name: AppRoute.mealSearch.routeName,
+              // The same screen with the keyboard already up. Home's search
+              // affordance lands here (docs/USER_FLOWS.md §6); the tab itself
+              // lands on /meals, where the search field waits to be tapped.
+              builder: (BuildContext context, GoRouterState state) =>
+                  const MealsScreen(autofocusSearch: true),
             ),
             _child(
               AppRoute.favorites,
@@ -220,11 +223,11 @@ final StatefulShellRoute _shellRoute = StatefulShellRoute.indexedStack(
               'My meals',
               sprint: 'Sprint 26',
             ),
-            _child(
-              AppRoute.mealCreate,
-              AppRoute.meals,
-              'New meal',
-              sprint: 'Sprint 26',
+            GoRoute(
+              path: _relative(AppRoute.mealCreate, AppRoute.meals),
+              name: AppRoute.mealCreate.routeName,
+              builder: (BuildContext context, GoRouterState state) =>
+                  const CreateMealScreen(),
             ),
             GoRoute(
               path: _relative(AppRoute.mealDetail, AppRoute.meals),

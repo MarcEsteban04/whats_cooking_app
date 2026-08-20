@@ -138,3 +138,61 @@ enum CookingFor {
     CookingFor.family => '👨‍👩‍👧',
   };
 }
+
+/// When a meal is eaten.
+///
+/// Mirrors the `meal_category` enum. Named `MealCategory` rather than
+/// `MealType`: the schema has both, and `meal_type` belongs to the planner
+/// (v1.3), which has its own idea of a slot in a day.
+enum MealCategory {
+  breakfast('Breakfast', '🍳'),
+  lunch('Lunch', '🍱'),
+  dinner('Dinner', '🍲'),
+  snack('Snacks', '🍡'),
+  dessert('Desserts', '🍰');
+
+  const MealCategory(this.label, this.emoji);
+
+  final String label;
+  final String emoji;
+
+  String get value => name;
+
+  /// Null rather than throwing, for the same reason [Cuisine.fromValue] does: a
+  /// value the app does not recognise should hide one meal, not break a feed.
+  static MealCategory? fromValue(String value) {
+    for (final MealCategory category in MealCategory.values) {
+      if (category.value == value) {
+        return category;
+      }
+    }
+    return null;
+  }
+}
+
+/// How hard a meal is to cook.
+///
+/// Mirrors the `difficulty` enum. Presented as a word rather than a number of
+/// stars — "medium" is a claim someone can argue with, three stars out of five
+/// pretends to a precision the data does not have.
+enum Difficulty {
+  easy('Easy', '🟢'),
+  medium('Medium', '🟡'),
+  hard('Hard', '🔴');
+
+  const Difficulty(this.label, this.emoji);
+
+  final String label;
+  final String emoji;
+
+  String get value => name;
+
+  static Difficulty? fromValue(String value) {
+    for (final Difficulty difficulty in Difficulty.values) {
+      if (difficulty.value == value) {
+        return difficulty;
+      }
+    }
+    return null;
+  }
+}

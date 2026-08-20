@@ -48,7 +48,18 @@ class MetadataPill extends StatelessWidget {
                 Icon(icon, size: AppIconSize.xs, color: colors.textSecondary),
                 const SizedBox(width: AppSpacing.space1),
               ],
-              Text(label, style: style, maxLines: 1),
+              // Flexible, because a pill lives in a `Wrap` that hands it the
+              // full row width as a maximum. A label longer than the row — a
+              // four-figure cost at 1.3x text scale on a 320 px screen — used to
+              // overflow rather than shorten.
+              Flexible(
+                child: Text(
+                  label,
+                  style: style,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
             ],
           ),
         ),

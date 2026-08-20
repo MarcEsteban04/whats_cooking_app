@@ -13,19 +13,22 @@ void main() {
     cookingTimeMinutes: 35,
     estimatedCost: 180,
     servings: 2,
-    emoji: '🍗',
+    description: 'Soy, vinegar, garlic and patience.',
+    category: 'Dinner',
+    difficulty: 'Easy',
   );
 
   group('MealCardData', () {
     test('builds its metadata line from what is present', () {
-      expect(adobo.metadataLine, 'Filipino · 35 min');
+      expect(adobo.contextLabel, 'Filipino · Dinner');
       expect(adobo.formattedCost, '₱180');
+      expect(adobo.formattedCostPerServing, '₱90 a head');
     });
 
     test('drops missing parts rather than leaving a dangling separator', () {
       const MealCardData sparse = MealCardData(id: 'x', name: 'Mystery');
 
-      expect(sparse.metadataLine, isEmpty);
+      expect(sparse.contextLabel, isEmpty);
       expect(sparse.formattedCost, isNull);
     });
 
@@ -36,7 +39,7 @@ void main() {
         cuisine: 'Japanese',
       );
 
-      expect(partial.metadataLine, 'Japanese');
+      expect(partial.contextLabel, 'Japanese');
     });
   });
 
@@ -52,8 +55,10 @@ void main() {
       );
 
       expect(find.text('Chicken Adobo'), findsOneWidget);
-      expect(find.text('Filipino · 35 min'), findsOneWidget);
-      expect(find.text('₱180'), findsOneWidget);
+      expect(find.text('Filipino'), findsOneWidget);
+      expect(find.text('₱90 a head'), findsOneWidget);
+      expect(find.text('35 min'), findsOneWidget);
+      expect(find.text('Easy'), findsOneWidget);
     });
 
     testWidgets('the whole card navigates to detail', (
@@ -179,17 +184,6 @@ void main() {
       expect(find.text('30 min'), findsOneWidget);
       expect(find.text('2 servings'), findsOneWidget);
       expect(find.byType(MetadataPill), findsNWidgets(3));
-    });
-
-    testWidgets('a photo-less meal falls back to its emoji', (
-      WidgetTester tester,
-    ) async {
-      await pumpComponent(
-        tester,
-        const SizedBox(width: 320, child: MealCard(meal: adobo)),
-      );
-
-      expect(find.text('🍗'), findsOneWidget);
     });
 
     testWidgets('the fallback colour is stable for a given meal', (

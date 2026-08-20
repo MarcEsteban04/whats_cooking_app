@@ -102,7 +102,7 @@ index_check as (
   select
     '7. key indexes' as check_name,
     count(*)         as found,
-    4                as expected
+    5                as expected
   from pg_indexes
   where schemaname = 'public'
     and indexname in (
@@ -112,7 +112,11 @@ index_check as (
       -- Added by migration 0014. It is a correctness constraint rather than a
       -- performance index: without it, re-running the catalogue seed duplicates
       -- every meal.
-      'meals_public_name_uk'
+      'meals_public_name_uk',
+      -- Added by migration 0015, alongside the generated `cost_per_serving`
+      -- column. The Meals tab filters and sorts on it, so a database missing
+      -- the column fails the budget filter and the cheapest sort outright.
+      'meals_cost_per_serving_idx'
     )
 ),
 onboarding_column_check as (
