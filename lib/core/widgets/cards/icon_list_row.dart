@@ -15,7 +15,6 @@ import 'package:whats_cooking/core/widgets/press_feedback.dart';
 class IconListRow extends StatelessWidget {
   const IconListRow({
     required this.title,
-    this.emoji,
     this.icon,
     this.value,
     this.trailing,
@@ -28,9 +27,10 @@ class IconListRow extends StatelessWidget {
 
   /// A glyph for the leading tile. Content, not iconography
   /// (docs/DESIGN_SYSTEM.md §8).
-  final String? emoji;
-
-  /// An icon for the leading tile, when no emoji suits.
+  /// The glyph for the leading tile.
+  ///
+  /// An icon, never an emoji: a settings list is the last place that wants
+  /// somebody else's full-colour artwork in it.
   final IconData? icon;
 
   /// The current setting or a one-line summary.
@@ -80,10 +80,10 @@ class IconListRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: AppSpacing.space3),
         child: Row(
           children: <Widget>[
-            // No glyph, no tile. A row given neither an emoji nor an icon is a
-            // plain fact — "Signed in as" — and an empty tinted square in front
-            // of it would read as an image that failed to load.
-            if (emoji != null || icon != null) ...<Widget>[
+            // No glyph, no tile. A row given no icon is a plain fact —
+            // "Signed in as" — and an empty tinted square in front of it would
+            // read as an image that failed to load.
+            if (icon case final IconData glyph) ...<Widget>[
               DecoratedBox(
                 decoration: BoxDecoration(
                   color: tileColour,
@@ -92,14 +92,11 @@ class IconListRow extends StatelessWidget {
                 child: SizedBox.square(
                   dimension: glyphTileSize,
                   child: Center(
-                    child: emoji != null
-                        ? ExcludeSemantics(
-                            child: Text(
-                              emoji!,
-                              style: const TextStyle(fontSize: AppIconSize.sm),
-                            ),
-                          )
-                        : Icon(icon, size: AppIconSize.sm, color: glyphColour),
+                    child: Icon(
+                      glyph,
+                      size: AppIconSize.sm,
+                      color: glyphColour,
+                    ),
                   ),
                 ),
               ),

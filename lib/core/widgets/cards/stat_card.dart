@@ -15,7 +15,7 @@ class StatCard extends StatelessWidget {
   const StatCard({
     required this.value,
     required this.label,
-    this.emoji,
+    this.icon,
     this.isRaised = false,
     super.key,
   });
@@ -26,8 +26,10 @@ class StatCard extends StatelessWidget {
   /// What it counts.
   final String label;
 
-  /// An optional glyph above the figure.
-  final String? emoji;
+  /// An optional glyph above the figure. An icon, never an emoji — the palette
+  /// is monochrome and a full-colour glyph is the one thing on the card that did
+  /// not come from the design system.
+  final IconData? icon;
 
   /// Lifts the card with `shadowMd` instead of `shadowSm`.
   ///
@@ -57,8 +59,12 @@ class StatCard extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              if (emoji != null) ...<Widget>[
-                Text(emoji!, style: const TextStyle(fontSize: AppIconSize.sm)),
+              if (icon case final IconData glyph) ...<Widget>[
+                Icon(
+                  glyph,
+                  size: AppIconSize.sm,
+                  color: context.colors.textSecondary,
+                ),
                 const SizedBox(height: AppSpacing.space1),
               ],
               Text(

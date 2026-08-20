@@ -341,6 +341,16 @@ label.
 
 ## 9. Imagery
 
+> **No emoji anywhere in the interface.** They were used as cheap illustration — empty
+> states, tile glyphs, the wordmark, the promise cards — and every one has been replaced with
+> a themed icon. Two reasons: they arrive full-colour and platform-specific, which beside a
+> monochrome palette reads as clip art dropped into a design system; and an icon inherits the
+> ink, so it is dark on light and light on dark without anyone thinking about it. Anywhere a
+> glyph is wanted, it comes from `AppIcons`.
+>
+> There is also no meal imagery at all — see COMPONENTS §4. The table below is the brief for
+> when there is.
+
 | Context | Ratio | Radius | Fallback |
 | ------- | ----- | ------ | -------- |
 | Meal card, feed | 4:3 | `radiusXl` top | Pastel block + cuisine emoji |

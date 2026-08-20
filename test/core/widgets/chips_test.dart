@@ -174,12 +174,7 @@ void main() {
 
       await pumpComponent(
         tester,
-        CuisineChip(
-          cuisine: 'Japanese',
-          emoji: '🍣',
-          isSelected: false,
-          onSelected: (_) {},
-        ),
+        CuisineChip(cuisine: 'Japanese', isSelected: false, onSelected: (_) {}),
       );
 
       // The label already says "Japanese"; reading the emoji too is noise.

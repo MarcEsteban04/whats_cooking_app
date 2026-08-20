@@ -45,7 +45,6 @@ class CuisinePicker extends StatelessWidget {
         for (final Cuisine cuisine in Cuisine.values)
           CuisineChip(
             cuisine: cuisine.label,
-            emoji: cuisine.emoji,
             isSelected: selected.contains(cuisine),
             onSelected: (bool isSelected) =>
                 onChanged(_toggled<Cuisine>(selected, cuisine, isSelected)),
@@ -204,7 +203,7 @@ class BudgetPicker extends StatelessWidget {
           SelectableTile(
             title: AppFormat.peso(preset),
             caption: _captionFor(preset),
-            emoji: '💰',
+            icon: AppIcons.budget,
             isSelected: budget == preset,
             onSelected: () => onChanged(budget == preset ? null : preset),
           ),
@@ -213,7 +212,7 @@ class BudgetPicker extends StatelessWidget {
         SelectableTile(
           title: 'No budget in mind',
           caption: 'Show me everything',
-          emoji: '🤷',
+          icon: AppIcons.more,
           isSelected: budget == null,
           onSelected: () => onChanged(null),
         ),
@@ -249,7 +248,7 @@ class CookingTimePicker extends StatelessWidget {
           SelectableTile(
             title: AppFormat.cookingTime(option),
             caption: caption,
-            emoji: '⏱️',
+            icon: AppIcons.cookingTime,
             isSelected: minutes == option,
             onSelected: () => onChanged(minutes == option ? null : option),
           ),
@@ -258,7 +257,7 @@ class CookingTimePicker extends StatelessWidget {
         SelectableTile(
           title: 'However long it takes',
           caption: 'No limit',
-          emoji: '🍲',
+          icon: AppIcons.meals,
           isSelected: minutes == null,
           onSelected: () => onChanged(null),
         ),
@@ -294,7 +293,7 @@ class CookingForPicker extends StatelessWidget {
           SelectableTile(
             title: option.label,
             caption: option.caption,
-            emoji: option.emoji,
+            icon: _cookingForIcon(option),
             isSelected: selected == option,
             onSelected: () => onChanged(option),
           ),
@@ -348,7 +347,7 @@ class RepetitionWindowPicker extends StatelessWidget {
         SelectableTile(
           title: 'Use the default',
           caption: 'A couple of days',
-          emoji: '🎲',
+          icon: AppIcons.spin,
           isSelected: days == null,
           onSelected: () => onChanged(null),
         ),
@@ -358,7 +357,7 @@ class RepetitionWindowPicker extends StatelessWidget {
           SelectableTile(
             title: title,
             caption: caption,
-            emoji: option == 0 ? '🔁' : '📅',
+            icon: option == 0 ? AppIcons.refresh : AppIcons.plannerActive,
             isSelected: days == option,
             onSelected: () => onChanged(option),
           ),
@@ -378,3 +377,14 @@ class RepetitionWindowPicker extends StatelessWidget {
     (30, 'A month', 'Never the same thing twice'),
   ];
 }
+
+/// The glyph for each [CookingFor] option.
+///
+/// Mapped here rather than on the enum because `core/domain` imports nothing —
+/// it is pure Dart on purpose — and pulling Flutter into it for one `IconData`
+/// would be a poor trade for a glyph a single widget needs.
+IconData _cookingForIcon(CookingFor option) => switch (option) {
+  CookingFor.justMe => Icons.person_outline_rounded,
+  CookingFor.withPartner => Icons.people_outline_rounded,
+  CookingFor.family => Icons.groups_outlined,
+};

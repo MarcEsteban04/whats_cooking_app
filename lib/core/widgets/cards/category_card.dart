@@ -21,7 +21,7 @@ import 'package:whats_cooking/core/widgets/press_feedback.dart';
 class CategoryCard extends StatelessWidget {
   const CategoryCard({
     required this.label,
-    required this.emoji,
+    required this.icon,
     required this.accent,
     required this.onTap,
     this.semanticAction = 'spin',
@@ -30,9 +30,12 @@ class CategoryCard extends StatelessWidget {
 
   final String label;
 
-  /// The category's glyph. Content, not iconography
-  /// (docs/DESIGN_SYSTEM.md §8).
-  final String emoji;
+  /// The category's glyph.
+  ///
+  /// An icon rather than an emoji: §8 called glyphs "content, not iconography",
+  /// which was true when the palette had colour of its own to sit beside. It does
+  /// not, and a full-colour emoji on a pastel tile now reads as clip art.
+  final IconData icon;
 
   /// The pastel for the glyph tile, from `context.colors.accentFor(...)` so the
   /// same category keeps the same colour everywhere.
@@ -75,9 +78,10 @@ class CategoryCard extends StatelessWidget {
                   dimension: _tileSize,
                   child: Center(
                     child: ExcludeSemantics(
-                      child: Text(
-                        emoji,
-                        style: const TextStyle(fontSize: AppIconSize.lg),
+                      child: Icon(
+                        icon,
+                        size: AppIconSize.lg,
+                        color: accent.foreground,
                       ),
                     ),
                   ),

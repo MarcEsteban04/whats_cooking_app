@@ -71,6 +71,12 @@ class _SpinScreenState extends ConsumerState<SpinScreen>
 
   Timer? _revealTimer;
 
+  /// Fires if the pool takes too long, so a slow night still turns the reel.
+  Timer? _poolTimer;
+
+  /// Set when the device asks for less motion, so the reel is never started.
+  bool _isReducedMotion = false;
+
   @override
   void initState() {
     super.initState();
@@ -114,18 +120,44 @@ class _SpinScreenState extends ConsumerState<SpinScreen>
     // cycling with a cross-fade — so the travel is skipped and the reveal waits
     // only on the pick.
     if (AppMotion.prefersReducedMotion(context)) {
+      _isReducedMotion = true;
       _controller.value = 1;
       _isReelStopped = true;
       _scheduleReveal();
       return;
     }
 
+    // **Armed, not started.** The reel used to begin turning the moment this
+    // screen mounted, which meant that on a cold first spin it spent its whole
+    // 2.2 seconds showing the wind-up card and stopped just as the meals
+    // arrived — no roll at all, while Try Again (with everything cached) rolled
+    // perfectly. An animation with nothing to animate is not suspense, it is a
+    // stall with a spinner's manners.
+    //
+    // So the travel starts when there are cards, and this timer is only the
+    // backstop: past [_maxPoolWait] it rolls the wind-up card anyway, because
+    // waiting silently is worse than moving early.
+    _poolTimer ??= Timer(_maxPoolWait, _startReel);
+  }
+
+  /// Begins the travel, once.
+  void _startReel() {
+    _poolTimer?.cancel();
+    _poolTimer = null;
+
+    if (_isReducedMotion ||
+        _isReelStopped ||
+        _controller.isAnimating ||
+        _controller.isCompleted) {
+      return;
+    }
     _controller.forward();
   }
 
   @override
   void dispose() {
     _revealTimer?.cancel();
+    _poolTimer?.cancel();
     _controller
       ..removeStatusListener(_onStatus)
       ..removeListener(_onTick)
@@ -231,14 +263,15 @@ class _SpinScreenState extends ConsumerState<SpinScreen>
     // noticed. `ref.listen` rather than acting on the watched value directly:
     // navigating from a build is not allowed, and this fires after it.
     ref.listen(spinControllerProvider, (SpinState? _, SpinState next) {
-      if (next is SpinSettled) {
+      if (next case SpinSettled(:final Meal meal, :final List<Meal> pool)) {
+        if (_reelPool == null) {
+          setState(() => _reelPool = _plant(pool, meal));
+        }
+        // Now there is something to roll.
+        _startReel();
         _maybeReveal();
       }
     });
-
-    if (state case SpinSettled(:final Meal meal, :final List<Meal> pool)) {
-      _reelPool ??= _plant(pool, meal);
-    }
 
     return Scaffold(
       backgroundColor: context.colors.background,
@@ -277,6 +310,13 @@ class _SpinScreenState extends ConsumerState<SpinScreen>
       ),
     );
   }
+
+  /// How long the reel waits for meals before turning regardless.
+  ///
+  /// Two seconds. Long enough that a normal request lands first and the roll is
+  /// the whole spin; short enough that a bad connection does not leave somebody
+  /// staring at a static card wondering whether they tapped it.
+  static const Duration _maxPoolWait = Duration(seconds: 2);
 
   /// Where the deceleration starts, as a fraction of the whole travel. Derived
   /// from [AppRouletteMotion] so changing a phase length moves this too.

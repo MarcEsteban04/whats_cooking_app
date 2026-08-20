@@ -31,7 +31,7 @@ class AppearanceSettingsScreen extends ConsumerWidget {
             SelectableTile(
               title: mode.label,
               caption: mode.caption,
-              emoji: mode.emoji,
+              icon: mode.icon,
               isSelected: current == mode,
               onSelected: () =>
                   ref.read(themeModeControllerProvider.notifier).set(mode),

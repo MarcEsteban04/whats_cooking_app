@@ -778,7 +778,7 @@ class _FeedEmpty extends StatelessWidget {
           // as far as the reader can tell.
           if (hidden > 0) _hiddenNote(hidden),
         ].join(' '),
-        emoji: '🔍',
+        icon: AppIcons.search,
         actionLabel: 'Clear filters',
         onAction: onClearFilters,
       );
@@ -792,7 +792,7 @@ class _FeedEmpty extends StatelessWidget {
         body: hidden == 1
             ? 'The one meal here is hidden.'
             : 'All $hidden meals here are hidden.',
-        emoji: '🙈',
+        icon: AppIcons.dislike,
         actionLabel: 'Hidden meals',
         onAction: () => context.pushNamed(AppRoute.dislikedMeals.routeName),
       );
@@ -801,7 +801,7 @@ class _FeedEmpty extends StatelessWidget {
     return const EmptyState(
       title: 'No meals yet',
       body: 'The catalogue is empty. Nothing to browse just yet.',
-      emoji: '🍽️',
+      icon: AppIcons.meals,
     );
   }
 

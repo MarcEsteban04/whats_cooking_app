@@ -16,23 +16,22 @@ library;
 /// Mirrors the `check` constraint on `meals.cuisine`
 /// (supabase/migrations/…_meals_ingredients.sql).
 enum Cuisine {
-  filipino('Filipino', '🇵🇭'),
-  japanese('Japanese', '🍣'),
-  korean('Korean', '🍲'),
-  chinese('Chinese', '🥡'),
-  thai('Thai', '🌶️'),
-  vietnamese('Vietnamese', '🍜'),
-  italian('Italian', '🍝'),
-  mexican('Mexican', '🌮'),
-  american('American', '🍔'),
-  indian('Indian', '🍛'),
-  mediterranean('Mediterranean', '🫒'),
-  other('Something else', '🍽️');
+  filipino('Filipino'),
+  japanese('Japanese'),
+  korean('Korean'),
+  chinese('Chinese'),
+  thai('Thai'),
+  vietnamese('Vietnamese'),
+  italian('Italian'),
+  mexican('Mexican'),
+  american('American'),
+  indian('Indian'),
+  mediterranean('Mediterranean'),
+  other('Something else');
 
-  const Cuisine(this.label, this.emoji);
+  const Cuisine(this.label);
 
   final String label;
-  final String emoji;
 
   /// The value written to the database.
   String get value => name;
@@ -131,12 +130,9 @@ enum CookingFor {
     return null;
   }
 
-  /// The emoji shown on this option's tile.
-  String get emoji => switch (this) {
-    CookingFor.justMe => '🍽️',
-    CookingFor.withPartner => '❤️',
-    CookingFor.family => '👨‍👩‍👧',
-  };
+  // No glyph here any more. The tiles carry icons now, and mapping one would
+  // mean importing Flutter into `core/domain` — which imports nothing, on
+  // purpose. `preference_editors.dart` owns that mapping instead.
 }
 
 /// When a meal is eaten.
@@ -145,16 +141,15 @@ enum CookingFor {
 /// `MealType`: the schema has both, and `meal_type` belongs to the planner
 /// (v1.3), which has its own idea of a slot in a day.
 enum MealCategory {
-  breakfast('Breakfast', '🍳'),
-  lunch('Lunch', '🍱'),
-  dinner('Dinner', '🍲'),
-  snack('Snacks', '🍡'),
-  dessert('Desserts', '🍰');
+  breakfast('Breakfast'),
+  lunch('Lunch'),
+  dinner('Dinner'),
+  snack('Snacks'),
+  dessert('Desserts');
 
-  const MealCategory(this.label, this.emoji);
+  const MealCategory(this.label);
 
   final String label;
-  final String emoji;
 
   String get value => name;
 
@@ -176,14 +171,13 @@ enum MealCategory {
 /// stars — "medium" is a claim someone can argue with, three stars out of five
 /// pretends to a precision the data does not have.
 enum Difficulty {
-  easy('Easy', '🟢'),
-  medium('Medium', '🟡'),
-  hard('Hard', '🔴');
+  easy('Easy'),
+  medium('Medium'),
+  hard('Hard');
 
-  const Difficulty(this.label, this.emoji);
+  const Difficulty(this.label);
 
   final String label;
-  final String emoji;
 
   String get value => name;
 

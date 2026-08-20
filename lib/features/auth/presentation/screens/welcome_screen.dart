@@ -101,9 +101,12 @@ class WelcomeScreen extends ConsumerWidget {
 
 /// The product mark and name, on one line.
 ///
-/// An emoji on a pastel disc rather than an asset: docs/DESIGN_SYSTEM.md §8
-/// treats emoji as content, and the app icon is Sprint 69's job — a placeholder
-/// PNG shipped now would be a second thing to remember to replace.
+/// A glyph on a disc rather than an asset: the app icon is Sprint 69's job, and
+/// a placeholder PNG shipped now would be a second thing to remember to replace.
+///
+/// An icon rather than the slot-machine emoji it used to be. The palette has no
+/// colour of its own any more, so a full-colour glyph was the one thing on the
+/// first screen anybody sees that did not come from the design system.
 class _Wordmark extends StatelessWidget {
   const _Wordmark();
 
@@ -123,7 +126,7 @@ class _Wordmark extends StatelessWidget {
             dimension: _markSize,
             child: Center(
               child: ExcludeSemantics(
-                child: Text('🎰', style: TextStyle(fontSize: AppIconSize.lg)),
+                child: Icon(AppIcons.spin, size: AppIconSize.lg),
               ),
             ),
           ),
@@ -190,37 +193,40 @@ class _PromiseCluster extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        for (final (int index, (String emoji, String title, String body))
+        for (final (int index, (IconData icon, String title, String body))
             in _promises.indexed) ...<Widget>[
           if (index > 0) const SizedBox(height: AppSpacing.space3),
-          _PromiseCard(
-            emoji: emoji,
-            title: title,
-            body: body,
-            accentSeed: title,
-          ),
+          _PromiseCard(icon: icon, title: title, body: body, accentSeed: title),
         ],
       ],
     );
   }
 
-  static const List<(String, String, String)> _promises =
-      <(String, String, String)>[
-        ('🎰', 'Spin', 'One tap and we pick, from meals you already like.'),
-        ('❤️', 'Agree', 'Cooking for two? We find what you both want.'),
-        ('🍳', 'Eat', 'Costs, timings and a grocery list, sorted.'),
+  static const List<(IconData, String, String)> _promises =
+      <(IconData, String, String)>[
+        (
+          AppIcons.spin,
+          'Spin',
+          'One tap and we pick, from meals you already like.',
+        ),
+        (
+          AppIcons.household,
+          'Agree',
+          'Cooking for two? We find what you both want.',
+        ),
+        (AppIcons.meals, 'Eat', 'Costs, timings and a grocery list, sorted.'),
       ];
 }
 
 class _PromiseCard extends StatelessWidget {
   const _PromiseCard({
-    required this.emoji,
+    required this.icon,
     required this.title,
     required this.body,
     required this.accentSeed,
   });
 
-  final String emoji;
+  final IconData icon;
   final String title;
   final String body;
 
@@ -252,9 +258,10 @@ class _PromiseCard extends StatelessWidget {
                 dimension: _tileSize,
                 child: Center(
                   child: ExcludeSemantics(
-                    child: Text(
-                      emoji,
-                      style: const TextStyle(fontSize: AppIconSize.md),
+                    child: Icon(
+                      icon,
+                      size: AppIconSize.md,
+                      color: accent.foreground,
                     ),
                   ),
                 ),

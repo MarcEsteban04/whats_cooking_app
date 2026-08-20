@@ -15,7 +15,6 @@ class EmptyState extends StatelessWidget {
   const EmptyState({
     required this.title,
     required this.body,
-    this.emoji,
     this.icon,
     this.actionLabel,
     this.onAction,
@@ -27,7 +26,7 @@ class EmptyState extends StatelessWidget {
     : this(
         title: 'Nothing saved yet',
         body: 'Spin the wheel and find something you love.',
-        emoji: '🍽️',
+        icon: AppIcons.favorite,
         actionLabel: "What's Cooking?",
         onAction: onSpin,
         key: key,
@@ -38,7 +37,7 @@ class EmptyState extends StatelessWidget {
     : this(
         title: 'No meals yet',
         body: 'Your decisions will show up here.',
-        emoji: '📖',
+        icon: AppIcons.plannerActive,
         actionLabel: 'Spin',
         onAction: onSpin,
         key: key,
@@ -49,7 +48,7 @@ class EmptyState extends StatelessWidget {
     : this(
         title: 'Your fridge is empty',
         body: "Add what you have and we'll find something to cook.",
-        emoji: '🧊',
+        icon: AppIcons.pantry,
         actionLabel: 'Add ingredient',
         onAction: onAddIngredient,
         key: key,
@@ -60,7 +59,7 @@ class EmptyState extends StatelessWidget {
     : this(
         title: 'Nothing to buy',
         body: "Accept a meal and we'll fill this in for you.",
-        emoji: '🛒',
+        icon: AppIcons.grocery,
         actionLabel: 'Spin',
         onAction: onSpin,
         key: key,
@@ -71,7 +70,7 @@ class EmptyState extends StatelessWidget {
     : this(
         title: 'No meals found',
         body: 'Try a different search, or loosen your filters.',
-        emoji: '🔍',
+        icon: AppIcons.search,
         actionLabel: 'Clear filters',
         onAction: onClearFilters,
         key: key,
@@ -82,7 +81,7 @@ class EmptyState extends StatelessWidget {
     : this(
         title: 'Nothing hidden',
         body: 'Meals you hide stop appearing in the feed and the roulette.',
-        emoji: '👍',
+        icon: AppIcons.check,
         actionLabel: 'Browse meals',
         onAction: onBrowse,
         key: key,
@@ -93,7 +92,7 @@ class EmptyState extends StatelessWidget {
     : this(
         title: 'No meals of your own yet',
         body: 'Add the food you actually cook.',
-        emoji: '🍳',
+        icon: AppIcons.meals,
         actionLabel: 'Add a meal',
         onAction: onAddMeal,
         key: key,
@@ -102,10 +101,12 @@ class EmptyState extends StatelessWidget {
   final String title;
   final String body;
 
-  /// A 48 px emoji. Preferred over [icon] — warmer, and it costs no asset.
-  final String? emoji;
-
-  /// An `iconXl` glyph in `textTertiary`, when no emoji suits.
+  /// The illustration: one glyph, in ink.
+  ///
+  /// An icon rather than an emoji. Emoji were warmer and cost no asset, which is
+  /// why they were here — but they arrive full-colour and platform-specific, and
+  /// beside a monochrome palette they read as clip art dropped into a design
+  /// system. A themed glyph sits inside the ink instead of on top of it.
   final IconData? icon;
 
   final String? actionLabel;
@@ -125,17 +126,17 @@ class EmptyState extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            if (emoji != null)
-              // Decorative: the title already carries the meaning, so the
-              // emoji is kept out of the semantics tree (§11).
+            if (icon case final IconData glyph)
+              // Decorative, and larger than an inline icon: this is the
+              // illustration, so it is sized like one. Kept out of the semantics
+              // tree because the title already carries the meaning (§11).
               ExcludeSemantics(
-                child: Text(
-                  emoji!,
-                  style: const TextStyle(fontSize: _illustrationSize),
+                child: Icon(
+                  glyph,
+                  size: _illustrationSize,
+                  color: colors.textTertiary,
                 ),
-              )
-            else if (icon != null)
-              Icon(icon, size: AppIconSize.xl, color: colors.textTertiary),
+              ),
             const SizedBox(height: AppSpacing.space5),
             Text(
               title,

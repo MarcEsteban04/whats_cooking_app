@@ -96,13 +96,13 @@ class _ProfileBody extends ConsumerWidget {
               rows: <Widget>[
                 IconListRow(
                   title: 'Food preferences',
-                  emoji: '🍽️',
+                  icon: AppIcons.meals,
                   value: _preferencesSummary(preferences),
                   onTap: () => context.goNamed(AppRoute.preferences.routeName),
                 ),
                 IconListRow(
                   title: 'Budget',
-                  emoji: '💰',
+                  icon: AppIcons.budget,
                   value: preferences.budget == null
                       ? 'No budget set'
                       : '${AppFormat.peso(preferences.budget!)} a meal',
@@ -117,7 +117,7 @@ class _ProfileBody extends ConsumerWidget {
               rows: <Widget>[
                 IconListRow(
                   title: profile.householdName ?? 'Our Kitchen',
-                  emoji: '❤️',
+                  icon: AppIcons.household,
                   value: profile.hasHousehold
                       ? 'Cooking together'
                       : 'Set up a shared kitchen',
@@ -135,13 +135,13 @@ class _ProfileBody extends ConsumerWidget {
               rows: <Widget>[
                 IconListRow(
                   title: 'Appearance',
-                  emoji: '🌗',
+                  icon: AppIcons.settings,
                   onTap: () =>
                       context.goNamed(AppRoute.appearanceSettings.routeName),
                 ),
                 IconListRow(
                   title: 'Account',
-                  emoji: '🔑',
+                  icon: AppIcons.profile,
                   value: 'Password, sign out, delete',
                   onTap: () =>
                       context.goNamed(AppRoute.accountSettings.routeName),
@@ -247,12 +247,12 @@ class _ProfileStats extends StatelessWidget {
     return StatCardRow(
       cards: <StatCard>[
         StatCard(
-          emoji: '🍽️',
+          icon: AppIcons.meals,
           value: '${preferences.favouriteCuisines.length}',
           label: 'Cuisines you like',
         ),
         StatCard(
-          emoji: '🚫',
+          icon: AppIcons.dislike,
           value: '${preferences.dislikedFoods.length}',
           label: 'Foods you avoid',
           // The one raised card in the row, following the reference's staggered
@@ -260,7 +260,7 @@ class _ProfileStats extends StatelessWidget {
           isRaised: true,
         ),
         StatCard(
-          emoji: '👥',
+          icon: AppIcons.servings,
           value: '${preferences.preferredServings}',
           label: 'Usually cooking for',
         ),

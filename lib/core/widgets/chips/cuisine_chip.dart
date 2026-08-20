@@ -17,7 +17,6 @@ class CuisineChip extends StatelessWidget {
     required this.cuisine,
     required this.isSelected,
     required this.onSelected,
-    this.emoji,
     super.key,
   });
 
@@ -27,10 +26,6 @@ class CuisineChip extends StatelessWidget {
 
   /// Null disables the chip.
   final ValueChanged<bool>? onSelected;
-
-  /// An optional leading emoji. Content, not iconography
-  /// (docs/DESIGN_SYSTEM.md §8).
-  final String? emoji;
 
   bool get _isEnabled => onSelected != null;
 
@@ -69,14 +64,6 @@ class CuisineChip extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
-                if (emoji != null) ...<Widget>[
-                  // Excluded from semantics: the label already says "Japanese",
-                  // and a screen reader announcing the emoji as well is noise.
-                  ExcludeSemantics(
-                    child: Text(emoji!, style: context.text.labelSmall),
-                  ),
-                  const SizedBox(width: AppSpacing.space1),
-                ],
                 Text(
                   cuisine,
                   style: context.text.labelSmall.copyWith(color: foreground),

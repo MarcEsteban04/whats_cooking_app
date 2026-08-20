@@ -130,7 +130,10 @@ class _Initials extends StatelessWidget {
         .toList();
 
     if (parts.isEmpty) {
-      return '🍽️';
+      // A letter rather than the plate emoji this used to return: initials are
+      // text, and one full-colour glyph in a row of monogram discs is the one
+      // that looks like a bug.
+      return 'WC';
     }
     if (parts.length == 1) {
       return parts.first.characters.first.toUpperCase();

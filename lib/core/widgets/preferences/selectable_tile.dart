@@ -23,7 +23,6 @@ class SelectableTile extends StatelessWidget {
     required this.isSelected,
     required this.onSelected,
     this.caption,
-    this.emoji,
     this.icon,
     super.key,
   });
@@ -33,10 +32,12 @@ class SelectableTile extends StatelessWidget {
   /// The supporting line, in `metadata`.
   final String? caption;
 
-  /// A leading emoji, shown in the tinted square.
-  final String? emoji;
-
-  /// A leading icon, used when no [emoji] suits.
+  /// A leading icon, shown in the tinted square.
+  ///
+  /// An icon rather than an emoji. Emoji are somebody else's artwork: they
+  /// arrive full-colour, they render differently on every platform, and next to
+  /// a monochrome palette they read as clip art dropped into a design system.
+  /// A themed glyph inherits the ink and stays consistent.
   final IconData? icon;
 
   final bool isSelected;
@@ -74,12 +75,8 @@ class SelectableTile extends StatelessWidget {
           padding: const EdgeInsets.all(AppSpacing.space3),
           child: Row(
             children: <Widget>[
-              if (emoji != null || icon != null) ...<Widget>[
-                _LeadingSquare(
-                  emoji: emoji,
-                  icon: icon,
-                  isSelected: isSelected,
-                ),
+              if (icon case final IconData glyph) ...<Widget>[
+                _LeadingSquare(icon: glyph, isSelected: isSelected),
                 const SizedBox(width: AppSpacing.space3),
               ],
               Expanded(
@@ -115,16 +112,11 @@ class SelectableTile extends StatelessWidget {
   static const double _selectedBorder = 2;
 }
 
-/// The 44 px tinted square holding an emoji or icon.
+/// The 44 px tinted square holding the icon.
 class _LeadingSquare extends StatelessWidget {
-  const _LeadingSquare({
-    required this.emoji,
-    required this.icon,
-    required this.isSelected,
-  });
+  const _LeadingSquare({required this.icon, required this.isSelected});
 
-  final String? emoji;
-  final IconData? icon;
+  final IconData icon;
   final bool isSelected;
 
   @override
@@ -139,21 +131,16 @@ class _LeadingSquare extends StatelessWidget {
       child: SizedBox.square(
         dimension: _size,
         child: Center(
-          child: emoji != null
-              // Excluded: the tile's own label already carries the meaning.
-              ? ExcludeSemantics(
-                  child: Text(
-                    emoji!,
-                    style: const TextStyle(fontSize: AppIconSize.sm),
-                  ),
-                )
-              : Icon(
-                  icon,
-                  size: AppIconSize.sm,
-                  color: isSelected
-                      ? colors.onPrimaryContainer
-                      : colors.textSecondary,
-                ),
+          child: Icon(
+            icon,
+            size: AppIconSize.sm,
+            // Follows the ink rather than carrying a colour of its own. The
+            // tile's label already says what it is; the glyph is there to be
+            // recognised at a glance, not to be looked at.
+            color: isSelected
+                ? colors.onPrimaryContainer
+                : colors.textSecondary,
+          ),
         ),
       ),
     );

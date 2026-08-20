@@ -19,7 +19,7 @@ void main() {
     ) async {
       await pumpComponent(
         tester,
-        const StatCard(value: '32', label: 'Meals tried', emoji: '🍽️'),
+        const StatCard(value: '32', label: 'Meals tried', icon: AppIcons.meals),
         brightness: brightness,
       );
 
@@ -72,9 +72,21 @@ void main() {
         tester,
         const StatCardRow(
           cards: <StatCard>[
-            StatCard(value: '6', label: 'Cuisines you like', emoji: '🍽️'),
-            StatCard(value: '3', label: 'Foods you avoid', emoji: '🚫'),
-            StatCard(value: '2', label: 'Usually cooking for', emoji: '👥'),
+            StatCard(
+              value: '6',
+              label: 'Cuisines you like',
+              icon: AppIcons.meals,
+            ),
+            StatCard(
+              value: '3',
+              label: 'Foods you avoid',
+              icon: AppIcons.meals,
+            ),
+            StatCard(
+              value: '2',
+              label: 'Usually cooking for',
+              icon: AppIcons.meals,
+            ),
           ],
         ),
         textScale: AppTypography.maxTextScale,
@@ -146,12 +158,7 @@ void main() {
       // a settings list nobody reads.
       await pumpComponent(
         tester,
-        IconListRow(
-          title: 'Budget',
-          emoji: '💰',
-          value: '₱300 a meal',
-          onTap: () {},
-        ),
+        IconListRow(title: 'Budget', value: '₱300 a meal', onTap: () {}),
         brightness: brightness,
       );
 
@@ -245,16 +252,10 @@ void main() {
           rows: <Widget>[
             IconListRow(
               title: 'Food preferences',
-              emoji: '🍽️',
               value: 'Filipino, Japanese · 3 avoided',
               onTap: () {},
             ),
-            IconListRow(
-              title: 'Budget',
-              emoji: '💰',
-              value: '₱300 a meal',
-              onTap: () {},
-            ),
+            IconListRow(title: 'Budget', value: '₱300 a meal', onTap: () {}),
           ],
         ),
         textScale: AppTypography.maxTextScale,
@@ -277,7 +278,7 @@ void main() {
         Builder(
           builder: (BuildContext context) => CategoryCard(
             label: 'Comfort food',
-            emoji: '🍲',
+            icon: AppIcons.meals,
             accent: context.colors.accentFor('Comfort food'),
             onTap: () {},
           ),
@@ -308,7 +309,7 @@ void main() {
         Builder(
           builder: (BuildContext context) => CategoryCard(
             label: 'Comfort food',
-            emoji: '🍲',
+            icon: AppIcons.meals,
             accent: context.colors.accentFor('Comfort food'),
             onTap: () {},
           ),
@@ -355,7 +356,7 @@ void main() {
               ])
                 CategoryCard(
                   label: label,
-                  emoji: '🍲',
+                  icon: AppIcons.meals,
                   accent: context.colors.accentFor(label),
                   onTap: () {},
                 ),

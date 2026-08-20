@@ -97,9 +97,14 @@ extension ThemeModeCopy on ThemeMode {
     ThemeMode.dark => 'Always dark',
   };
 
-  String get emoji => switch (this) {
-    ThemeMode.system => '📱',
-    ThemeMode.light => '☀️',
-    ThemeMode.dark => '🌙',
+  /// The glyph beside the option.
+  ///
+  /// An icon rather than an emoji: the palette is monochrome, and a full-colour
+  /// sun sitting in a list of ink-on-white rows is the one thing on the screen
+  /// that did not come from the design system.
+  IconData get icon => switch (this) {
+    ThemeMode.system => Icons.phone_android_rounded,
+    ThemeMode.light => Icons.light_mode_outlined,
+    ThemeMode.dark => Icons.dark_mode_outlined,
   };
 }

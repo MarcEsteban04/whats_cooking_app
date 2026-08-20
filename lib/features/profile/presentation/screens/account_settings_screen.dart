@@ -87,7 +87,7 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
             rows: <Widget>[
               IconListRow(
                 title: 'Change password',
-                emoji: '🔒',
+                icon: Icons.lock_outline_rounded,
                 value: 'We will email you a link',
                 onTap: () => context.goNamed(AppRoute.forgotPassword.routeName),
               ),
@@ -97,10 +97,14 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
           const SectionHeader(title: 'Leaving'),
           IconListCard(
             rows: <Widget>[
-              IconListRow(title: 'Sign out', emoji: '👋', onTap: _signOut),
+              IconListRow(
+                title: 'Sign out',
+                icon: Icons.logout_rounded,
+                onTap: _signOut,
+              ),
               IconListRow(
                 title: 'Delete my account',
-                emoji: '🗑️',
+                icon: AppIcons.delete,
                 value: 'This cannot be undone',
                 tone: IconListRowTone.destructive,
                 onTap: _deleteAccount,

@@ -448,7 +448,7 @@ class _FirstSpinInvitation extends StatelessWidget {
                   OnboardingProgress(progress: progress, label: progressLabel),
                   const Spacer(),
                   const ExcludeSemantics(
-                    child: Text('🎰', style: TextStyle(fontSize: _markSize)),
+                    child: Icon(AppIcons.spin, size: _markSize),
                   ),
                   const SizedBox(height: AppSpacing.space6),
                   Text(
