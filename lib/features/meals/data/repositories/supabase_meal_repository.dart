@@ -69,6 +69,25 @@ class SupabaseMealRepository implements MealRepository {
           filtered = filtered.lte('cost_per_serving', pesos);
         }
 
+        if (query.excludedMealIds.isNotEmpty) {
+          // The dislikes, as a hard exclusion (Sprint 25). Server-side like
+          // every other condition here, and for the sharpest version of the
+          // same reason: a hidden meal dropped from a page in Dart would leave
+          // a nineteen-row page whose offset the server still counts as twenty,
+          // so the next page would skip a meal. `not.in` keeps the two agreed.
+          //
+          // Sent as a literal list rather than a join against `disliked_meals`,
+          // because the set is one person's dislikes of a sixty-meal catalogue —
+          // tens of ids at the outside. If it ever reaches the hundreds this
+          // becomes a URL-length problem and wants a view or an RPC instead;
+          // the scoring engine will likely take it there anyway (Sprint 30).
+          filtered = filtered.not(
+            'id',
+            'in',
+            '(${query.excludedMealIds.join(',')})',
+          );
+        }
+
         // One row more than asked for. Its presence is the answer to "is there
         // another page", and it costs one row rather than a second round trip.
         final PostgrestList rows = await filtered

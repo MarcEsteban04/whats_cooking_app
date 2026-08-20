@@ -17,6 +17,7 @@ import 'package:whats_cooking/features/auth/presentation/screens/register_screen
 import 'package:whats_cooking/features/auth/presentation/screens/reset_password_screen.dart';
 import 'package:whats_cooking/features/auth/presentation/screens/welcome_screen.dart';
 import 'package:whats_cooking/features/meals/presentation/screens/create_meal_screen.dart';
+import 'package:whats_cooking/features/meals/presentation/screens/disliked_meals_screen.dart';
 import 'package:whats_cooking/features/meals/presentation/screens/favorites_screen.dart';
 import 'package:whats_cooking/features/meals/presentation/screens/meal_detail_screen.dart';
 import 'package:whats_cooking/features/meals/presentation/screens/meals_screen.dart';
@@ -216,6 +217,12 @@ final StatefulShellRoute _shellRoute = StatefulShellRoute.indexedStack(
               name: AppRoute.favorites.routeName,
               builder: (BuildContext context, GoRouterState state) =>
                   const FavoritesScreen(),
+            ),
+            GoRoute(
+              path: _relative(AppRoute.dislikedMeals, AppRoute.meals),
+              name: AppRoute.dislikedMeals.routeName,
+              builder: (BuildContext context, GoRouterState state) =>
+                  const DislikedMealsScreen(),
             ),
             _child(
               AppRoute.mealHistory,

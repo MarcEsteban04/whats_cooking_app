@@ -11,8 +11,10 @@ import 'package:whats_cooking/core/widgets/cards/meal_card.dart';
 import 'package:whats_cooking/core/widgets/dashboard/dashboard.dart';
 import 'package:whats_cooking/core/widgets/feedback/app_skeleton.dart';
 import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
+import 'package:whats_cooking/core/widgets/overlays/confirmation_dialog.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal_ingredient.dart';
+import 'package:whats_cooking/features/meals/presentation/providers/dislikes_controller.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/favorites_controller.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/meal_detail_controller.dart';
 
@@ -33,9 +35,10 @@ import 'package:whats_cooking/features/meals/presentation/providers/meal_detail_
 /// * **large numbered steps**, `01 02 03`, which §17 draws and the reference's
 ///   numbering style suits.
 ///
-/// The heart sits in the top bar beside the back button, as §17 puts it over
-/// the image. It is hidden until the favourites set has loaded rather than shown
-/// empty, because an unfilled heart on a meal you saved is a lie.
+/// The heart and the hide control sit in the top bar beside the back button, as
+/// §17 puts the heart over the image. Both wait for the set they read rather
+/// than showing an empty state: an unfilled heart on a meal you saved is a lie,
+/// and an outline thumb on one you hid is the same lie about a different set.
 class MealDetailScreen extends ConsumerWidget {
   const MealDetailScreen({required this.mealId, super.key});
 
@@ -126,6 +129,10 @@ class _TopBar extends ConsumerWidget {
               isFavorite: saved,
               onToggled: (_) => _toggle(context, ref),
             ),
+          // Hiding needs the meal's name to name the consequence, so the control
+          // waits for the meal rather than opening a dialog with a blank in it.
+          if (ref.watch(mealDetailProvider(mealId)).value case final Meal meal)
+            _HideButton(meal: meal),
         ],
       ),
     );
@@ -141,6 +148,108 @@ class _TopBar extends ConsumerWidget {
     }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(failure.displayMessage ?? failure.message)),
+    );
+  }
+}
+
+/// Hides this meal from everywhere, or brings it back (Sprint 25).
+///
+/// **Asymmetric on purpose.** Hiding confirms, because it is a lasting exclusion
+/// and an accidental tap erodes trust in the engine (docs/USER_FLOWS.md §10).
+/// Restoring does not, because putting a meal back among sixty others is not
+/// something anyone needs protecting from.
+///
+/// The dialog names the consequence rather than asking "are you sure?" — the
+/// rule `ConfirmationDialog` exists to enforce (docs/COMPONENTS.md §10) — and it
+/// names the way back, because an exclusion the user cannot find again is a
+/// worse deal than the one they thought they were agreeing to.
+class _HideButton extends ConsumerWidget {
+  const _HideButton({required this.meal});
+
+  final Meal meal;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bool? isHidden = ref
+        .watch(dislikesControllerProvider)
+        .value
+        ?.contains(meal.id);
+
+    // Same rule as the heart: nothing rather than a wrong state. An outline
+    // thumb on a meal you already hid invites a second tap that does nothing.
+    if (isHidden == null) {
+      return const SizedBox.shrink();
+    }
+
+    return AppIconButton(
+      icon: isHidden ? AppIcons.dislikeActive : AppIcons.dislike,
+      semanticLabel: isHidden
+          ? 'Stop hiding ${meal.name}'
+          : 'Hide ${meal.name} from suggestions',
+      iconSize: AppIconSize.sm,
+      onPressed: () => isHidden ? _restore(context, ref) : _hide(context, ref),
+    );
+  }
+
+  Future<void> _hide(BuildContext context, WidgetRef ref) async {
+    final bool confirmed = await ConfirmationDialog.show(
+      context,
+      title: 'Hide ${meal.name}?',
+      body:
+          "It won't appear in the feed, in search, or in a spin. You can bring "
+          'it back from Hidden meals.',
+      confirmLabel: 'Hide it',
+      icon: AppIcons.dislike,
+      isDestructive: true,
+    );
+
+    if (!confirmed || !context.mounted) {
+      return;
+    }
+
+    final AppException? failure = await ref
+        .read(dislikesControllerProvider.notifier)
+        .hide(meal.id);
+
+    if (!context.mounted) {
+      return;
+    }
+
+    if (failure != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(failure.displayMessage ?? failure.message)),
+      );
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("${meal.name} won't be suggested again.")),
+    );
+
+    // Back to wherever this was opened from, which is where the change is
+    // visible: the meal is gone from the list behind it. Staying on the detail
+    // page of a meal that no longer appears anywhere is a dead end.
+    if (context.canPop()) {
+      context.pop();
+    }
+  }
+
+  Future<void> _restore(BuildContext context, WidgetRef ref) async {
+    final AppException? failure = await ref
+        .read(dislikesControllerProvider.notifier)
+        .restore(meal.id);
+
+    if (!context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          failure == null
+              ? '${meal.name} is back on the menu.'
+              : failure.displayMessage ?? failure.message,
+        ),
+      ),
     );
   }
 }

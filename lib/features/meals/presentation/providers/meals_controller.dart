@@ -6,6 +6,7 @@ import 'package:whats_cooking/core/errors/error_mapper.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal_query.dart';
 import 'package:whats_cooking/features/meals/domain/repositories/meal_repository.dart';
+import 'package:whats_cooking/features/meals/presentation/providers/dislikes_controller.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/meal_repository_provider.dart';
 
 part 'meals_controller.g.dart';
@@ -17,16 +18,40 @@ class MealFeed {
     required this.query,
     required this.meals,
     required this.hasMore,
+    int? loadedRowCount,
+    this.hiddenSinceLoad = const <String>{},
     this.isReloading = false,
     this.isLoadingMore = false,
     this.loadMoreFailure,
-  });
+  }) : loadedRowCount = loadedRowCount ?? meals.length;
 
   final MealQuery query;
 
   /// Every meal loaded so far, across all pages fetched for [query].
   final List<Meal> meals;
   final bool hasMore;
+
+  /// How many rows the *server* has returned for [query] — which is not
+  /// `meals.length` once something has been hidden.
+  ///
+  /// This is what the next page's offset comes from, and the distinction is the
+  /// whole reason it exists. Hiding a meal removes a row from [meals] without
+  /// changing what the server would return for the same query, so an offset of
+  /// `meals.length` would ask for row 39 when 40 rows have been read — and the
+  /// reader would never see meal 40.
+  final int loadedRowCount;
+
+  /// Meals hidden since this query was loaded.
+  ///
+  /// The exclusion in [query] is applied by the server, and it was fixed when
+  /// the first page was fetched. Anything hidden after that is dropped here
+  /// instead: rows already on screen are removed, and rows still arriving from a
+  /// page in flight are filtered out. A page can come back one short as a
+  /// result, which is correct — [loadedRowCount] still counts what the server
+  /// sent, so nothing is skipped.
+  ///
+  /// Cleared on every reload, where the server takes the exclusion over again.
+  final Set<String> hiddenSinceLoad;
 
   /// The first page is being fetched again for a changed query.
   ///
@@ -55,10 +80,18 @@ class MealFeed {
 
   bool get isEmpty => meals.isEmpty;
 
+  /// How many meals this user has hidden from the feed.
+  ///
+  /// For the empty state, which owes the reader an explanation when a search
+  /// finds nothing and part of the catalogue is hidden.
+  int get hiddenCount => query.excludedMealIds.length + hiddenSinceLoad.length;
+
   MealFeed copyWith({
     MealQuery? query,
     List<Meal>? meals,
     bool? hasMore,
+    int? loadedRowCount,
+    Set<String>? hiddenSinceLoad,
     bool? isReloading,
     bool? isLoadingMore,
     AppException? loadMoreFailure,
@@ -68,6 +101,8 @@ class MealFeed {
       query: query ?? this.query,
       meals: meals ?? this.meals,
       hasMore: hasMore ?? this.hasMore,
+      loadedRowCount: loadedRowCount ?? this.loadedRowCount,
+      hiddenSinceLoad: hiddenSinceLoad ?? this.hiddenSinceLoad,
       isReloading: isReloading ?? this.isReloading,
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       loadMoreFailure: clearLoadMoreFailure
@@ -89,7 +124,10 @@ class MealsController extends _$MealsController {
   MealQuery _query = const MealQuery();
 
   @override
-  Future<MealFeed> build() => _firstPage(_query);
+  Future<MealFeed> build() {
+    _watchDislikes();
+    return _firstPage(_query);
+  }
 
   /// Replaces the query and reloads from the first page.
   ///
@@ -136,7 +174,7 @@ class MealsController extends _$MealsController {
     try {
       final MealPage page = await ref
           .read(mealRepositoryProvider)
-          .search(query: feed.query, offset: feed.meals.length);
+          .search(query: feed.query, offset: feed.loadedRowCount);
 
       // The query may have changed while this was in flight — a filter tapped
       // mid-request. Appending stale rows to a new feed would mix two result
@@ -148,7 +186,17 @@ class MealsController extends _$MealsController {
 
       state = AsyncValue<MealFeed>.data(
         current.copyWith(
-          meals: <Meal>[...current.meals, ...page.meals],
+          meals: <Meal>[
+            ...current.meals,
+            // Anything hidden while this page was in flight is dropped on
+            // arrival rather than shown and taken away a frame later.
+            ...page.meals.where(
+              (Meal meal) => !current.hiddenSinceLoad.contains(meal.id),
+            ),
+          ],
+          // Counted before that filtering, not after: this is the server's
+          // offset, and the server does not know about the hiding.
+          loadedRowCount: current.loadedRowCount + page.meals.length,
           hasMore: page.hasMore,
           isLoadingMore: false,
         ),
@@ -173,6 +221,67 @@ class MealsController extends _$MealsController {
     state = await AsyncValue.guard(() => _firstPage(_query));
   }
 
+  /// Keeps the feed in step with the dislikes, wherever they were changed.
+  ///
+  /// This is why no screen has to remember to filter. Hiding a meal from the
+  /// detail screen, or restoring one from the Hidden list, changes a single set,
+  /// and the feed reacts here — once — instead of in every caller. US-B-07
+  /// promises a hidden meal is *never* suggested, and a promise kept by
+  /// convention at each call site is one that eventually breaks.
+  ///
+  /// The two directions are deliberately not symmetrical:
+  ///
+  /// * **Hidden** — the row is removed in place. A reload would also be correct,
+  ///   and would also throw away every page after the first and drop the reader
+  ///   back at the top of the list.
+  /// * **Restored** — the feed reloads, because a meal coming back has to
+  ///   reappear in sort order and there is no way to know where that is without
+  ///   asking. Restoring happens on the Hidden screen, so the reload sits behind
+  ///   another route and is invisible.
+  void _watchDislikes() {
+    ref.listen(dislikesControllerProvider, (
+      AsyncValue<Set<String>>? previous,
+      AsyncValue<Set<String>> next,
+    ) {
+      final Set<String>? before = previous?.value;
+      final Set<String>? after = next.value;
+      if (before == null || after == null) {
+        // The first load, or a failed one. `_firstPage` reads the set directly,
+        // so there is nothing to reconcile yet.
+        return;
+      }
+
+      final Set<String> hidden = after.difference(before);
+      if (hidden.isNotEmpty) {
+        _hideLocally(hidden);
+      }
+
+      // Checked separately rather than as an else: a failed hide rolls the set
+      // back, which arrives here as a restore, and the row has to return.
+      if (before.difference(after).isNotEmpty) {
+        refresh();
+      }
+    });
+  }
+
+  /// Drops [ids] from the loaded list without re-fetching.
+  void _hideLocally(Set<String> ids) {
+    final MealFeed? feed = state.value;
+    if (feed == null) {
+      return;
+    }
+
+    state = AsyncValue<MealFeed>.data(
+      feed.copyWith(
+        meals: feed.meals
+            .where((Meal meal) => !ids.contains(meal.id))
+            .toList(growable: false),
+        // Remembered, so a page already in flight does not deliver them anyway.
+        hiddenSinceLoad: <String>{...feed.hiddenSinceLoad, ...ids},
+      ),
+    );
+  }
+
   /// Flags the feed as reloading without discarding what is on screen.
   ///
   /// When there is nothing on screen yet, the state stays loading and the screen
@@ -185,10 +294,25 @@ class MealsController extends _$MealsController {
   }
 
   Future<MealFeed> _firstPage(MealQuery query) async {
+    // Set here rather than trusted from the caller, so that no screen can drop
+    // the exclusion by building a query from scratch. Read rather than watched:
+    // rebuilding the feed on every dislike would send the reader back to page
+    // one, and `_watchDislikes` handles the change better than a rebuild could.
+    //
+    // A failed read fails the feed, deliberately. Showing a catalogue that we
+    // know might contain hidden meals breaks the one promise this feature makes
+    // (US-B-07), and the failure is retryable like any other.
+    final Set<String> hidden = await ref.read(
+      dislikesControllerProvider.future,
+    );
+
+    final MealQuery effective = query.copyWith(excludedMealIds: hidden);
+    _query = effective;
+
     final MealPage page = await ref
         .read(mealRepositoryProvider)
-        .search(query: query);
+        .search(query: effective);
 
-    return MealFeed(query: query, meals: page.meals, hasMore: page.hasMore);
+    return MealFeed(query: effective, meals: page.meals, hasMore: page.hasMore);
   }
 }

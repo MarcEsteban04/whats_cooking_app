@@ -64,6 +64,12 @@ abstract final class AppIcons {
   static const IconData favorite = Icons.favorite_border_rounded;
   static const IconData favoriteActive = Icons.favorite_rounded;
   static const IconData dislike = Icons.thumb_down_outlined;
+  static const IconData dislikeActive = Icons.thumb_down_rounded;
+
+  /// Bringing a hidden meal back (Sprint 25). An undo rather than a filled
+  /// thumb: the thumb states what the meal *is*, this states what tapping does,
+  /// and on a list where every row is hidden only the second is worth a glyph.
+  static const IconData restore = Icons.undo_rounded;
   static const IconData pantry = Icons.kitchen_outlined;
   static const IconData budget = Icons.payments_outlined;
   static const IconData cookingTime = Icons.schedule_rounded;

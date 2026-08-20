@@ -77,6 +77,17 @@ class EmptyState extends StatelessWidget {
         key: key,
       );
 
+  /// Hidden meals — nothing hidden.
+  const EmptyState.hiddenMeals({required VoidCallback? onBrowse, Key? key})
+    : this(
+        title: 'Nothing hidden',
+        body: 'Meals you hide stop appearing in the feed and the roulette.',
+        emoji: '👍',
+        actionLabel: 'Browse meals',
+        onAction: onBrowse,
+        key: key,
+      );
+
   /// My meals — none of your own yet.
   const EmptyState.myMeals({required VoidCallback? onAddMeal, Key? key})
     : this(

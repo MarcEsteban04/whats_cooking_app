@@ -87,6 +87,7 @@ the user between partially-saved steps.
 | `/meals` | `meals` | AO | Feed with filter pills |
 | `/meals/search` | `mealSearch` | AO | |
 | `/meals/favorites` | `favorites` | AO | |
+| `/meals/disliked` | `dislikedMeals` | AO | Hidden meals, and the only way to un-hide one |
 | `/meals/history` | `mealHistory` | AO | Household-scoped when applicable |
 | `/meals/mine` | `myMeals` | AO | Custom meals |
 | `/meals/new` | `mealCreate` | AO | |

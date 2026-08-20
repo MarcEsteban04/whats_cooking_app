@@ -55,6 +55,11 @@ class InMemoryMealRepository implements MealRepository {
     final String search = query.search.trim().toLowerCase();
 
     final List<Meal> matching = _meals.where((Meal meal) {
+      // First, because it is the one condition that is not negotiable: a hidden
+      // meal never appears, whatever else matches (Sprint 25).
+      if (query.excludedMealIds.contains(meal.id)) {
+        return false;
+      }
       if (search.isNotEmpty && !meal.name.toLowerCase().contains(search)) {
         return false;
       }

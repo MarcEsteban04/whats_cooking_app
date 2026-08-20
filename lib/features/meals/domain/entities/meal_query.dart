@@ -49,6 +49,7 @@ class MealQuery {
     this.maxCookingTimeMinutes,
     this.maxCostPerServing,
     this.sort = MealSort.alphabetical,
+    this.excludedMealIds = const <String>{},
   });
 
   /// Matched against the meal's name.
@@ -69,6 +70,19 @@ class MealQuery {
   final int? maxCostPerServing;
 
   final MealSort sort;
+
+  /// Meals the feed must not return, whatever else matches.
+  ///
+  /// The user's dislikes (Sprint 25). Carried in the query rather than applied
+  /// to the rows afterwards, because a condition applied in Dart after a page
+  /// arrives leaves the server and the app disagreeing about what "the next
+  /// twenty" means — the same reason every other filter here is server-side.
+  ///
+  /// **Not a filter**, and the three members below say so: it does not make
+  /// [hasFilters] true, it is not counted in [filterCount], [narrowestFilterLabel]
+  /// never names it, and [cleared] keeps it. "Clear filters" must not un-hide
+  /// food the user chose to hide.
+  final Set<String> excludedMealIds;
 
   /// Whether anything is narrowing the feed.
   ///
@@ -115,11 +129,14 @@ class MealQuery {
     return null;
   }
 
-  /// Drops everything but the sort.
+  /// Drops every filter.
   ///
-  /// The sort survives on purpose: it is a preference about how to read the
-  /// feed, not a filter hiding food.
-  MealQuery cleared() => MealQuery(sort: sort);
+  /// Two things survive on purpose. The sort, because it is a preference about
+  /// how to read the feed rather than a filter hiding food. And
+  /// [excludedMealIds], because those are meals the user asked never to see
+  /// again — "clear filters" is not consent to bring them back.
+  MealQuery cleared() =>
+      MealQuery(sort: sort, excludedMealIds: excludedMealIds);
 
   MealQuery copyWith({
     String? search,
@@ -128,6 +145,7 @@ class MealQuery {
     int? maxCookingTimeMinutes,
     int? maxCostPerServing,
     MealSort? sort,
+    Set<String>? excludedMealIds,
     bool clearMaxCookingTime = false,
     bool clearMaxCost = false,
   }) {
@@ -145,6 +163,7 @@ class MealQuery {
           ? null
           : maxCostPerServing ?? this.maxCostPerServing,
       sort: sort ?? this.sort,
+      excludedMealIds: excludedMealIds ?? this.excludedMealIds,
     );
   }
 
@@ -173,7 +192,12 @@ class MealQuery {
         setEquals(other.categories, categories) &&
         other.maxCookingTimeMinutes == maxCookingTimeMinutes &&
         other.maxCostPerServing == maxCostPerServing &&
-        other.sort == sort;
+        other.sort == sort &&
+        // Part of equality, which is what makes hiding a meal reload the feed:
+        // `MealsController` compares the new query against the old one to decide
+        // whether to go back to page one, and a changed exclusion set is exactly
+        // that kind of change.
+        setEquals(other.excludedMealIds, excludedMealIds);
   }
 
   @override
@@ -184,11 +208,13 @@ class MealQuery {
     maxCookingTimeMinutes,
     maxCostPerServing,
     sort,
+    Object.hashAllUnordered(excludedMealIds),
   );
 
   @override
   String toString() =>
       'MealQuery(search: "$search", cuisines: ${cuisines.length}, '
       'categories: ${categories.length}, maxTime: $maxCookingTimeMinutes, '
-      'maxCost: $maxCostPerServing, sort: ${sort.name})';
+      'maxCost: $maxCostPerServing, sort: ${sort.name}, '
+      'excluded: ${excludedMealIds.length})';
 }

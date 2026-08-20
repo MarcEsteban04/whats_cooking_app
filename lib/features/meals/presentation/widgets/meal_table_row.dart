@@ -9,21 +9,43 @@ import 'package:whats_cooking/core/utils/formatters.dart';
 import 'package:whats_cooking/core/widgets/cards/meal_card.dart';
 import 'package:whats_cooking/core/widgets/dashboard/dashboard.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal.dart';
+import 'package:whats_cooking/features/meals/presentation/providers/dislikes_controller.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/favorites_controller.dart';
 
 /// One meal as a row in a dashboard table.
 ///
-/// Shared by the feed and the favourites list so the two cannot drift: a meal
-/// should look the same wherever it is listed, and two copies of this layout
-/// would be two places to remember when the cost format changes.
+/// Shared by the feed, the favourites list and the hidden list so the three
+/// cannot drift: a meal should look the same wherever it is listed, and three
+/// copies of this layout would be three places to remember when the cost format
+/// changes.
 ///
-/// The heart is a sibling of the tappable region rather than inside it —
-/// docs/COMPONENTS.md §4 makes it an independent target, and `DashboardRow`
-/// keeps its trailing widget outside the tap region for exactly this.
+/// The trailing control is a sibling of the tappable region rather than inside
+/// it — docs/COMPONENTS.md §4 makes the heart an independent target, and
+/// `DashboardRow` keeps its trailing widget outside the tap region for exactly
+/// this.
 class MealTableRow extends ConsumerWidget {
-  const MealTableRow({required this.meal, super.key});
+  const MealTableRow({
+    required this.meal,
+    this.trailing,
+    this.showHiddenMarker = true,
+    super.key,
+  });
 
   final Meal meal;
+
+  /// Replaces the heart.
+  ///
+  /// The hidden list puts a restore control here instead: a heart on a meal the
+  /// user has hidden offers the two contradictory things at once.
+  final Widget? trailing;
+
+  /// Whether to say so when this meal is hidden.
+  ///
+  /// True on the feed and the favourites list, where a hidden meal is the
+  /// exception worth flagging — you can favourite a meal and hide it, and a
+  /// saved meal that never appears anywhere needs to explain itself. False on
+  /// the hidden list, where every row is hidden and the marker is noise.
+  final bool showHiddenMarker;
 
   /// Where the hairline above a row should start, so it runs under the text
   /// rather than through the cuisine dot.
@@ -41,25 +63,35 @@ class MealTableRow extends ConsumerWidget {
     // until the first read returns.
     final bool? isFavorite = favorites.value?.contains(meal.id);
 
+    final bool isHidden =
+        showHiddenMarker &&
+        (ref.watch(dislikesControllerProvider).value?.contains(meal.id) ??
+            false);
+
     return DashboardRow(
       leading: _CuisineDot(
         color: colors.accentFor(meal.cuisine.label).foreground,
       ),
       title: meal.name,
       subtitle: AppFormat.metadata(<String?>[
+        // First, because it changes what the rest of the row means: this meal
+        // will not be suggested, however cheap or quick it is.
+        if (isHidden) 'Hidden',
         meal.cuisine.label,
         AppFormat.cookingTime(meal.cookingTimeMinutes),
         meal.difficulty.label,
       ]),
       value: AppFormat.peso(meal.costPerServing),
       unit: 'a head',
-      trailing: isFavorite == null
-          ? null
-          : FavoriteButton(
-              isFavorite: isFavorite,
-              mealName: meal.name,
-              onToggled: (_) => _toggle(context, ref),
-            ),
+      trailing:
+          trailing ??
+          (isFavorite == null
+              ? null
+              : FavoriteButton(
+                  isFavorite: isFavorite,
+                  mealName: meal.name,
+                  onToggled: (_) => _toggleFavorite(context, ref),
+                )),
       onTap: () => context.goNamed(
         AppRoute.mealDetail.routeName,
         pathParameters: <String, String>{'id': meal.id},
@@ -67,7 +99,7 @@ class MealTableRow extends ConsumerWidget {
     );
   }
 
-  Future<void> _toggle(BuildContext context, WidgetRef ref) async {
+  Future<void> _toggleFavorite(BuildContext context, WidgetRef ref) async {
     final AppException? failure = await ref
         .read(favoritesControllerProvider.notifier)
         .toggle(meal.id);

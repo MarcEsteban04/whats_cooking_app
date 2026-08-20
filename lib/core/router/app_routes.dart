@@ -95,6 +95,11 @@ enum AppRoute {
   meals(path: '/meals'),
   mealSearch(path: '/meals/search'),
   favorites(path: '/meals/favorites'),
+
+  /// Meals the user has hidden (Sprint 25). Not in docs/NAVIGATION_MAP.md's
+  /// original table — the map predates the sprint, and the exclusion needs a
+  /// place where it can be undone.
+  dislikedMeals(path: '/meals/disliked'),
   mealHistory(path: '/meals/history'),
   myMeals(path: '/meals/mine'),
   mealCreate(path: '/meals/new'),

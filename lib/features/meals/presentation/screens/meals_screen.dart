@@ -30,11 +30,16 @@ import 'package:whats_cooking/features/meals/presentation/widgets/meal_table_row
 ///
 /// So this screen is now composed of the reference's own blocks:
 ///
-/// * a **header** — the mark, the name, a tappable count line, circular actions;
+/// * a **header** — the mark, the name, a tappable count line, and search;
 /// * a **hero panel** — how many meals match, set in display type, with a
 ///   three-column stat trio underneath whose bars show what share of the
 ///   catalogue is quick, cheap, or yours. The columns are tappable, so the
 ///   summary doubles as the filter it describes;
+/// * an **action row** across the foot of that panel — Saved, Hidden, New meal.
+///   The reference's own `Billing & Transactions | …` block, and the right home
+///   for the three lists that are not the feed: they are destinations, and a
+///   labelled tile says where it goes in a way a bare circle in the header did
+///   not;
 /// * a **segmented control** for the meal category, exactly as the reference
 ///   switches Daily / Weekly / Monthly;
 /// * a **table panel** of meals — hairline-divided rows, the name with its
@@ -147,20 +152,9 @@ class _MealsScreenState extends ConsumerState<MealsScreen> {
                                 }
                               },
                             ),
-                            _CircleAction(
-                              icon: AppIcons.favoriteActive,
-                              label: 'Meals you saved',
-                              onPressed: () => context.pushNamed(
-                                AppRoute.favorites.routeName,
-                              ),
-                            ),
-                            _CircleAction(
-                              icon: AppIcons.add,
-                              label: 'Write a meal of your own',
-                              onPressed: () => context.pushNamed(
-                                AppRoute.mealCreate.routeName,
-                              ),
-                            ),
+                            // Saved, Hidden and New live in the panel's action
+                            // row instead. Four circles in a header is a row of
+                            // guesses; three labelled tiles are three answers.
                           ],
                         ),
                         if (_isSearching) ...<Widget>[
@@ -387,6 +381,35 @@ class _SummaryPanel extends StatelessWidget {
           const DashboardRule(),
           const SizedBox(height: AppSpacing.space4),
           _CuisineRow(query: query, onChanged: onChanged),
+          const SizedBox(height: AppSpacing.space4),
+          const DashboardRule(),
+          // The reference's `Billing & Transactions | Top Performing Countries |
+          // Target Sales Breakdown` — three labelled ways out of the panel. This
+          // is where the three lists that are not the feed belong: they are
+          // destinations, and a labelled tile says where it goes in a way a bare
+          // circle in the header never did.
+          DashboardActionRow(
+            actions: <DashboardAction>[
+              DashboardAction(
+                label: 'Saved',
+                icon: AppIcons.favoriteActive,
+                onTap: () =>
+                    context.pushNamed(AppRoute.favorites.routeName),
+              ),
+              DashboardAction(
+                label: 'Hidden',
+                icon: AppIcons.dislike,
+                onTap: () =>
+                    context.pushNamed(AppRoute.dislikedMeals.routeName),
+              ),
+              DashboardAction(
+                label: 'New meal',
+                icon: AppIcons.add,
+                onTap: () =>
+                    context.pushNamed(AppRoute.mealCreate.routeName),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -652,6 +675,7 @@ class _FeedEmpty extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final String? narrowest = feed.query.narrowestFilterLabel;
+    final int hidden = feed.hiddenCount;
 
     // docs/USER_FLOWS.md §7: "An empty result set offers to relax the narrowest
     // filter." Naming which one is the difference between a dead end and one tap
@@ -659,10 +683,32 @@ class _FeedEmpty extends StatelessWidget {
     if (narrowest != null) {
       return EmptyState(
         title: 'Nothing matches',
-        body: 'Try relaxing $narrowest.',
+        body: <String>[
+          'Try relaxing $narrowest.',
+          // Said out loud, because the exclusion is silent everywhere else and
+          // a search that cannot find a meal you know exists is otherwise a bug
+          // as far as the reader can tell.
+          if (hidden > 0)
+            _hiddenNote(hidden),
+        ].join(' '),
         emoji: '🔍',
         actionLabel: 'Clear filters',
         onAction: onClearFilters,
+      );
+    }
+
+    if (hidden > 0) {
+      // Nothing narrowing the feed and nothing in it: the hiding is the whole
+      // explanation, so the way out is the hidden list rather than the filters.
+      return EmptyState(
+        title: 'Nothing left to show',
+        body: hidden == 1
+            ? 'The one meal here is hidden.'
+            : 'All $hidden meals here are hidden.',
+        emoji: '🙈',
+        actionLabel: 'Hidden meals',
+        onAction: () =>
+            context.pushNamed(AppRoute.dislikedMeals.routeName),
       );
     }
 
@@ -671,6 +717,11 @@ class _FeedEmpty extends StatelessWidget {
       body: 'The catalogue is empty. Nothing to browse just yet.',
       emoji: '🍽️',
     );
+  }
+
+  static String _hiddenNote(int hidden) {
+    final String count = hidden == 1 ? 'one is' : '$hidden are';
+    return 'Hidden meals stay out whatever you search — $count hidden.';
   }
 }
 
