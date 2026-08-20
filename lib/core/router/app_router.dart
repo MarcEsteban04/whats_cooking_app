@@ -16,6 +16,8 @@ import 'package:whats_cooking/features/auth/presentation/screens/login_screen.da
 import 'package:whats_cooking/features/auth/presentation/screens/register_screen.dart';
 import 'package:whats_cooking/features/auth/presentation/screens/reset_password_screen.dart';
 import 'package:whats_cooking/features/auth/presentation/screens/welcome_screen.dart';
+import 'package:whats_cooking/features/history/presentation/screens/decided_screen.dart';
+import 'package:whats_cooking/features/history/presentation/screens/meal_history_screen.dart';
 import 'package:whats_cooking/features/home/presentation/screens/home_screen.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal.dart';
 import 'package:whats_cooking/features/meals/presentation/screens/disliked_meals_screen.dart';
@@ -230,11 +232,11 @@ final StatefulShellRoute _shellRoute = StatefulShellRoute.indexedStack(
               builder: (BuildContext context, GoRouterState state) =>
                   const DislikedMealsScreen(),
             ),
-            _child(
-              AppRoute.mealHistory,
-              AppRoute.meals,
-              'Meal history',
-              sprint: 'Sprint 31',
+            GoRoute(
+              path: _relative(AppRoute.mealHistory, AppRoute.meals),
+              name: AppRoute.mealHistory.routeName,
+              builder: (BuildContext context, GoRouterState state) =>
+                  const MealHistoryScreen(),
             ),
             GoRoute(
               path: _relative(AppRoute.myMeals, AppRoute.meals),
@@ -460,11 +462,7 @@ final List<RouteBase> _fullScreenRoutes = <RouteBase>[
     parentNavigatorKey: rootNavigatorKey,
     pageBuilder: (BuildContext context, GoRouterState state) =>
         AppScaleFadePage<void>(
-          child: PlaceholderScreen(
-            title: 'Dinner decided',
-            sprint: 'Sprint 31',
-            detail: state.pathParameters['historyId'],
-          ),
+          child: DecidedScreen(historyId: state.pathParameters['historyId']!),
         ),
   ),
   GoRoute(

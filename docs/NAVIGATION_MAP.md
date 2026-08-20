@@ -77,7 +77,7 @@ the user between partially-saved steps.
 | `/home/filters` | `rouletteFilters` | AO | Bottom sheet. Budget, time, meal type, cuisine and effort; dietary needs shown but locked |
 | `/home/spin` | `roulette` | AO | Full-screen, no bottom nav |
 | `/home/result/:mealId` | `rouletteResult` | AO | Full-screen |
-| `/home/decided/:historyId` | `decided` | AO | Post-acceptance celebration |
+| `/home/decided/:historyId` | `decided` | AO | Post-acceptance celebration; the id is a `meal_history` row |
 | `/home/cooking/:mealId` | `cookingMode` | AO | Keeps screen awake (P1) |
 
 ### Meals tab
@@ -88,7 +88,7 @@ the user between partially-saved steps.
 | `/meals/search` | `mealSearch` | AO | |
 | `/meals/favorites` | `favorites` | AO | |
 | `/meals/disliked` | `dislikedMeals` | AO | Hidden meals, and the only way to un-hide one |
-| `/meals/history` | `mealHistory` | AO | Household-scoped when applicable |
+| `/meals/history` | `mealHistory` | AO | Household-scoped, grouped by day. Reachable from Home's action row and from the decided screen |
 | `/meals/mine` | `myMeals` | AO | Custom meals |
 | `/meals/new` | `mealCreate` | AO | |
 | `/meals/:id` | `mealDetail` | AO | Hero transition from any card |

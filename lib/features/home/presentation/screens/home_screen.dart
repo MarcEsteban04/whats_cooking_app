@@ -219,6 +219,14 @@ class _Elsewhere extends StatelessWidget {
             icon: AppIcons.meals,
             onTap: () => context.goNamed(AppRoute.meals.routeName),
           ),
+          // On Home rather than buried in the Meals tab, because what the
+          // household ate this week is the thing somebody checks *before*
+          // spinning — "not chicken again" is a decision made here.
+          DashboardAction(
+            label: 'Recent',
+            icon: AppIcons.plannerActive,
+            onTap: () => context.pushNamed(AppRoute.mealHistory.routeName),
+          ),
           DashboardAction(
             label: 'Saved',
             icon: AppIcons.favoriteActive,

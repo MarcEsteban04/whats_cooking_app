@@ -66,6 +66,65 @@ abstract final class AppFormat {
         .join(' · ');
   }
 
+  /// `Today`, `Yesterday`, `Friday`, or `12 August` (Sprint 31).
+  ///
+  /// Four scales, because a history is read at four distances. Today and
+  /// yesterday get their names — those are the two days somebody is checking
+  /// against when they wonder whether they had chicken again. Inside the week the
+  /// weekday is enough. Beyond that the date, because "eleven days ago" is
+  /// arithmetic somebody has to do.
+  static String dayLabel(DateTime day, {DateTime? now}) {
+    final DateTime today = _startOfDay(now ?? DateTime.now());
+    final int difference = today.difference(_startOfDay(day)).inDays;
+
+    return switch (difference) {
+      0 => 'Today',
+      1 => 'Yesterday',
+      // Not "in the last 7 days": a weekday name six days back is ambiguous with
+      // the same weekday a fortnight ago, and a history goes back further.
+      >= 2 && < 7 => _weekdays[day.weekday - 1],
+      _ => '${day.day} ${_months[day.month - 1]}',
+    };
+  }
+
+  /// `7:30 pm`.
+  ///
+  /// Lower-case meridiem and no leading zero, because this appears in a metadata
+  /// line beside words rather than in a table of times.
+  static String timeOfDay(DateTime at) {
+    final int hour = at.hour % 12 == 0 ? 12 : at.hour % 12;
+    final String minute = at.minute.toString().padLeft(2, '0');
+    return '$hour:$minute ${at.hour < 12 ? 'am' : 'pm'}';
+  }
+
+  static DateTime _startOfDay(DateTime value) =>
+      DateTime(value.year, value.month, value.day);
+
+  static const List<String> _weekdays = <String>[
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
+  ];
+
+  static const List<String> _months = <String>[
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+
   /// How long ago, in the vaguest terms that are still true (Sprint 27).
   ///
   /// For "showing the meals saved 20 minutes ago". Deliberately coarse: the

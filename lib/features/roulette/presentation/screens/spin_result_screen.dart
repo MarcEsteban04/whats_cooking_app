@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:whats_cooking/core/errors/app_exception.dart';
+import 'package:whats_cooking/core/errors/error_mapper.dart';
 import 'package:whats_cooking/core/errors/error_presenter.dart';
 import 'package:whats_cooking/core/router/app_routes.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
@@ -10,6 +13,8 @@ import 'package:whats_cooking/core/utils/formatters.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_button.dart';
 import 'package:whats_cooking/core/widgets/chips/metadata_pill.dart';
 import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
+import 'package:whats_cooking/features/history/domain/entities/meal_history_entry.dart';
+import 'package:whats_cooking/features/history/presentation/providers/meal_history_controller.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/meal_detail_controller.dart';
 import 'package:whats_cooking/features/roulette/presentation/providers/spin_controller.dart';
@@ -88,22 +93,59 @@ class _Result extends ConsumerStatefulWidget {
 }
 
 class _ResultState extends ConsumerState<_Result> {
-  /// Set by "This is it".
+  /// True while the history row is being written.
   ///
-  /// The celebration replaces this screen rather than pushing another route,
-  /// because it is the same meal at the end of the same sentence — and a route
-  /// would give it a back button leading to a decision already made.
-  bool _isDecided = false;
+  /// The button holds its width and shows a spinner rather than the screen
+  /// changing: accepting is a write now, and the reader should not see a
+  /// celebration that has not been saved yet.
+  bool _isSaving = false;
 
-  void _accept() {
-    HapticFeedback.mediumImpact();
+  AppException? _failure;
 
-    // Ends the session, so the next spin starts from the whole catalogue.
-    // Nothing is written anywhere yet: the meal becomes a `meal_history` row in
-    // Sprint 31, and `/home/decided/:historyId` takes over from this state when
-    // there is an id to put in it.
-    ref.read(spinControllerProvider.notifier).accept();
-    setState(() => _isDecided = true);
+  /// Records the decision, then hands over to the decided screen (Sprint 31).
+  ///
+  /// **Navigates rather than swapping state.** Until this sprint the celebration
+  /// was a flag on this widget, because there was nothing to point a route at.
+  /// Now there is a `meal_history` row, so the decision has an id — which means
+  /// it survives a restart, can be reopened from the history list, and is the
+  /// same screen either way.
+  ///
+  /// The session is cleared *after* the write succeeds. Clearing first and then
+  /// failing would leave somebody with no decision and no exclusions, so a
+  /// re-spin could offer the meal they just tried to accept.
+  Future<void> _accept() async {
+    setState(() {
+      _isSaving = true;
+      _failure = null;
+    });
+
+    try {
+      final MealHistoryEntry entry = await ref
+          .read(mealHistoryRepositoryProvider)
+          .record(meal: widget.meal);
+
+      ref.read(spinControllerProvider.notifier).accept();
+
+      // The list is now wrong, and the screen that shows it is one tap away.
+      ref.invalidate(mealHistoryProvider);
+
+      if (!mounted) {
+        return;
+      }
+      unawaited(HapticFeedback.mediumImpact());
+      context.goNamed(
+        AppRoute.decided.routeName,
+        pathParameters: <String, String>{'historyId': entry.id},
+      );
+    } on Object catch (error, stackTrace) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isSaving = false;
+        _failure = ErrorMapper.map(error, stackTrace);
+      });
+    }
   }
 
   @override
@@ -115,17 +157,24 @@ class _ResultState extends ConsumerState<_Result> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         Text(
-          _isDecided ? 'DINNER DECIDED' : "TONIGHT'S PICK",
+          "TONIGHT'S PICK",
           style: context.text.overline,
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: AppSpacing.space4),
-        _PickCard(meal: meal, isDecided: _isDecided),
+        _PickCard(meal: meal, isDecided: false),
+        if (_failure case final AppException problem) ...<Widget>[
+          const SizedBox(height: AppSpacing.space4),
+          // Inline rather than a snackbar. The tap failed and the meal is still
+          // undecided, so the message belongs beside the button that has to be
+          // pressed again.
+          InlineErrorBanner(
+            message: problem.displayMessage ?? problem.message,
+            onRetry: _accept,
+          ),
+        ],
         const SizedBox(height: AppSpacing.space6),
-        if (_isDecided)
-          ..._decidedActions(context)
-        else
-          ..._pickActions(context, meal),
+        ..._pickActions(context, meal),
       ],
     );
   }
@@ -136,7 +185,12 @@ class _ResultState extends ConsumerState<_Result> {
         label: 'This is it',
         size: AppButtonSize.large,
         leadingIcon: AppIcons.favoriteActive,
-        onPressed: _accept,
+        isLoading: _isSaving,
+        // Disabled while saving, so a double tap cannot write two dinners. The
+        // insert has no uniqueness to lean on, deliberately — a household can
+        // eat the same meal twice in a day — so a duplicate would be
+        // indistinguishable from the truth.
+        onPressed: _isSaving ? null : _accept,
       ),
       const SizedBox(height: AppSpacing.space3),
       Row(
@@ -148,18 +202,22 @@ class _ResultState extends ConsumerState<_Result> {
               // Straight back to the spin screen, which is the only thing that
               // starts a spin. This meal is already in the session's exclusions,
               // so it cannot come back round.
-              onPressed: () => context.goNamed(AppRoute.roulette.routeName),
+              onPressed: _isSaving
+                  ? null
+                  : () => context.goNamed(AppRoute.roulette.routeName),
             ),
           ),
           const SizedBox(width: AppSpacing.space3),
           Expanded(
             child: AppButton.tertiary(
               label: 'Details',
-              onPressed: () => context.pushNamed(
-                AppRoute.mealDetail.routeName,
-                pathParameters: <String, String>{'id': meal.id},
-                extra: meal,
-              ),
+              onPressed: _isSaving
+                  ? null
+                  : () => context.pushNamed(
+                      AppRoute.mealDetail.routeName,
+                      pathParameters: <String, String>{'id': meal.id},
+                      extra: meal,
+                    ),
             ),
           ),
         ],
@@ -169,30 +227,13 @@ class _ResultState extends ConsumerState<_Result> {
         child: AppButton.tertiary(
           label: 'Not now',
           size: AppButtonSize.small,
-          onPressed: () {
-            ref.read(spinControllerProvider.notifier).reset();
-            context.goNamed(AppRoute.home.routeName);
-          },
+          onPressed: _isSaving
+              ? null
+              : () {
+                  ref.read(spinControllerProvider.notifier).reset();
+                  context.goNamed(AppRoute.home.routeName);
+                },
         ),
-      ),
-    ];
-  }
-
-  List<Widget> _decidedActions(BuildContext context) {
-    return <Widget>[
-      AppButton.primary(
-        label: 'Done',
-        size: AppButtonSize.large,
-        onPressed: () => context.goNamed(AppRoute.home.routeName),
-      ),
-      const SizedBox(height: AppSpacing.space3),
-      Text(
-        // Said plainly rather than implied. Sprint 31 is what makes this
-        // sentence untrue, and until then claiming a saved decision would be
-        // the one lie a decision screen cannot afford.
-        'Not saved anywhere yet — meal history arrives in a later build.',
-        style: context.text.metadata,
-        textAlign: TextAlign.center,
       ),
     ];
   }

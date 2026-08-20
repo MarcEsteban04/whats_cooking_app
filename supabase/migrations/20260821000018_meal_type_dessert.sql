@@ -1,0 +1,21 @@
+-- ---------------------------------------------------------------------------
+-- 0018 · `dessert` as a meal type
+-- See docs/DATABASE.md §3. Sprint 31.
+-- ---------------------------------------------------------------------------
+
+-- `meal_category` has five values and `meal_type` had four: no `dessert`.
+--
+-- That divergence was invisible until something wrote history. The catalogue
+-- carries desserts, the roulette can offer one, and accepting it has to record
+-- *what* was eaten — which left two options, and only one of them is honest.
+-- Mapping dessert onto 'snack' would have put a value in the table that nobody
+-- chose, and Sprint 32's variety rules and the statistics screen would both go
+-- on to read it as fact.
+--
+-- The planner benefits too: its unique key is
+-- (household_id, planned_date, meal_type), so this is also the fifth slot in a
+-- day rather than a dessert competing with an afternoon snack for one row.
+--
+-- `add value if not exists` is idempotent, so this is safe to re-run — which
+-- matters because schema.sql is the concatenation of every migration.
+alter type meal_type add value if not exists 'dessert';
