@@ -7,11 +7,13 @@ import 'package:whats_cooking/core/errors/error_presenter.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/utils/formatters.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_icon_button.dart';
+import 'package:whats_cooking/core/widgets/cards/meal_card.dart';
 import 'package:whats_cooking/core/widgets/dashboard/dashboard.dart';
 import 'package:whats_cooking/core/widgets/feedback/app_skeleton.dart';
 import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal_ingredient.dart';
+import 'package:whats_cooking/features/meals/presentation/providers/favorites_controller.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/meal_detail_controller.dart';
 
 /// One meal, in full (Sprint 23, docs/design_ui.md §17).
@@ -31,8 +33,9 @@ import 'package:whats_cooking/features/meals/presentation/providers/meal_detail_
 /// * **large numbered steps**, `01 02 03`, which §17 draws and the reference's
 ///   numbering style suits.
 ///
-/// The heart is absent. Favouriting is Sprint 24, and a heart that does nothing
-/// when tapped is worse than no heart.
+/// The heart sits in the top bar beside the back button, as §17 puts it over
+/// the image. It is hidden until the favourites set has loaded rather than shown
+/// empty, because an unfilled heart on a meal you saved is a lie.
 class MealDetailScreen extends ConsumerWidget {
   const MealDetailScreen({required this.mealId, super.key});
 
@@ -54,7 +57,7 @@ class MealDetailScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                const _TopBar(),
+                _TopBar(mealId: mealId),
                 Expanded(
                   child: switch (meal) {
                     AsyncData<Meal>(:final Meal value) => _Detail(meal: value),
@@ -77,12 +80,18 @@ class MealDetailScreen extends ConsumerWidget {
 }
 
 /// The circular back button, floating on the ground as §17's overlay does.
-class _TopBar extends StatelessWidget {
-  const _TopBar();
+class _TopBar extends ConsumerWidget {
+  const _TopBar({required this.mealId});
+
+  final String mealId;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final AppColorScheme colors = context.colors;
+    final bool? isFavorite = ref
+        .watch(favoritesControllerProvider)
+        .value
+        ?.contains(mealId);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -91,24 +100,47 @@ class _TopBar extends StatelessWidget {
         AppLayout.screenMargin,
         AppSpacing.space2,
       ),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: colors.surface,
-            shape: BoxShape.circle,
-            boxShadow: context.shadows.xs,
+      child: Row(
+        children: <Widget>[
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: colors.surface,
+              shape: BoxShape.circle,
+              boxShadow: context.shadows.xs,
+            ),
+            child: AppIconButton(
+              icon: AppIcons.back,
+              semanticLabel: 'Back to meals',
+              iconSize: AppIconSize.sm,
+              // `pop` rather than a named route: a meal reached from the feed,
+              // from a search or from the roulette should return where it came
+              // from.
+              onPressed: () => context.pop(),
+            ),
           ),
-          child: AppIconButton(
-            icon: AppIcons.back,
-            semanticLabel: 'Back to meals',
-            iconSize: AppIconSize.sm,
-            // `pop` rather than a named route: a meal reached from the feed, from
-            // a search or from the roulette should return wherever it came from.
-            onPressed: () => context.pop(),
-          ),
-        ),
+          const Spacer(),
+          // Hidden until the set has loaded. An empty heart on a meal you saved
+          // is a lie, and it would only last until the first read returned.
+          if (isFavorite case final bool saved)
+            FavoriteButton(
+              isFavorite: saved,
+              onToggled: (_) => _toggle(context, ref),
+            ),
+        ],
       ),
+    );
+  }
+
+  Future<void> _toggle(BuildContext context, WidgetRef ref) async {
+    final AppException? failure = await ref
+        .read(favoritesControllerProvider.notifier)
+        .toggle(mealId);
+
+    if (failure == null || !context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(failure.displayMessage ?? failure.message)),
     );
   }
 }

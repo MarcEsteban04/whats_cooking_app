@@ -61,6 +61,16 @@ abstract interface class MealRepository {
   /// see — which covers both a deleted meal and another household's private
   /// one, deliberately, since telling those apart would leak the difference.
   Future<Meal> byId(String id);
+
+  /// Several meals, by id, for a list assembled elsewhere.
+  ///
+  /// Favourites are stored as ids (Sprint 24), so the screen that shows them
+  /// has a set of ids and needs meals. One request rather than one per id.
+  ///
+  /// Ids that match nothing are **skipped, not an error**: a meal deleted
+  /// after it was favourited should leave the rest of the list intact rather
+  /// than failing the whole screen.
+  Future<List<Meal>> byIds(Set<String> ids);
 }
 
 /// The page size for the feed.

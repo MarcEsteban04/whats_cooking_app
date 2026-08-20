@@ -17,6 +17,7 @@ import 'package:whats_cooking/features/auth/presentation/screens/register_screen
 import 'package:whats_cooking/features/auth/presentation/screens/reset_password_screen.dart';
 import 'package:whats_cooking/features/auth/presentation/screens/welcome_screen.dart';
 import 'package:whats_cooking/features/meals/presentation/screens/create_meal_screen.dart';
+import 'package:whats_cooking/features/meals/presentation/screens/favorites_screen.dart';
 import 'package:whats_cooking/features/meals/presentation/screens/meal_detail_screen.dart';
 import 'package:whats_cooking/features/meals/presentation/screens/meals_screen.dart';
 import 'package:whats_cooking/features/onboarding/presentation/screens/onboarding_screen.dart';
@@ -210,11 +211,11 @@ final StatefulShellRoute _shellRoute = StatefulShellRoute.indexedStack(
               builder: (BuildContext context, GoRouterState state) =>
                   const MealsScreen(autofocusSearch: true),
             ),
-            _child(
-              AppRoute.favorites,
-              AppRoute.meals,
-              'Favourites',
-              sprint: 'Sprint 24',
+            GoRoute(
+              path: _relative(AppRoute.favorites, AppRoute.meals),
+              name: AppRoute.favorites.routeName,
+              builder: (BuildContext context, GoRouterState state) =>
+                  const FavoritesScreen(),
             ),
             _child(
               AppRoute.mealHistory,

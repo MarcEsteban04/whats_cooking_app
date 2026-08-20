@@ -137,6 +137,23 @@ class InMemoryMealRepository implements MealRepository {
     throw const NotFoundException(message: 'We could not find that meal');
   }
 
+  @override
+  Future<List<Meal>> byIds(Set<String> ids) async {
+    await Future<void>.delayed(latency);
+
+    if (failReads) {
+      throw const ServerException();
+    }
+
+    final List<Meal> found = _meals
+        .where((Meal meal) => ids.contains(meal.id))
+        .toList();
+    found.sort(
+      (Meal a, Meal b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+    );
+    return found;
+  }
+
   /// The same order the database produces.
   ///
   /// The id tiebreaker is not decoration. `List.sort` is not stable in Dart, so

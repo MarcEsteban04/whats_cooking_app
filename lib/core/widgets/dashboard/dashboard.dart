@@ -634,28 +634,44 @@ class DashboardRow extends StatelessWidget {
               ],
             ),
           ],
-          if (trailing case final Widget widget) ...<Widget>[
-            const SizedBox(width: AppSpacing.space3),
-            widget,
-          ],
         ],
       ),
     );
 
     if (onTap == null) {
-      return content;
+      return _withTrailing(content);
     }
 
-    return PressFeedback(
-      onTap: onTap,
-      semanticLabel: <String?>[
-        title,
-        subtitle,
-        value == null ? null : '$value ${unit ?? ''}'.trim(),
-      ].whereType<String>().join('. '),
-      expandTouchTarget: false,
-      child: content,
+    // The trailing widget is a **sibling** of the tapped region, not a child of
+    // it. A heart there is an independent target and must not open the meal
+    // (docs/COMPONENTS.md §4) — and inside `PressFeedback` it would do both,
+    // exactly as it did when the meal card briefly nested one.
+    return _withTrailing(
+      PressFeedback(
+        onTap: onTap,
+        semanticLabel: <String?>[
+          title,
+          subtitle,
+          value == null ? null : '$value ${unit ?? ''}'.trim(),
+        ].whereType<String>().join('. '),
+        expandTouchTarget: false,
+        child: content,
+      ),
     );
+  }
+
+  /// Places [trailing] beside [row], outside whatever tap region [row] carries.
+  Widget _withTrailing(Widget row) {
+    if (trailing case final Widget widget) {
+      return Row(
+        children: <Widget>[
+          Expanded(child: row),
+          const SizedBox(width: AppSpacing.space2),
+          widget,
+        ],
+      );
+    }
+    return row;
   }
 }
 

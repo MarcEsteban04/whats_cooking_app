@@ -16,6 +16,7 @@ import 'package:whats_cooking/core/widgets/inputs/search_field.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal_query.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/meals_controller.dart';
+import 'package:whats_cooking/features/meals/presentation/widgets/meal_table_row.dart';
 
 /// The Meals tab, built in the dashboard language of
 /// `docs/reference_design/dashboards_ref.webp`.
@@ -145,6 +146,13 @@ class _MealsScreenState extends ConsumerState<MealsScreen> {
                                   controller.search('');
                                 }
                               },
+                            ),
+                            _CircleAction(
+                              icon: AppIcons.favoriteActive,
+                              label: 'Meals you saved',
+                              onPressed: () => context.pushNamed(
+                                AppRoute.favorites.routeName,
+                              ),
                             ),
                             _CircleAction(
                               icon: AppIcons.add,
@@ -570,31 +578,8 @@ class _MealTable extends StatelessWidget {
         children: <Widget>[
           const _TableHead(),
           for (final (int index, Meal meal) in feed.meals.indexed) ...<Widget>[
-            DashboardRule(inset: index == 0 ? 0 : _dotColumn),
-            DashboardRow(
-              leading: _SeriesDot(
-                color: context.colors.accentFor(meal.cuisine.label).foreground,
-              ),
-              title: meal.name,
-              subtitle: AppFormat.metadata(<String?>[
-                meal.cuisine.label,
-                AppFormat.cookingTime(meal.cookingTimeMinutes),
-                meal.difficulty.label,
-              ]),
-              value: AppFormat.peso(meal.costPerServing),
-              unit: 'a head',
-              trailing: meal.isMine
-                  ? const DeltaBadge(label: 'YOURS', isPositive: true)
-                  : Icon(
-                      AppIcons.forward,
-                      size: AppIconSize.xs,
-                      color: colors.textTertiary,
-                    ),
-              onTap: () => context.goNamed(
-                AppRoute.mealDetail.routeName,
-                pathParameters: <String, String>{'id': meal.id},
-              ),
-            ),
+            DashboardRule(inset: index == 0 ? 0 : MealTableRow.ruleInset),
+            MealTableRow(key: ValueKey<String>(meal.id), meal: meal),
           ],
           const SizedBox(height: AppSpacing.space4),
           const DashboardRule(),
@@ -604,10 +589,6 @@ class _MealTable extends StatelessWidget {
       ),
     );
   }
-
-  /// Where the rule starts, so it runs under the text rather than through the
-  /// series dot.
-  static const double _dotColumn = _SeriesDot.diameter + AppSpacing.space3;
 }
 
 /// The table's column headings, in the reference's tiny grey caps.
@@ -625,27 +606,6 @@ class _TableHead extends StatelessWidget {
           const SizedBox(width: AppSpacing.space5),
         ],
       ),
-    );
-  }
-}
-
-/// A small coloured dot standing for the cuisine.
-///
-/// The reference marks each row of a series with one. It carries the same
-/// meaning the old card's rail did — same cuisine, same colour, every time —
-/// in a tenth of the space.
-class _SeriesDot extends StatelessWidget {
-  const _SeriesDot({required this.color});
-
-  final Color color;
-
-  static const double diameter = 8;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-      child: const SizedBox.square(dimension: diameter),
     );
   }
 }
@@ -751,7 +711,7 @@ class _TableSkeleton extends StatelessWidget {
             ],
             const Row(
               children: <Widget>[
-                AppSkeleton.circle(diameter: _SeriesDot.diameter),
+                AppSkeleton.circle(diameter: 8),
                 SizedBox(width: AppSpacing.space3),
                 Expanded(child: AppSkeleton.textLine(widthFactor: 0.7)),
                 SizedBox(width: AppSpacing.space3),

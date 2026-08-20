@@ -181,6 +181,31 @@ class SupabaseMealRepository implements MealRepository {
     );
   }
 
+  @override
+  Future<List<Meal>> byIds(Set<String> ids) {
+    if (ids.isEmpty) {
+      // No request at all. `in.()` with an empty list is a query PostgREST
+      // rejects, and the answer is knowable without asking.
+      return Future<List<Meal>>.value(const <Meal>[]);
+    }
+
+    return RemoteCall.guard(
+      () async {
+        final PostgrestList rows = await _client
+            .from(_table)
+            .select(_columns)
+            .inFilter('id', ids.toList())
+            .order('name');
+
+        return <Meal>[
+          for (final Map<String, dynamic> row in rows) Meal.fromRow(row),
+        ];
+      },
+      label: 'meals.byIds',
+      timeout: AppConstants.requestTimeout,
+    );
+  }
+
   /// Resolves each ingredient name to a row, adding any that are new, then links
   /// them to the meal.
   ///
