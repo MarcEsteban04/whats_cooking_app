@@ -291,8 +291,19 @@ void main() {
       expect(find.text('Marc Esteban'), findsOneWidget);
       expect(find.byType(Avatar), findsOneWidget);
       expect(find.text('My preferences'), findsOneWidget);
-      expect(find.text('Household'), findsOneWidget);
-      expect(find.text('Settings'), findsOneWidget);
+
+      // The header now carries the avatar, the badge and the stat row, so the
+      // later sections start below the fold. Scrolled rather than asserted from
+      // the first frame, because a lazily-built ListView has not created them
+      // yet and `findsNothing` would be an artefact of the viewport.
+      for (final String section in <String>['Household', 'Settings']) {
+        await tester.scrollUntilVisible(
+          find.text(section),
+          _scrollStep,
+          scrollable: find.byType(Scrollable),
+        );
+        expect(find.text(section), findsOneWidget);
+      }
     });
 
     testWidgets('every row shows its current value, not just a label', (
@@ -458,3 +469,9 @@ void main() {
     });
   });
 }
+
+/// How far each `scrollUntilVisible` drag moves the profile list.
+///
+/// A little under half the 800 px test viewport, so a section header cannot be
+/// stepped over between one drag and the next.
+const double _scrollStep = 300;

@@ -23,15 +23,25 @@ class AppBottomNavItem {
   final IconData activeIcon;
 }
 
-/// The floating capsule navigation (docs/COMPONENTS.md §8, docs/design_ui.md §7).
+/// The floating capsule navigation (docs/design_ui.md §7).
 ///
-/// Not a Material [NavigationBar]. The reference's navigation is a rounded
-/// capsule floating above the content with a shadow, inset from the screen
-/// edges — a full-width bar attached to the bottom is the single most
-/// Material-looking element the app could have.
+/// Built to `docs/reference_design/reference_img.webp`, whose navigation has a
+/// specific behaviour worth naming: **only the selected destination shows its
+/// label.** The active item is a pill holding icon *and* text side by side; the
+/// rest are bare icons.
 ///
-/// Scrollable content needs `AppLayout.scrollBottomPadding` at its foot so
-/// nothing is ever trapped behind this.
+/// That is not decoration. Five labels across a 320 px screen forces `overline`
+/// down to a size nobody reads, and reading four labels you are not on is work
+/// the design does not need. One label, on the thing you are looking at, is
+/// enough — and it lets the active pill be wide enough to actually read.
+///
+/// Two deliberate departures from docs/COMPONENTS.md §8, both following the
+/// reference (as the near-black CTA does):
+///
+/// * §8 gives every item a label; the reference labels only the active one.
+/// * §8 makes the active item `primary600` on a `primary50` pill; the reference's
+///   active pill is a neutral tint with near-black content, and keeps green for
+///   accents. Reference wins, as it did for the primary button.
 class AppBottomNav extends StatelessWidget {
   const AppBottomNav({
     required this.items,
@@ -67,22 +77,32 @@ class AppBottomNav extends StatelessWidget {
         ),
         child: SizedBox(
           height: AppLayout.bottomNavHeight,
-          child: Row(
-            children: <Widget>[
-              for (final (int index, AppBottomNavItem item) in items.indexed)
-                Expanded(
-                  child: _NavItem(
-                    item: item,
-                    isActive: index == currentIndex,
-                    onTap: () => onDestinationSelected(index),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.space2),
+            child: Row(
+              children: <Widget>[
+                for (final (int index, AppBottomNavItem item) in items.indexed)
+                  // The active item takes the room it needs for its label and the
+                  // rest share what is left. A fixed split would either cramp the
+                  // label or leave the icons floating in too much space.
+                  Flexible(
+                    flex: index == currentIndex ? _activeFlex : 1,
+                    child: _NavItem(
+                      item: item,
+                      isActive: index == currentIndex,
+                      onTap: () => onDestinationSelected(index),
+                    ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
+
+  /// How much wider the labelled item is than a bare icon.
+  static const int _activeFlex = 2;
 }
 
 class _NavItem extends StatelessWidget {
@@ -99,52 +119,60 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final AppColorScheme colors = context.colors;
-    final Color color = isActive ? colors.primary : colors.textTertiary;
 
     return PressFeedback(
       onTap: onTap,
       semanticLabel: item.label,
-      // Announced as selected so the state does not rest on colour and fill
-      // alone (docs/DESIGN_SYSTEM.md §11).
+      // Announced as selected so the state does not rest on the pill and the
+      // filled glyph alone (docs/DESIGN_SYSTEM.md §11).
       semanticHint: isActive ? 'Selected' : null,
-      // The row already gives each item a generous share of a 64 px bar.
       expandTouchTarget: false,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: <Widget>[
-          DecoratedBox(
-            decoration: BoxDecoration(
-              // §8: the active item carries a primary50 pill behind its icon.
-              color: isActive ? colors.primaryContainer : null,
-              borderRadius: AppRadius.borderFull,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.space3,
-                vertical: AppSpacing.space1,
+      child: Center(
+        child: AnimatedContainer(
+          duration: AppMotion.resolve(context, AppMotion.fast),
+          curve: AppMotion.curveFast,
+          height: _pillHeight,
+          // Padding only where there is a pill to pad. An inactive item is a
+          // bare glyph, and horizontal padding there is invisible but not free:
+          // it sets a 48 px minimum width, which overflows the capsule once six
+          // destinations share a 320 px screen.
+          padding: EdgeInsets.symmetric(
+            horizontal: isActive ? AppSpacing.space4 : 0,
+          ),
+          decoration: BoxDecoration(
+            color: isActive ? colors.surfaceMuted : null,
+            borderRadius: AppRadius.borderFull,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(
+                isActive ? item.activeIcon : item.icon,
+                size: AppIconSize.md,
+                color: isActive ? colors.textPrimary : colors.textTertiary,
               ),
-              child: AnimatedSwitcher(
-                duration: AppMotion.resolve(context, AppMotion.fast),
-                // §8: "Icon transitions cross-fade over durationFast; there is
-                // no sliding indicator."
-                child: Icon(
-                  isActive ? item.activeIcon : item.icon,
-                  key: ValueKey<bool>(isActive),
-                  size: AppIconSize.md,
-                  color: color,
+              if (isActive) ...<Widget>[
+                const SizedBox(width: AppSpacing.space2),
+                // Flexible so a long label at 1.3x scale ellipsises rather than
+                // overflowing the capsule.
+                Flexible(
+                  child: Text(
+                    item.label,
+                    style: context.text.labelSmall.copyWith(
+                      color: colors.textPrimary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    softWrap: false,
+                  ),
                 ),
-              ),
-            ),
+              ],
+            ],
           ),
-          const SizedBox(height: AppSpacing.space1),
-          Text(
-            item.label,
-            style: context.text.overline.copyWith(color: color),
-            maxLines: 1,
-            overflow: TextOverflow.clip,
-          ),
-        ],
+        ),
       ),
     );
   }
+
+  static const double _pillHeight = 40;
 }

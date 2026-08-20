@@ -48,13 +48,23 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  /// A tab label inside the navigation bar.
+  /// A tab inside the navigation bar, found by its glyph.
   ///
-  /// Scoped, because a tab and the screen it opens share a name — an unscoped
-  /// search for "Home" matches both the tab and the Home screen's own title.
-  Finder tab(String label) => find.descendant(
+  /// The navigation labels only the *active* destination, following
+  /// `docs/reference_design/reference_img.webp`, so four of the five tabs have no
+  /// text to find. The glyph is there either way, and matching both the outlined
+  /// and filled forms means the finder does not have to know which tab is
+  /// current.
+  ///
+  /// Scoped to the bar, because a tab and the screen it opens share a glyph as
+  /// well as a name.
+  Finder tab(AppTab which) => find.descendant(
     of: find.byType(AppBottomNav),
-    matching: find.text(label),
+    matching: find.byWidgetPredicate(
+      (Widget widget) =>
+          widget is Icon &&
+          (widget.icon == which.icon || widget.icon == which.activeIcon),
+    ),
   );
 
   group('the registered paths match the route table', () {
@@ -112,7 +122,7 @@ void main() {
       expect(find.byType(AppShell), findsOneWidget);
       expect(find.byType(AppBottomNav), findsOneWidget);
       for (final AppTab navTab in AppTab.values) {
-        expect(tab(navTab.label), findsOneWidget, reason: navTab.label);
+        expect(tab(navTab), findsOneWidget, reason: navTab.label);
       }
     });
 
@@ -124,7 +134,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.textContaining('Arrives in Sprint 28'), findsOneWidget);
 
-      await tester.tap(tab('Pantry'));
+      await tester.tap(tab(AppTab.pantry));
       await tester.pumpAndSettle();
 
       expect(find.textContaining('Arrives in Sprint 48'), findsOneWidget);
@@ -144,11 +154,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Favourites'), findsOneWidget);
 
-      await tester.tap(tab('Grocery'));
+      await tester.tap(tab(AppTab.grocery));
       await tester.pumpAndSettle();
       expect(find.text('Favourites'), findsNothing);
 
-      await tester.tap(tab('Meals'));
+      await tester.tap(tab(AppTab.meals));
       await tester.pumpAndSettle();
       expect(
         find.text('Favourites'),
@@ -168,7 +178,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Favourites'), findsOneWidget);
 
-      await tester.tap(tab('Meals'));
+      await tester.tap(tab(AppTab.meals));
       await tester.pumpAndSettle();
 
       expect(

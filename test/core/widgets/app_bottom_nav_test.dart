@@ -39,9 +39,52 @@ void main() {
         brightness: brightness,
       );
 
+      // Every destination is present as an icon; only the active one is
+      // labelled, which is the reference's behaviour.
+      expect(find.byIcon(AppIcons.homeActive), findsOneWidget);
+      expect(find.byIcon(AppIcons.meals), findsOneWidget);
+      expect(find.byIcon(AppIcons.profile), findsOneWidget);
+    });
+
+    testWidgets('only the active destination is labelled', (
+      WidgetTester tester,
+    ) async {
+      await pumpComponent(
+        tester,
+        AppBottomNav(
+          items: items,
+          currentIndex: 1,
+          onDestinationSelected: (_) {},
+        ),
+      );
+
+      expect(find.text('Meals'), findsOneWidget);
+      expect(find.text('Home'), findsNothing);
+      expect(find.text('Profile'), findsNothing);
+    });
+
+    testWidgets('every destination is still named to a screen reader', (
+      WidgetTester tester,
+    ) async {
+      // The visible label moved to the active item only; the *accessible* name
+      // did not. An unlabelled icon would leave four of five tabs anonymous
+      // (docs/DESIGN_SYSTEM.md §11).
+      final SemanticsHandle handle = tester.ensureSemantics();
+
+      await pumpComponent(
+        tester,
+        AppBottomNav(
+          items: items,
+          currentIndex: 1,
+          onDestinationSelected: (_) {},
+        ),
+      );
+
       for (final AppBottomNavItem item in items) {
-        expect(find.text(item.label), findsOneWidget);
+        expect(find.bySemanticsLabel(item.label), findsOneWidget);
       }
+
+      handle.dispose();
     });
 
     testWidgets('the active item is filled and the rest are outlined', (
@@ -63,7 +106,7 @@ void main() {
       expect(find.byIcon(AppIcons.homeActive), findsNothing);
     });
 
-    testWidgets('the active item takes the primary colour', (
+    testWidgets('the active pill carries near-black content on a tint', (
       WidgetTester tester,
     ) async {
       await pumpComponent(
@@ -79,10 +122,14 @@ void main() {
 
       expect(
         tester.widget<Text>(find.text('Home')).style?.color,
-        colors.primary,
+        colors.textPrimary,
       );
       expect(
-        tester.widget<Text>(find.text('Meals')).style?.color,
+        tester.widget<Icon>(find.byIcon(AppIcons.homeActive)).color,
+        colors.textPrimary,
+      );
+      expect(
+        tester.widget<Icon>(find.byIcon(AppIcons.meals)).color,
         colors.textTertiary,
       );
     });
@@ -99,7 +146,7 @@ void main() {
         ),
       );
 
-      await tester.tap(find.text('Profile'));
+      await tester.tap(find.byIcon(AppIcons.profile));
       expect(selected, 2);
     });
 

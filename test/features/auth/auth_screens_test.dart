@@ -427,6 +427,20 @@ void main() {
       );
     });
 
+    testWidgets('shows the product rather than describing it', (
+      WidgetTester tester,
+    ) async {
+      // Built to the home-screen reference, not the auth one: the first screen
+      // should already look like the app it opens. Three floating cards say what
+      // the roulette does, in the reference's own card language.
+      await pumpScreen(tester, const WelcomeScreen());
+
+      expect(find.text('What are we\neating tonight?'), findsOneWidget);
+      for (final String promise in <String>['Spin', 'Agree', 'Eat']) {
+        expect(find.text(promise), findsOneWidget, reason: promise);
+      }
+    });
+
     testWidgets('guest mode is offered but disabled until Sprint 29', (
       WidgetTester tester,
     ) async {
@@ -437,6 +451,21 @@ void main() {
       );
 
       expect(guest.onPressed, isNull);
+    });
+
+    testWidgets('survives 1.3x scale on a 320 px screen', (
+      WidgetTester tester,
+    ) async {
+      // The staggered cluster indents each card further than the last, which is
+      // exactly the kind of layout that clips on the narrowest device.
+      await pumpScreen(
+        tester,
+        const WelcomeScreen(),
+        textScale: AppTypography.maxTextScale,
+        surfaceSize: kSmallPhone,
+      );
+
+      expectNoOverflow(tester);
     });
   });
 

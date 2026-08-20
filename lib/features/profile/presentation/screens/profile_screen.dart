@@ -8,12 +8,14 @@ import 'package:whats_cooking/core/errors/error_presenter.dart';
 import 'package:whats_cooking/core/router/app_routes.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/utils/formatters.dart';
+import 'package:whats_cooking/core/widgets/app_badge.dart';
 import 'package:whats_cooking/core/widgets/avatar.dart';
+import 'package:whats_cooking/core/widgets/cards/icon_list_row.dart';
+import 'package:whats_cooking/core/widgets/cards/stat_card.dart';
 import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
 import 'package:whats_cooking/core/widgets/section_header.dart';
 import 'package:whats_cooking/features/profile/domain/entities/user_profile.dart';
 import 'package:whats_cooking/features/profile/presentation/providers/profile_controller.dart';
-import 'package:whats_cooking/features/profile/presentation/widgets/profile_row.dart';
 
 /// The Profile tab (docs/design_ui.md §25).
 ///
@@ -90,15 +92,15 @@ class _ProfileBody extends ConsumerWidget {
             _ProfileHeader(profile: profile),
 
             const SectionHeader(title: 'My preferences'),
-            ProfileCard(
+            IconListCard(
               rows: <Widget>[
-                ProfileRow(
+                IconListRow(
                   title: 'Food preferences',
                   emoji: '🍽️',
                   value: _preferencesSummary(preferences),
                   onTap: () => context.goNamed(AppRoute.preferences.routeName),
                 ),
-                ProfileRow(
+                IconListRow(
                   title: 'Budget',
                   emoji: '💰',
                   value: preferences.budget == null
@@ -111,9 +113,9 @@ class _ProfileBody extends ConsumerWidget {
             ),
 
             const SectionHeader(title: 'Household'),
-            ProfileCard(
+            IconListCard(
               rows: <Widget>[
-                ProfileRow(
+                IconListRow(
                   title: profile.householdName ?? 'Our Kitchen',
                   emoji: '❤️',
                   value: profile.hasHousehold
@@ -129,15 +131,15 @@ class _ProfileBody extends ConsumerWidget {
             ),
 
             const SectionHeader(title: 'Settings'),
-            ProfileCard(
+            IconListCard(
               rows: <Widget>[
-                ProfileRow(
+                IconListRow(
                   title: 'Appearance',
                   emoji: '🌗',
                   onTap: () =>
                       context.goNamed(AppRoute.appearanceSettings.routeName),
                 ),
-                ProfileRow(
+                IconListRow(
                   title: 'Account',
                   emoji: '🔑',
                   value: 'Password, sign out, delete',
@@ -176,7 +178,12 @@ class _ProfileBody extends ConsumerWidget {
   static const int _summaryCuisines = 2;
 }
 
-/// Avatar, name and the line beneath it (docs/design_ui.md §25).
+/// Avatar, name, badge and the floating stat row.
+///
+/// Follows the reference's *detail* screen rather than a plain settings header:
+/// centred avatar, name, a badge on the line beneath, then floating figure cards.
+/// That arrangement is what makes the reference read as a page about a person
+/// rather than a list of links.
 class _ProfileHeader extends StatelessWidget {
   const _ProfileHeader({required this.profile});
 
@@ -198,14 +205,64 @@ class _ProfileHeader extends StatelessWidget {
           style: context.text.headlineMedium,
           textAlign: TextAlign.center,
         ),
-        const SizedBox(height: AppSpacing.space1),
-        Text(
-          // §25 shows "Food Explorer · 32 meals". The meal count needs the
-          // history feature (Sprint 31), so until then this says only what is
-          // true rather than a zero that reads as a broken counter.
-          'Food explorer',
-          style: context.text.metadata,
-          textAlign: TextAlign.center,
+        const SizedBox(height: AppSpacing.space2),
+        Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: AppSpacing.space2,
+          children: <Widget>[
+            // §25 shows "Food Explorer · 32 meals". The meal count needs the
+            // history feature (Sprint 31), so this says only what is true rather
+            // than a zero that reads as a broken counter.
+            Text('Food explorer', style: context.text.metadata),
+            if (profile.hasHousehold)
+              const AppBadge(
+                label: 'Cooking together',
+                icon: Icons.favorite_rounded,
+                tone: AppBadgeTone.success,
+              ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.space5),
+        _ProfileStats(preferences: profile.preferences),
+      ],
+    );
+  }
+}
+
+/// The floating figures from docs/design_ui.md §26.
+///
+/// Only what is knowable today. §26 asks for meals tried, average cost and couple
+/// match; all three need meal history (Sprint 31) or the couple engine
+/// (Sprint 46), and rendering them as zeroes would read as a broken counter. So
+/// the row states what the app genuinely knows — the shape of the user's
+/// preferences, which is what this screen is about anyway.
+class _ProfileStats extends StatelessWidget {
+  const _ProfileStats({required this.preferences});
+
+  final FoodPreferences preferences;
+
+  @override
+  Widget build(BuildContext context) {
+    return StatCardRow(
+      cards: <StatCard>[
+        StatCard(
+          emoji: '🍽️',
+          value: '${preferences.favouriteCuisines.length}',
+          label: 'Cuisines you like',
+        ),
+        StatCard(
+          emoji: '🚫',
+          value: '${preferences.dislikedFoods.length}',
+          label: 'Foods you avoid',
+          // The one raised card in the row, following the reference's staggered
+          // trio where a single card sits in front (docs/design_ui.md §35).
+          isRaised: true,
+        ),
+        StatCard(
+          emoji: '👥',
+          value: '${preferences.preferredServings}',
+          label: 'Usually cooking for',
         ),
       ],
     );

@@ -6,13 +6,13 @@ import 'package:whats_cooking/core/router/app_routes.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/utils/validators.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_button.dart';
+import 'package:whats_cooking/core/widgets/cards/icon_list_row.dart';
 import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
 import 'package:whats_cooking/core/widgets/inputs/app_text_field.dart';
 import 'package:whats_cooking/core/widgets/overlays/confirmation_dialog.dart';
 import 'package:whats_cooking/core/widgets/section_header.dart';
 import 'package:whats_cooking/features/auth/presentation/providers/auth_controller.dart';
 import 'package:whats_cooking/features/profile/presentation/providers/profile_controller.dart';
-import 'package:whats_cooking/features/profile/presentation/widgets/profile_row.dart';
 import 'package:whats_cooking/features/profile/presentation/widgets/settings_scaffold.dart';
 
 /// Name, password, sign out and deletion (docs/USER_FLOWS.md §17).
@@ -83,9 +83,9 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
           ),
 
           const SectionHeader(title: 'Security'),
-          ProfileCard(
+          IconListCard(
             rows: <Widget>[
-              ProfileRow(
+              IconListRow(
                 title: 'Change password',
                 emoji: '🔒',
                 value: 'We will email you a link',
@@ -95,14 +95,14 @@ class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
           ),
 
           const SectionHeader(title: 'Leaving'),
-          ProfileCard(
+          IconListCard(
             rows: <Widget>[
-              ProfileRow(title: 'Sign out', emoji: '👋', onTap: _signOut),
-              ProfileRow(
+              IconListRow(title: 'Sign out', emoji: '👋', onTap: _signOut),
+              IconListRow(
                 title: 'Delete my account',
                 emoji: '🗑️',
                 value: 'This cannot be undone',
-                isDestructive: true,
+                tone: IconListRowTone.destructive,
                 onTap: _deleteAccount,
               ),
             ],

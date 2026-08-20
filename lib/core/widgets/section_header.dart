@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
-import 'package:whats_cooking/core/widgets/buttons/app_button.dart';
+import 'package:whats_cooking/core/widgets/press_feedback.dart';
 
 /// A section heading (docs/COMPONENTS.md §17).
 ///
@@ -43,10 +43,37 @@ class SectionHeader extends StatelessWidget {
           children: <Widget>[
             Expanded(child: Text(title, style: context.text.titleLarge)),
             if (actionLabel != null && onAction != null)
-              AppButton.tertiary(
-                label: actionLabel!,
-                size: AppButtonSize.small,
-                onPressed: onAction,
+              // Text plus a chevron, as the reference draws its "See All ›" —
+              // not a button. A tertiary button here would put a second
+              // button-shaped thing beside every heading and compete with the
+              // screen's one real action (docs/design_ui.md §43).
+              PressFeedback(
+                onTap: onAction,
+                semanticLabel: ' ',
+                expandTouchTarget: false,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.space2,
+                    vertical: AppSpacing.space2,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Text(
+                        actionLabel!,
+                        style: context.text.labelSmall.copyWith(
+                          color: colors.primary,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.space1),
+                      Icon(
+                        AppIcons.forward,
+                        size: _chevronSize,
+                        color: colors.primary,
+                      ),
+                    ],
+                  ),
+                ),
               ),
           ],
         ),
@@ -61,4 +88,8 @@ class SectionHeader extends StatelessWidget {
       ],
     );
   }
+
+  /// Smaller than `iconXs`, so the chevron sits with 13 px text rather than
+  /// looming over it.
+  static const double _chevronSize = 12;
 }
