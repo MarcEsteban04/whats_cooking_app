@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_icon_button.dart';
+import 'package:whats_cooking/core/widgets/feedback/backend_banner.dart';
 
 /// The layout every auth screen shares, from
 /// `docs/reference_design/login_reference.webp`.
@@ -87,6 +88,11 @@ class AuthScaffold extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: <Widget>[
                           _BackRow(onBack: onBack),
+                          // Above the headline, on every auth screen. This is
+                          // the one place where "the app has no backend" costs
+                          // the user something they cannot get back: an account
+                          // they will lose on the next launch.
+                          const BackendBanner(),
                           if (leading != null) ...<Widget>[
                             leading!,
                             const SizedBox(height: AppSpacing.space5),

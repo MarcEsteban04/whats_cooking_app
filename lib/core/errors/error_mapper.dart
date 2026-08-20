@@ -133,6 +133,28 @@ abstract final class ErrorMapper {
       );
     }
 
+    // Signing in to an account whose address was never confirmed. Supabase
+    // returns its own distinct error for this, and folding it into "those
+    // details did not match" tells someone their password is wrong when it is
+    // not — they then change a password that was already correct.
+    //
+    // This does not weaken the enumeration defence in docs/USER_FLOWS.md §3.
+    // That defence is about not revealing *which field* was wrong, and it still
+    // holds: a wrong password and an unknown address are still one message.
+    // Whether an address is registered-but-unconfirmed is already plain in the
+    // API response the client receives, so saying it in the UI reveals nothing
+    // the caller could not already read.
+    if (message.contains('not confirmed') ||
+        message.contains('email_not_confirmed')) {
+      return AuthFailureException(
+        message: 'Confirm your email first — check your inbox for the link',
+        detail: error.message,
+        code: error.statusCode,
+        cause: error,
+        stackTrace: stackTrace,
+      );
+    }
+
     final bool isExpired =
         message.contains('expired') ||
         message.contains('jwt') ||

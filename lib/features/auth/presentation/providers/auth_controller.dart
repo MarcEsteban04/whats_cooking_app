@@ -40,6 +40,17 @@ class AuthSucceeded extends AuthFormState {
   const AuthSucceeded();
 }
 
+/// The account was created but needs its address confirmed before it works.
+///
+/// Not a failure and not a success. Nothing went wrong, but there is also no
+/// session, so the screen must send the user to their inbox rather than into
+/// onboarding — see [EmailConfirmationRequired].
+class AuthAwaitingEmailConfirmation extends AuthFormState {
+  const AuthAwaitingEmailConfirmation(this.email);
+
+  final String email;
+}
+
 /// The submission failed.
 class AuthFailed extends AuthFormState {
   const AuthFailed(this.exception, {this.suggestLoginFor});
@@ -86,6 +97,11 @@ class AuthController extends _$AuthController {
 
       _adopt(session);
       state = const AuthSucceeded();
+    } on EmailConfirmationRequired catch (error) {
+      // Deliberately does not adopt a session — there isn't one. Adopting
+      // anything here would move the router into the app on an account that
+      // cannot read or write a single row.
+      state = AuthAwaitingEmailConfirmation(error.email);
     } on EmailAlreadyRegistered catch (error) {
       // Carried through as a distinct state so the screen can offer login with
       // the address filled in, rather than showing a message and stopping.

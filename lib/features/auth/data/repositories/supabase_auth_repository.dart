@@ -67,6 +67,16 @@ class SupabaseAuthRepository implements AuthRepository {
           throw EmailAlreadyRegistered(email.trim());
         }
 
+        // No session means the project has **Confirm email** switched on, which
+        // is the Supabase default. The account exists and is unusable until the
+        // link is followed. Returning a session here would be a lie the app
+        // could not recover from: the router would send them to onboarding with
+        // no access token, every write would be refused by RLS, and the next
+        // launch would look like the account had vanished.
+        if (response.session == null) {
+          throw EmailConfirmationRequired(email.trim());
+        }
+
         return _sessionFor(user);
       },
       label: 'signUp',

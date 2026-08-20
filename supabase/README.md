@@ -73,6 +73,13 @@ Then:
 flutter run --dart-define-from-file=config/development.json
 ```
 
+**The flag is not optional.** The credentials are compile-time defines, so a bare
+`flutter run` starts with no backend at all: authentication falls back to an
+in-memory stand-in, and an account created that way is gone on the next launch.
+`.vscode/launch.json` is committed so that pressing F5 passes the flag for you,
+and the app now shows a banner on the auth screens whenever it is running without
+a real backend — the fallback stays, but it is no longer silent.
+
 The app reports backend health on launch. Without credentials it logs a warning
 and runs without a backend rather than crashing — a fresh clone still starts.
 
@@ -110,6 +117,12 @@ to development, then staging, then production, in that order.
 ## Auth settings to check in the dashboard
 
 * **Authentication → Providers → Email**: enabled.
+* **Authentication → Providers → Email → Confirm email**: decide deliberately.
+  On (the Supabase default), sign-up returns a user and **no session** — the
+  account exists but cannot be used until the emailed link is followed. The app
+  handles that correctly: it shows "Check your email" and sends you back to sign
+  in rather than into onboarding. Off is more convenient while developing, and
+  means sign-up drops you straight into the app.
 * **Authentication → URL Configuration**: add `whatscooking://reset-password`
   as a redirect URL, otherwise password reset deep links will not return to the
   app (Sprint 16).

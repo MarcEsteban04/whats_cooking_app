@@ -6,6 +6,7 @@ import 'package:whats_cooking/core/router/app_routes.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/widgets/app_badge.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_button.dart';
+import 'package:whats_cooking/core/widgets/feedback/backend_banner.dart';
 
 /// The first screen anyone sees (docs/USER_FLOWS.md §1).
 ///
@@ -50,6 +51,7 @@ class WelcomeScreen extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: <Widget>[
                           Spacer(),
+                          BackendBanner(),
                           _Wordmark(),
                           SizedBox(height: AppSpacing.space7),
                           _Headline(),

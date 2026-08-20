@@ -18,6 +18,7 @@ export 'package:whats_cooking/core/widgets/chips/app_filter_chip.dart';
 export 'package:whats_cooking/core/widgets/chips/cuisine_chip.dart';
 export 'package:whats_cooking/core/widgets/chips/metadata_pill.dart';
 export 'package:whats_cooking/core/widgets/feedback/app_skeleton.dart';
+export 'package:whats_cooking/core/widgets/feedback/backend_banner.dart';
 export 'package:whats_cooking/core/widgets/feedback/empty_state.dart';
 export 'package:whats_cooking/core/widgets/feedback/error_state.dart';
 export 'package:whats_cooking/core/widgets/inputs/app_text_field.dart';

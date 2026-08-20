@@ -77,6 +77,25 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       );
     }
 
+    // The account exists but has no session yet, because the project requires
+    // the address to be confirmed. Sending them to onboarding here is what makes
+    // an account look broken on the next launch: they would answer seven
+    // questions that no policy lets them save.
+    if (formState is AuthAwaitingEmailConfirmation) {
+      return AuthSuccessSheet(
+        tone: AuthSheetTone.awaiting,
+        title: 'Check your email',
+        message:
+            'We sent a confirmation link to ${formState.email}. Open it, '
+            'then sign in and we will start picking.',
+        actionLabel: 'Back to sign in',
+        onAction: () => context.goNamed(
+          AppRoute.login.routeName,
+          queryParameters: <String, String>{'email': formState.email},
+        ),
+      );
+    }
+
     final AppException? failure = formState.failure;
     final String? suggestLoginFor = formState is AuthFailed
         ? formState.suggestLoginFor

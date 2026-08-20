@@ -4,6 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_button.dart';
 
+/// What the sheet is reporting.
+enum AuthSheetTone {
+  /// Something finished. Green disc, check mark, confetti.
+  celebrate,
+
+  /// Something is waiting on the user. Same layout, no celebration.
+  awaiting,
+}
+
 /// The success screen from the middle panel of
 /// `docs/reference_design/login_reference.webp`.
 ///
@@ -13,12 +22,17 @@ import 'package:whats_cooking/core/widgets/buttons/app_button.dart';
 /// This is the one place green is a *fill* outside the SPIN button, and it is the
 /// right one: docs/DESIGN_SYSTEM.md §2.4 gives `success` its own role, and the
 /// check mark on top is white at over 4.5:1 on it.
+///
+/// [AuthSheetTone.awaiting] reuses the same layout without the celebration. The
+/// arrangement is right for any "here is what just happened, here is the one
+/// thing to do next" moment; the confetti is right for exactly one of them.
 class AuthSuccessSheet extends StatefulWidget {
   const AuthSuccessSheet({
     required this.title,
     required this.message,
     required this.actionLabel,
     required this.onAction,
+    this.tone = AuthSheetTone.celebrate,
     super.key,
   });
 
@@ -26,6 +40,7 @@ class AuthSuccessSheet extends StatefulWidget {
   final String message;
   final String actionLabel;
   final VoidCallback onAction;
+  final AuthSheetTone tone;
 
   @override
   State<AuthSuccessSheet> createState() => _AuthSuccessSheetState();
@@ -81,7 +96,7 @@ class _AuthSuccessSheetState extends State<AuthSuccessSheet>
                 child: Stack(
                   alignment: Alignment.center,
                   children: <Widget>[
-                    if (!reduceMotion)
+                    if (!reduceMotion && widget.tone == AuthSheetTone.celebrate)
                       // Suppressed under reduce-motion, per
                       // docs/DESIGN_SYSTEM.md §7: "confetti is suppressed".
                       AnimatedBuilder(
@@ -106,7 +121,7 @@ class _AuthSuccessSheetState extends State<AuthSuccessSheet>
                       scale: reduceMotion
                           ? const AlwaysStoppedAnimation<double>(1)
                           : entrance,
-                      child: const _SuccessCheck(),
+                      child: _Emblem(tone: widget.tone),
                     ),
                   ],
                 ),
@@ -144,26 +159,50 @@ class _AuthSuccessSheetState extends State<AuthSuccessSheet>
   static const double _messageMaxWidth = 280;
 }
 
-/// The green disc and its white check.
-class _SuccessCheck extends StatelessWidget {
-  const _SuccessCheck();
+/// The disc at the top of the sheet.
+///
+/// Green with a white check when something finished; the butter pastel with a
+/// mail glyph when the user still has something to do. The pastel is the right
+/// choice for the waiting state because it is the one palette role that reads as
+/// "attention, not alarm" — an amber warning colour would imply something went
+/// wrong, and nothing has (docs/DESIGN_SYSTEM.md §2.3).
+class _Emblem extends StatelessWidget {
+  const _Emblem({required this.tone});
+
+  final AuthSheetTone tone;
 
   @override
   Widget build(BuildContext context) {
-    final AppSemanticColor success = context.colors.success;
+    final AppColorScheme colors = context.colors;
+
+    final (
+      Color background,
+      Color foreground,
+      IconData icon,
+      String label,
+    ) = switch (tone) {
+      AuthSheetTone.celebrate => (
+        colors.success.color,
+        colors.success.onColor,
+        AppIcons.check,
+        'Success',
+      ),
+      AuthSheetTone.awaiting => (
+        colors.butter.background,
+        colors.butter.foreground,
+        AppIcons.mail,
+        'Waiting for you',
+      ),
+    };
 
     return Semantics(
-      label: 'Success',
+      label: label,
       child: DecoratedBox(
-        decoration: BoxDecoration(color: success.color, shape: BoxShape.circle),
+        decoration: BoxDecoration(color: background, shape: BoxShape.circle),
         child: SizedBox.square(
           dimension: _diameter,
           child: Center(
-            child: Icon(
-              AppIcons.check,
-              size: AppIconSize.lg,
-              color: success.onColor,
-            ),
+            child: Icon(icon, size: AppIconSize.lg, color: foreground),
           ),
         ),
       ),

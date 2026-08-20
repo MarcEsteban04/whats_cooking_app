@@ -56,3 +56,20 @@ class EmailAlreadyRegistered implements Exception {
 
   final String email;
 }
+
+/// Thrown by [AuthRepository.signUp] when the account was created but cannot be
+/// used until the address is confirmed.
+///
+/// This is the Supabase default: with **Confirm email** on, sign-up returns a
+/// user and *no session*. Reporting that as a successful sign-in is the worst
+/// available outcome — the app would drop someone into onboarding holding no
+/// access token, every write would be refused by Row Level Security, and the
+/// account would appear broken on the next launch rather than merely unconfirmed.
+///
+/// A distinct type, like [EmailAlreadyRegistered], so the screen can say what
+/// actually happened instead of string-matching an error.
+class EmailConfirmationRequired implements Exception {
+  const EmailConfirmationRequired(this.email);
+
+  final String email;
+}

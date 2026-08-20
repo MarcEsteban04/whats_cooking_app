@@ -5,7 +5,9 @@ import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_button.dart';
 import 'package:whats_cooking/core/widgets/inputs/app_toggle.dart';
 import 'package:whats_cooking/features/auth/domain/entities/app_session.dart';
+import 'package:whats_cooking/features/auth/domain/repositories/auth_repository.dart';
 import 'package:whats_cooking/features/auth/presentation/providers/auth_controller.dart';
+import 'package:whats_cooking/features/auth/presentation/providers/auth_repository_provider.dart';
 import 'package:whats_cooking/features/auth/presentation/providers/session_provider.dart';
 import 'package:whats_cooking/features/auth/presentation/screens/forgot_password_screen.dart';
 import 'package:whats_cooking/features/auth/presentation/screens/login_screen.dart';
@@ -469,6 +471,72 @@ void main() {
     });
   });
 
+  group('sign-up when the address needs confirming', () {
+    // The Supabase default. `signUp` returns a user and **no session**, and the
+    // account is unusable until the link is followed.
+    //
+    // This is the bug that made an account look broken: treated as a success,
+    // the app sent the user into onboarding holding no access token, every write
+    // was refused by Row Level Security, and the next launch showed a signed-out
+    // app with an account they could not sign in to.
+    setUp(() {
+      container = ProviderContainer(
+        overrides: [
+          authRepositoryProvider.overrideWithValue(
+            _ConfirmationRequiredRepository(),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+    });
+
+    Future<void> submitSignUp(WidgetTester tester) async {
+      await tester.enterText(find.byType(TextField).at(0), 'Marc');
+      await tester.enterText(find.byType(TextField).at(1), 'marc@example.com');
+      await tester.enterText(find.byType(TextField).at(2), 'a-long-password');
+      await tapToggle(tester);
+      await tapButton(tester, 'Sign Up');
+    }
+
+    testWidgets('sends the user to their inbox, not into onboarding', (
+      WidgetTester tester,
+    ) async {
+      await pumpScreen(tester, const RegisterScreen());
+      await submitSignUp(tester);
+
+      expect(find.text('Check your email'), findsOneWidget);
+      expect(find.textContaining('marc@example.com'), findsOneWidget);
+      expect(
+        find.text("Let's get cooking"),
+        findsNothing,
+        reason: 'onboarding must not be offered without a session',
+      );
+    });
+
+    testWidgets('publishes no session', (WidgetTester tester) async {
+      // The whole point. A session here would move the router into the app on an
+      // account that cannot read or write a single row.
+      await pumpScreen(tester, const RegisterScreen());
+      await submitSignUp(tester);
+
+      expect(container.read(sessionProvider).isAuthenticated, isFalse);
+    });
+
+    testWidgets('does not celebrate', (WidgetTester tester) async {
+      // Nothing has succeeded yet. Confetti and a green check would tell the
+      // user they were finished when they have one step left.
+      await pumpScreen(tester, const RegisterScreen());
+      await submitSignUp(tester);
+
+      final AuthSuccessSheet sheet = tester.widget<AuthSuccessSheet>(
+        find.byType(AuthSuccessSheet),
+      );
+
+      expect(sheet.tone, AuthSheetTone.awaiting);
+      expect(find.bySemanticsLabel('Success'), findsNothing);
+    });
+  });
+
   group('the session is the only route out', () {
     testWidgets('signing in publishes a session rather than pushing a route', (
       WidgetTester tester,
@@ -494,4 +562,42 @@ void main() {
       );
     });
   });
+}
+
+/// An auth backend that answers sign-up the way Supabase does when the project
+/// has **Confirm email** switched on: the account is created, and no session
+/// comes back with it.
+///
+/// Only [signUp] is reachable from the screen under test. The rest throw rather
+/// than returning something plausible, so a test that starts depending on them
+/// says so instead of quietly passing against a stub.
+class _ConfirmationRequiredRepository implements AuthRepository {
+  @override
+  Future<AppSession> signUp({
+    required String email,
+    required String password,
+    required String displayName,
+  }) async {
+    throw EmailConfirmationRequired(email.trim());
+  }
+
+  @override
+  Future<AppSession> signIn({
+    required String email,
+    required String password,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<void> sendPasswordReset({required String email}) =>
+      throw UnimplementedError();
+
+  @override
+  Future<AppSession> updatePassword({required String newPassword}) =>
+      throw UnimplementedError();
+
+  @override
+  Future<void> signOut() => throw UnimplementedError();
+
+  @override
+  Future<AppSession?> restoreSession() => throw UnimplementedError();
 }

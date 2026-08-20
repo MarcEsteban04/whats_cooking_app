@@ -105,6 +105,44 @@ void main() {
       expect(mapped.isRetryable, isFalse);
       expect(mapped.message, 'Those details did not match');
     });
+
+    test('an unconfirmed address says so instead of blaming the password', () {
+      // Supabase returns its own distinct error here. Folding it into "those
+      // details did not match" tells someone their password is wrong when it is
+      // not, and they go and change a password that was already correct.
+      final AppException mapped = ErrorMapper.map(
+        const supabase.AuthException(
+          'Email not confirmed',
+          statusCode: '400',
+          code: 'email_not_confirmed',
+        ),
+      );
+
+      expect(mapped, isA<AuthFailureException>());
+      expect(mapped.message, contains('Confirm your email'));
+      expect(
+        (mapped as AuthFailureException).isSessionExpired,
+        isFalse,
+        reason: 'there is no session to refresh',
+      );
+    });
+
+    test('the enumeration defence still holds for a wrong password', () {
+      // docs/USER_FLOWS.md §3. The confirmation case above is a different axis:
+      // it does not reveal which *field* was wrong, and the API response
+      // already carries it either way.
+      final AppException mapped = ErrorMapper.map(
+        const supabase.AuthException('Invalid login credentials'),
+      );
+
+      for (final String leak in <String>['password', 'email', 'account']) {
+        expect(
+          mapped.message.toLowerCase(),
+          isNot(contains(leak)),
+          reason: leak,
+        );
+      }
+    });
   });
 
   group('storage failures', () {

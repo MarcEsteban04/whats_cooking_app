@@ -77,6 +77,9 @@ abstract final class AppIcons {
   static const IconData settings = Icons.settings_outlined;
   static const IconData expiring = Icons.event_busy_outlined;
 
+  /// For the "we sent you a link, go and look" moment.
+  static const IconData mail = Icons.mark_email_unread_outlined;
+
   // Feedback (§2.4 — never colour alone).
   static const IconData success = Icons.check_circle_outline_rounded;
   static const IconData warning = Icons.warning_amber_rounded;
