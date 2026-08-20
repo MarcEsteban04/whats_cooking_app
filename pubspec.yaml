@@ -34,6 +34,11 @@ dev_dependencies:
   # Generates the launcher icons from assets/brand (Sprint 34).
   flutter_launcher_icons: ^0.14.4
 
+  # Paints the brand mark on the native launch window (Sprint 34). Not a
+  # "branded delay": this window exists while the engine boots whether or not
+  # anything is drawn on it.
+  flutter_native_splash: ^2.4.6
+
   # Used by tool/build_brand_assets.dart to pad the logo into an adaptive-icon
   # foreground. A dev dependency because nothing at runtime decodes a PNG by hand.
   image: ^4.3.0
@@ -93,3 +98,40 @@ flutter_launcher_icons:
   macos:
     generate: true
     image_path: "assets/brand/source/launcher_opaque.png"
+
+# ---------------------------------------------------------------------------
+# Native launch screen (Sprint 34)
+#
+# The window the platform paints before Flutter has started. docs/ARCHITECTURE
+# forbids a *branded delay* — a logo screen held open to look impressive — and
+# this is the opposite: the window is already there for as long as the engine
+# takes to boot, and the choice is only whether it is blank.
+#
+# It is also the one place a signed-in user reliably meets the mark. The welcome
+# and onboarding screens carry it too, and a returning household never sees
+# either of them again.
+#
+# Regenerate with: dart run flutter_native_splash:create
+# ---------------------------------------------------------------------------
+flutter_native_splash:
+  # The app background and its dark counterpart, so the launch window is the
+  # same ground the first frame paints on and there is no flash between them.
+  color: "#F7F7F5"
+  color_dark: "#141412"
+
+  # The transparent mark, not the flattened one: it sits on the colours above.
+  image: assets/brand/logo.png
+  image_dark: assets/brand/logo.png
+
+  android: true
+  ios: true
+  web: false
+
+  android_12:
+    # Android 12+ masks this to a circle and ignores anything outside the inner
+    # two thirds, so it gets the already-inset foreground rather than the full
+    # mark — the same reason the adaptive launcher icon does.
+    image: assets/brand/source/launcher_foreground.png
+    image_dark: assets/brand/source/launcher_foreground.png
+    color: "#F7F7F5"
+    color_dark: "#141412"
