@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:whats_cooking/core/domain/food_taxonomy.dart';
 import 'package:whats_cooking/core/utils/formatters.dart';
+import 'package:whats_cooking/features/meals/domain/entities/meal.dart';
+import 'package:whats_cooking/features/meals/domain/entities/meal_ingredient.dart';
 
 /// One line of a meal's ingredient list, as typed.
 ///
@@ -83,6 +85,47 @@ class MealDraft {
     this.instructions = const <String>[],
     this.ingredients = const <DraftIngredient>[],
   });
+
+  /// A draft holding what a meal currently says, for editing it (Sprint 26).
+  ///
+  /// Everything the form can change, and nothing else. `calories`,
+  /// `dietary_tags` and `tags` are deliberately absent: the form does not offer
+  /// them, so carrying them here would mean a round trip that reads them and
+  /// writes them straight back — and the moment the form gained a field the
+  /// omission would look like a decision rather than an oversight. The update
+  /// sends only the columns the form owns, so those three keep their values.
+  ///
+  /// Units are snapped to the vocabulary the picker offers. A row stored with a
+  /// unit this build does not know — `kg`, added to the database later — would
+  /// otherwise fail validation on a form the user never touched, which reads as
+  /// their own recipe being rejected for no reason.
+  factory MealDraft.fromMeal(Meal meal) {
+    return MealDraft(
+      name: meal.name,
+      description: meal.description ?? '',
+      cuisine: meal.cuisine,
+      category: meal.category,
+      difficulty: meal.difficulty,
+      cookingTimeMinutes: meal.cookingTimeMinutes,
+      // Rounded, because the form takes whole pesos and the column is numeric.
+      // Down rather than to nearest, so re-saving an untouched draft can only
+      // ever lower a cost by under a peso instead of raising it.
+      estimatedCost: meal.estimatedCost.floor(),
+      servings: meal.servings,
+      instructions: List<String>.of(meal.instructions),
+      ingredients: <DraftIngredient>[
+        for (final MealIngredient ingredient in meal.ingredients)
+          DraftIngredient(
+            name: ingredient.name,
+            quantity: ingredient.quantity,
+            unit: DraftIngredient.units.contains(ingredient.unit)
+                ? ingredient.unit
+                : 'pc',
+            isOptional: ingredient.isOptional,
+          ),
+      ],
+    );
+  }
 
   final String name;
   final String description;

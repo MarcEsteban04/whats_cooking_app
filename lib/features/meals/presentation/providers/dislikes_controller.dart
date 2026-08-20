@@ -90,7 +90,9 @@ class DislikesController extends _$DislikesController {
     state = AsyncValue<Set<String>>.data(optimistic);
 
     try {
-      final DislikesRepository repository = ref.read(dislikesRepositoryProvider);
+      final DislikesRepository repository = ref.read(
+        dislikesRepositoryProvider,
+      );
       if (hidden) {
         await repository.add(mealId);
       } else {

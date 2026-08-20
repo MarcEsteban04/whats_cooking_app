@@ -130,6 +130,18 @@ lost an argument with itself.
 
 ## 4. MealCard
 
+> **No meal imagery, as built.** This section still describes the image slot in every form,
+> and the code has none: there is no meal photography, no bucket to upload it to, and a
+> catalogue of sixty rows with placeholder art looked worse than a catalogue with none. The
+> hierarchy each form wanted survives without it — the name takes the image's place at
+> display size, and the cuisine reads as a coloured rail or dot (`meal_card.dart`,
+> `meal_table_row.dart`). The Meals tab and the meal detail screen went further and moved to
+> the dashboard language of `reference_design/dashboards_ref.webp`, where a hairline table
+> row replaces the card entirely. **Everything below about layout, hearts, touch targets and
+> tap behaviour still holds; every mention of an image is aspirational.** Restoring imagery
+> is a real piece of work — a storage bucket, a picker, upload progress, failure states and
+> a placeholder for the fifty-nine meals that will not have one — and it is not scheduled.
+
 Three forms, one component.
 
 ### `feed` — the Meals tab

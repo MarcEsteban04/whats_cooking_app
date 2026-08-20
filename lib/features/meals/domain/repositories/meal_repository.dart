@@ -62,6 +62,39 @@ abstract interface class MealRepository {
   /// one, deliberately, since telling those apart would leak the difference.
   Future<Meal> byId(String id);
 
+  /// Rewrites a meal this household wrote (Sprint 26).
+  ///
+  /// Only the columns the form owns. `calories`, `dietary_tags` and `tags` are
+  /// left alone, because [MealDraft] does not carry them and writing a default
+  /// over a value nobody was shown is how a save quietly loses data.
+  ///
+  /// The ingredient list is **replaced**, not merged. A recipe's ingredients are
+  /// one thing the user edits as a whole — removing an item has to mean
+  /// something — and diffing lines matched by a name the user is also editing
+  /// would be guesswork.
+  ///
+  /// Author-scoped by policy, not by convention: `update own meals` accepts the
+  /// write only from `created_by`. See `Meal.isWrittenBy`.
+  Future<Meal> update(String id, MealDraft draft);
+
+  /// Deletes a meal this household wrote.
+  ///
+  /// The `meal_ingredients` rows go with it by cascade. What outlives it is
+  /// deliberate: `meal_history` keeps its `meal_id` as a nullable reference, so
+  /// deleting a recipe does not rewrite the record of having eaten it.
+  Future<void> delete(String id);
+
+  /// Every meal this household wrote, newest first.
+  ///
+  /// Unpaged, and that is a decision rather than an omission. This is one
+  /// household's own recipes — tens, not thousands — and paging it would mean a
+  /// second scrolling controller for a list that fits in one request. Revisit if
+  /// a household ever writes enough to notice, which would be a good problem.
+  ///
+  /// With ingredients, unlike [search]: this list is short enough to afford the
+  /// join, and the edit form needs them the moment a row is tapped.
+  Future<List<Meal>> mine();
+
   /// Several meals, by id, for a list assembled elsewhere.
   ///
   /// Favourites are stored as ids (Sprint 24), so the screen that shows them

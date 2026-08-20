@@ -14,9 +14,9 @@ import 'package:whats_cooking/features/meals/presentation/providers/favorites_co
 
 /// One meal as a row in a dashboard table.
 ///
-/// Shared by the feed, the favourites list and the hidden list so the three
-/// cannot drift: a meal should look the same wherever it is listed, and three
-/// copies of this layout would be three places to remember when the cost format
+/// Shared by the feed and by the Saved, Hidden and Your-meals lists, so the four
+/// cannot drift: a meal should look the same wherever it is listed, and four
+/// copies of this layout would be four places to remember when the cost format
 /// changes.
 ///
 /// The trailing control is a sibling of the tappable region rather than inside
@@ -92,7 +92,10 @@ class MealTableRow extends ConsumerWidget {
                   mealName: meal.name,
                   onToggled: (_) => _toggleFavorite(context, ref),
                 )),
-      onTap: () => context.goNamed(
+      // `push`, not `go`: from Saved, Hidden or Your meals, `go` would rewrite
+      // the stack as feed → meal and send Back to the feed rather than to the
+      // list the reader came from. From the feed itself the two are identical.
+      onTap: () => context.pushNamed(
         AppRoute.mealDetail.routeName,
         pathParameters: <String, String>{'id': meal.id},
       ),

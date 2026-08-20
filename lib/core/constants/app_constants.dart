@@ -10,6 +10,14 @@ abstract final class AppConstants {
   /// docs/app_feature.md, Brand.
   static const String tagline = 'No more "ikaw bahala."';
 
+  /// Who a build with no Supabase credentials considers to be signed in.
+  ///
+  /// Lives here rather than in either place that needs it, so the auth layer
+  /// and the in-memory meal store can agree without depending on each other.
+  /// It is not a real user id and never reaches a server: the only code that
+  /// compares against it is the fallback that also stamps it.
+  static const String localAuthorId = 'local-author';
+
   // ---------------------------------------------------------------------------
   // Budget (docs/app_feature.md §8)
   // ---------------------------------------------------------------------------

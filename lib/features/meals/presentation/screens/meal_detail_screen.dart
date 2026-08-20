@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:whats_cooking/core/domain/food_taxonomy.dart';
 import 'package:whats_cooking/core/errors/app_exception.dart';
+import 'package:whats_cooking/core/errors/error_mapper.dart';
 import 'package:whats_cooking/core/errors/error_presenter.dart';
+import 'package:whats_cooking/core/router/app_routes.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/utils/formatters.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_icon_button.dart';
@@ -12,11 +14,15 @@ import 'package:whats_cooking/core/widgets/dashboard/dashboard.dart';
 import 'package:whats_cooking/core/widgets/feedback/app_skeleton.dart';
 import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
 import 'package:whats_cooking/core/widgets/overlays/confirmation_dialog.dart';
+import 'package:whats_cooking/features/auth/presentation/providers/current_user_provider.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal_ingredient.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/dislikes_controller.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/favorites_controller.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/meal_detail_controller.dart';
+import 'package:whats_cooking/features/meals/presentation/providers/meal_repository_provider.dart';
+import 'package:whats_cooking/features/meals/presentation/providers/meals_controller.dart';
+import 'package:whats_cooking/features/meals/presentation/providers/my_meals_controller.dart';
 
 /// One meal, in full (Sprint 23, docs/design_ui.md §17).
 ///
@@ -290,8 +296,105 @@ class _Detail extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
         ],
+        _OwnerActions(meal: meal),
       ],
     );
+  }
+}
+
+/// Edit and delete, for a meal this reader wrote (Sprint 26).
+///
+/// At the foot of the content rather than in the top bar, which already holds a
+/// back button, a heart and a hide control. A fifth glyph up there would be a
+/// row of guesses; down here they are two labelled tiles in the reference's own
+/// action-row shape, and the destructive one is nowhere near the thing you tap
+/// to go back.
+///
+/// Absent entirely on a meal this reader did not write. `update own meals` and
+/// `delete own meals` are author-scoped, so offering these on a partner's recipe
+/// would be offering an action the server will refuse — and a button that
+/// errors teaches people to distrust the ones that work.
+class _OwnerActions extends ConsumerWidget {
+  const _OwnerActions({required this.meal});
+
+  final Meal meal;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (!meal.isWrittenBy(ref.watch(currentUserIdProvider))) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.space4),
+      child: DashboardPanel(
+        child: DashboardActionRow(
+          actions: <DashboardAction>[
+            DashboardAction(
+              label: 'Edit meal',
+              icon: AppIcons.edit,
+              onTap: () => context.pushNamed(
+                AppRoute.mealEdit.routeName,
+                pathParameters: <String, String>{'id': meal.id},
+              ),
+            ),
+            DashboardAction(
+              label: 'Delete meal',
+              icon: AppIcons.delete,
+              onTap: () => _delete(context, ref),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _delete(BuildContext context, WidgetRef ref) async {
+    final bool confirmed = await ConfirmationDialog.show(
+      context,
+      title: 'Delete ${meal.name}?',
+      // Names both halves of the consequence: what goes, and what stays. A
+      // household that thinks deleting a recipe erases the record of having
+      // eaten it will not delete anything (docs/COMPONENTS.md §10).
+      body:
+          'The recipe and its ingredients go for good. Meals you have already '
+          'eaten stay in your history.',
+      confirmLabel: 'Delete',
+      icon: AppIcons.delete,
+      isDestructive: true,
+    );
+
+    if (!confirmed || !context.mounted) {
+      return;
+    }
+
+    try {
+      await ref.read(mealRepositoryProvider).delete(meal.id);
+
+      // The feed reloads and the owner's list is dropped, rather than either
+      // being patched: a deleted row changes what page two contains.
+      await ref.read(mealsControllerProvider.notifier).refresh();
+      ref.invalidate(myMealsProvider);
+
+      if (!context.mounted) {
+        return;
+      }
+      // Off the detail screen first — it is now showing a meal that no longer
+      // exists, and a reload behind it would replace it with a not-found.
+      if (context.canPop()) {
+        context.pop();
+      }
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('${meal.name} is deleted')));
+    } on Object catch (error, stackTrace) {
+      if (!context.mounted) {
+        return;
+      }
+      final AppException failure = ErrorMapper.map(error, stackTrace);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(failure.displayMessage ?? failure.message)),
+      );
+    }
   }
 }
 

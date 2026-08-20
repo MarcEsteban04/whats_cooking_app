@@ -92,7 +92,7 @@ the user between partially-saved steps.
 | `/meals/mine` | `myMeals` | AO | Custom meals |
 | `/meals/new` | `mealCreate` | AO | |
 | `/meals/:id` | `mealDetail` | AO | Hero transition from any card |
-| `/meals/:id/edit` | `mealEdit` | AO | Custom meals only |
+| `/meals/:id/edit` | `mealEdit` | AO | Author's own only; inside the tab, not the root navigator |
 
 ### Pantry tab
 

@@ -1,3 +1,4 @@
+import 'package:whats_cooking/core/constants/app_constants.dart';
 import 'package:whats_cooking/core/domain/food_taxonomy.dart';
 import 'package:whats_cooking/core/errors/app_exception.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal.dart';
@@ -119,11 +120,115 @@ class InMemoryMealRepository implements MealRepository {
       // Household-written, exactly as the database would store it: the
       // `create own meals` policy accepts nothing else.
       isPublic: false,
+      createdBy: localAuthorId,
+      ingredients: <MealIngredient>[
+        for (final DraftIngredient ingredient in draft.filledIngredients)
+          MealIngredient(
+            name: ingredient.name.trim(),
+            quantity: ingredient.quantity,
+            unit: ingredient.unit,
+            isOptional: ingredient.isOptional,
+          ),
+      ],
     );
 
     _meals.add(meal);
     return meal;
   }
+
+  @override
+  Future<Meal> update(String id, MealDraft draft) async {
+    await Future<void>.delayed(latency);
+
+    if (failWrites) {
+      throw const ServerException();
+    }
+
+    final int index = _meals.indexWhere((Meal meal) => meal.id == id);
+    if (index < 0) {
+      throw const NotFoundException(message: 'We could not save that meal');
+    }
+
+    final Meal existing = _meals[index];
+    if (existing.isPublic || !existing.isWrittenBy(localAuthorId)) {
+      // What `update own meals` does on the server: no rows matched, which the
+      // PostgREST version reports as a not-found rather than a refusal. Mirrored
+      // here so a test cannot pass against permissions the app does not have.
+      throw const NotFoundException(message: 'We could not save that meal');
+    }
+
+    final Meal updated = Meal(
+      id: existing.id,
+      name: draft.name.trim(),
+      description: draft.description.trim().isEmpty
+          ? null
+          : draft.description.trim(),
+      cuisine: draft.cuisine,
+      category: draft.category,
+      difficulty: draft.difficulty,
+      cookingTimeMinutes: draft.cookingTimeMinutes!,
+      estimatedCost: draft.estimatedCost!.toDouble(),
+      servings: draft.servings,
+      instructions: draft.filledInstructions,
+      isPublic: false,
+      createdBy: existing.createdBy,
+      // Kept, because the update sends only the columns the form owns.
+      calories: existing.calories,
+      dietaryTags: existing.dietaryTags,
+      tags: existing.tags,
+      // Replaced wholesale, as the link table is.
+      ingredients: <MealIngredient>[
+        for (final DraftIngredient ingredient in draft.filledIngredients)
+          MealIngredient(
+            name: ingredient.name.trim(),
+            quantity: ingredient.quantity,
+            unit: ingredient.unit,
+            isOptional: ingredient.isOptional,
+          ),
+      ],
+    );
+
+    _meals[index] = updated;
+    return updated;
+  }
+
+  @override
+  Future<void> delete(String id) async {
+    await Future<void>.delayed(latency);
+
+    if (failWrites) {
+      throw const ServerException();
+    }
+
+    // Silent when nothing matches, as the server is: a delete that finds no row
+    // has already achieved what the caller asked for.
+    _meals.removeWhere(
+      (Meal meal) =>
+          meal.id == id && !meal.isPublic && meal.isWrittenBy(localAuthorId),
+    );
+  }
+
+  @override
+  Future<List<Meal>> mine() async {
+    await Future<void>.delayed(latency);
+
+    if (failReads) {
+      throw const ServerException();
+    }
+
+    // Newest first, and with no timestamps in the sample the insertion order is
+    // the closest honest answer — reversed, so a meal just written is at the top
+    // where the user expects to find it.
+    return _meals.where((Meal meal) => meal.isMine).toList().reversed.toList();
+  }
+
+  /// Who the no-backend build considers to be signed in.
+  ///
+  /// Stamped on anything created here and checked before anything is rewritten,
+  /// so the author-scoped rules the server enforces still hold in the fallback.
+  /// `currentUserId` returns this when Supabase is not initialised, which is what
+  /// keeps the Edit button working in a credential-less clone.
+  static const String localAuthorId = AppConstants.localAuthorId;
 
   @override
   Future<Meal> byId(String id) async {

@@ -686,6 +686,15 @@ class _SmallPageRepository implements MealRepository {
 
   @override
   Future<List<Meal>> byIds(Set<String> ids) => _inner.byIds(ids);
+
+  @override
+  Future<Meal> update(String id, MealDraft draft) => _inner.update(id, draft);
+
+  @override
+  Future<void> delete(String id) => _inner.delete(id);
+
+  @override
+  Future<List<Meal>> mine() => _inner.mine();
 }
 
 /// A repository whose reads can be held open, for observing the reloading state.
@@ -718,4 +727,13 @@ class _SlowRepository implements MealRepository {
 
   @override
   Future<List<Meal>> byIds(Set<String> ids) => _inner.byIds(ids);
+
+  @override
+  Future<Meal> update(String id, MealDraft draft) => _inner.update(id, draft);
+
+  @override
+  Future<void> delete(String id) => _inner.delete(id);
+
+  @override
+  Future<List<Meal>> mine() => _inner.mine();
 }

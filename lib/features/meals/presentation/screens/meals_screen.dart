@@ -35,10 +35,10 @@ import 'package:whats_cooking/features/meals/presentation/widgets/meal_table_row
 ///   three-column stat trio underneath whose bars show what share of the
 ///   catalogue is quick, cheap, or yours. The columns are tappable, so the
 ///   summary doubles as the filter it describes;
-/// * an **action row** across the foot of that panel — Saved, Hidden, New meal.
-///   The reference's own `Billing & Transactions | …` block, and the right home
-///   for the three lists that are not the feed: they are destinations, and a
-///   labelled tile says where it goes in a way a bare circle in the header did
+/// * an **action row** across the foot of that panel — Saved, Hidden, Yours,
+///   New meal. The reference's own `Billing & Transactions | …` block, and the
+///   right home for everything that is not the feed: they are destinations, and
+///   a labelled tile says where it goes in a way a bare circle in the header did
 ///   not;
 /// * a **segmented control** for the meal category, exactly as the reference
 ///   switches Daily / Weekly / Monthly;
@@ -152,9 +152,9 @@ class _MealsScreenState extends ConsumerState<MealsScreen> {
                                 }
                               },
                             ),
-                            // Saved, Hidden and New live in the panel's action
-                            // row instead. Four circles in a header is a row of
-                            // guesses; three labelled tiles are three answers.
+                            // Everything else lives in the panel's action row.
+                            // Circles in a header are a row of guesses; a
+                            // labelled tile says where it goes.
                           ],
                         ),
                         if (_isSearching) ...<Widget>[
@@ -393,8 +393,7 @@ class _SummaryPanel extends StatelessWidget {
               DashboardAction(
                 label: 'Saved',
                 icon: AppIcons.favoriteActive,
-                onTap: () =>
-                    context.pushNamed(AppRoute.favorites.routeName),
+                onTap: () => context.pushNamed(AppRoute.favorites.routeName),
               ),
               DashboardAction(
                 label: 'Hidden',
@@ -403,10 +402,14 @@ class _SummaryPanel extends StatelessWidget {
                     context.pushNamed(AppRoute.dislikedMeals.routeName),
               ),
               DashboardAction(
+                label: 'Yours',
+                icon: AppIcons.meals,
+                onTap: () => context.pushNamed(AppRoute.myMeals.routeName),
+              ),
+              DashboardAction(
                 label: 'New meal',
                 icon: AppIcons.add,
-                onTap: () =>
-                    context.pushNamed(AppRoute.mealCreate.routeName),
+                onTap: () => context.pushNamed(AppRoute.mealCreate.routeName),
               ),
             ],
           ),
@@ -688,8 +691,7 @@ class _FeedEmpty extends StatelessWidget {
           // Said out loud, because the exclusion is silent everywhere else and
           // a search that cannot find a meal you know exists is otherwise a bug
           // as far as the reader can tell.
-          if (hidden > 0)
-            _hiddenNote(hidden),
+          if (hidden > 0) _hiddenNote(hidden),
         ].join(' '),
         emoji: '🔍',
         actionLabel: 'Clear filters',
@@ -707,8 +709,7 @@ class _FeedEmpty extends StatelessWidget {
             : 'All $hidden meals here are hidden.',
         emoji: '🙈',
         actionLabel: 'Hidden meals',
-        onAction: () =>
-            context.pushNamed(AppRoute.dislikedMeals.routeName),
+        onAction: () => context.pushNamed(AppRoute.dislikedMeals.routeName),
       );
     }
 

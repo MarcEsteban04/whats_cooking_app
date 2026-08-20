@@ -537,6 +537,14 @@ Unselected filters should remain neutral white/gray.
 
 # 17. Meal Details
 
+> **Built without the image.** There is no meal photography in the app, so the screen keeps
+> this section's hierarchy and drops its top image: the name sits where the photograph would
+> have been at display size, the `Filipino · Easy · 45 min` line runs beneath it, cost is the
+> hero figure, ingredients are the two-column list described below, and the steps are the
+> large numbered ones. Back and favourite still float at the top, joined by the hide control
+> from Sprint 25 and — on a meal you wrote — edit and delete at the foot (Sprint 26). See
+> COMPONENTS §4 for why there is no imagery and what restoring it would cost.
+
 Create a large immersive meal-detail screen.
 
 Top:
@@ -1027,6 +1035,10 @@ Avoid excessive animation.
 ---
 
 # 33. Food Photography
+
+> **Not implemented, and not scheduled.** The app ships no food imagery at all — see
+> COMPONENTS §4. This section stands as the brief for the day it does, not as a description
+> of anything in the build. Nothing here is a placeholder that got missed.
 
 Food imagery should be one of the strongest visual elements.
 

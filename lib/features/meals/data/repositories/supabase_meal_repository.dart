@@ -175,6 +175,109 @@ class SupabaseMealRepository implements MealRepository {
   }
 
   @override
+  Future<Meal> update(String id, MealDraft draft) {
+    return RemoteCall.guard(
+      () async {
+        // Named columns rather than a whole-row write. `calories`,
+        // `dietary_tags` and `tags` are not on the form, and sending a default
+        // for a field nobody was shown is how a save quietly loses data.
+        //
+        // `is_public`, `household_id` and `created_by` are absent for a
+        // different reason: they are not the caller's to change, and omitting
+        // them means a bug here cannot move a recipe into the public catalogue
+        // or hand it to another household.
+        final Map<String, dynamic> row = await _client
+            .from(_table)
+            .update(<String, Object?>{
+              'name': draft.name.trim(),
+              // Explicit null rather than omitted: clearing a description has
+              // to be possible, and leaving the key out would silently keep it.
+              'description': draft.description.trim().isEmpty
+                  ? null
+                  : draft.description.trim(),
+              'cuisine': draft.cuisine.value,
+              'category': draft.category.value,
+              'difficulty': draft.difficulty.value,
+              'cooking_time_minutes': draft.cookingTimeMinutes,
+              'estimated_cost': draft.estimatedCost,
+              'servings': draft.servings,
+              'instructions': draft.filledInstructions,
+            })
+            .eq('id', id)
+            .select(_columns)
+            .maybeSingle()
+            .then((Map<String, dynamic>? result) {
+              if (result == null) {
+                // No rows updated. `update own meals` is author-scoped, so this
+                // is either someone else's recipe or one already deleted — and
+                // RLS makes those indistinguishable, which is the right
+                // behaviour rather than a gap to close.
+                throw const NotFoundException(
+                  message: 'We could not save that meal',
+                  detail: 'meals.update matched no row the caller may write',
+                );
+              }
+              return result;
+            });
+
+        // Replaced, not merged. Removing an ingredient has to mean something,
+        // and matching lines by a name the user is also editing would be
+        // guesswork. The delete goes first so a failure leaves the old list
+        // intact rather than a doubled one.
+        await _client.from('meal_ingredients').delete().eq('meal_id', id);
+        await _attachIngredients(id, draft.filledIngredients);
+
+        return Meal.fromRow(row);
+      },
+      label: 'meals.update',
+      // No retry, for the same reason `create` has none: the failures this
+      // would retry are a rejected policy check or a constraint violation, and
+      // a second attempt fixes neither.
+      policy: RetryPolicy.none,
+      timeout: AppConstants.requestTimeout,
+    );
+  }
+
+  @override
+  Future<void> delete(String id) {
+    return RemoteCall.guard(
+      () async {
+        // No check that the row exists first. `delete own meals` already
+        // restricts this to the author, and a delete that matches nothing is
+        // the outcome the caller wanted anyway — the meal is gone.
+        await _client.from(_table).delete().eq('id', id);
+      },
+      label: 'meals.delete',
+      policy: RetryPolicy.none,
+      timeout: AppConstants.requestTimeout,
+    );
+  }
+
+  @override
+  Future<List<Meal>> mine() {
+    return RemoteCall.guard(
+      () async {
+        // `is_public = false` is the whole filter. The `read visible meals`
+        // policy already returns "public, or my household's", so the non-public
+        // half of that is exactly this household's own writing — no household
+        // id needed, and no way to accidentally ask for another one's.
+        final PostgrestList rows = await _client
+            .from(_table)
+            .select(_detailColumns)
+            .eq('is_public', false)
+            .order('created_at', ascending: false)
+            .order(MealSort.tiebreaker);
+
+        return <Meal>[
+          for (final Map<String, dynamic> row in rows) Meal.fromRow(row),
+        ];
+      },
+      label: 'meals.mine',
+      timeout: AppConstants.requestTimeout,
+    );
+  }
+
+  @override
   Future<Meal> byId(String id) {
     return RemoteCall.guard(
       () async {
@@ -346,7 +449,7 @@ class SupabaseMealRepository implements MealRepository {
   static const String _columns =
       'id, name, description, cuisine, category, difficulty, '
       'cooking_time_minutes, estimated_cost, servings, calories, '
-      'instructions, dietary_tags, tags, is_public';
+      'instructions, dietary_tags, tags, is_public, created_by';
 
   /// The feed columns plus the ingredient join.
   ///

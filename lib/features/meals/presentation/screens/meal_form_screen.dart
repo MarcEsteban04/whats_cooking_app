@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:whats_cooking/core/domain/food_taxonomy.dart';
 import 'package:whats_cooking/core/errors/app_exception.dart';
 import 'package:whats_cooking/core/errors/error_mapper.dart';
+import 'package:whats_cooking/core/errors/error_presenter.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_button.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_icon_button.dart';
@@ -15,18 +16,27 @@ import 'package:whats_cooking/core/widgets/inputs/app_text_field.dart';
 import 'package:whats_cooking/core/widgets/overlays/confirmation_dialog.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal_draft.dart';
+import 'package:whats_cooking/features/meals/domain/repositories/meal_repository.dart';
+import 'package:whats_cooking/features/meals/presentation/providers/meal_detail_controller.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/meal_repository_provider.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/meals_controller.dart';
+import 'package:whats_cooking/features/meals/presentation/providers/my_meals_controller.dart';
 
 /// The key a number field carries, so a test can find it by label.
 String numberFieldKey(String label) => 'number-$label';
 
-/// Write your own meal (docs/USER_FLOWS.md §10).
+/// Write your own meal, or rewrite one (docs/USER_FLOWS.md §10).
 ///
 /// The catalogue is sixty meals somebody else chose. This is how a household's
 /// own food gets in — and it is the only way a meal is ever written, because the
 /// `create own meals` policy accepts an insert only when it is private to the
 /// caller's household. Nothing here can add to the public catalogue.
+///
+/// **One form for both directions** (Sprint 26). Editing a recipe is the same
+/// twelve questions as writing one; a second screen would be the same twelve
+/// controls with a different verb, and the two would drift the first time a
+/// field was added. Passing [mealId] seeds the draft from the stored meal and
+/// switches the verb — nothing else changes.
 ///
 /// Presented as a full-screen dialog on the **root** navigator, so the bottom
 /// navigation is covered: a half-written recipe should not be one tap on Home
@@ -36,25 +46,41 @@ String numberFieldKey(String label) => 'number-$label';
 /// One screen rather than a wizard, grouped into cards. Twelve controls in a
 /// flat column is a wall; the same twelve under five headings is a form whose
 /// shape you can see.
-class CreateMealScreen extends ConsumerStatefulWidget {
-  const CreateMealScreen({super.key});
+class MealFormScreen extends ConsumerStatefulWidget {
+  const MealFormScreen({this.mealId, super.key});
+
+  /// The meal being rewritten, or null when writing a new one.
+  final String? mealId;
+
+  bool get isEditing => mealId != null;
 
   @override
-  ConsumerState<CreateMealScreen> createState() => _CreateMealScreenState();
+  ConsumerState<MealFormScreen> createState() => _MealFormScreenState();
 }
 
-class _CreateMealScreenState extends ConsumerState<CreateMealScreen> {
-  MealDraft _draft = const MealDraft();
+class _MealFormScreenState extends ConsumerState<MealFormScreen> {
+  /// Null until there is something to edit.
+  ///
+  /// A new meal starts from a blank draft immediately. An edit has to wait for
+  /// the meal, and a form that renders blank fields and fills them a moment
+  /// later is one that loses whatever was typed in between.
+  MealDraft? _draft;
+
+  /// What the meal said when it was loaded, for spotting an untouched form.
+  MealDraft? _original;
+
   AppException? _failure;
   bool _isSaving = false;
 
   void _update(MealDraft draft) => setState(() => _draft = draft);
 
-  /// Whether anything has been typed.
+  /// Whether anything has been typed since the form opened.
   ///
   /// Decides whether cancelling has to ask. An untouched form closes without a
-  /// dialog, because confirming a decision nobody made is pure friction.
-  bool get _isStarted => _draft != const MealDraft();
+  /// dialog, because confirming a decision nobody made is pure friction — and on
+  /// an edit that means comparing against what was loaded rather than against
+  /// blank, or backing out of a recipe you only looked at would always ask.
+  bool get _isStarted => _draft != null && _draft != (_original ?? _blank);
 
   Future<void> _cancel() async {
     if (!_isStarted) {
@@ -64,8 +90,10 @@ class _CreateMealScreenState extends ConsumerState<CreateMealScreen> {
 
     final bool discard = await ConfirmationDialog.show(
       context,
-      title: 'Discard this meal?',
-      body: 'What you have written will not be saved.',
+      title: widget.isEditing ? 'Discard your changes?' : 'Discard this meal?',
+      body: widget.isEditing
+          ? 'The meal will stay as it was.'
+          : 'What you have written will not be saved.',
       confirmLabel: 'Discard',
       cancelLabel: 'Keep writing',
       isDestructive: true,
@@ -77,27 +105,49 @@ class _CreateMealScreenState extends ConsumerState<CreateMealScreen> {
   }
 
   Future<void> _save() async {
+    final MealDraft? draft = _draft;
+    if (draft == null) {
+      return;
+    }
+
     setState(() {
       _isSaving = true;
       _failure = null;
     });
 
     try {
-      final Meal meal = await ref.read(mealRepositoryProvider).create(_draft);
+      final MealRepository repository = ref.read(mealRepositoryProvider);
+      final Meal meal = switch (widget.mealId) {
+        final String id => await repository.update(id, draft),
+        null => await repository.create(draft),
+      };
 
-      // The feed is reloaded rather than patched. The new meal has to land in
-      // whatever sort and filters are applied, and the server is the only thing
-      // that knows where that is — putting it at the top would be wrong under
-      // every sort but one.
+      // The feed is reloaded rather than patched. A new or renamed meal has to
+      // land in whatever sort and filters are applied, and the server is the
+      // only thing that knows where that is — putting it at the top would be
+      // wrong under every sort but one.
       await ref.read(mealsControllerProvider.notifier).refresh();
+
+      // The two lists that show it, and the detail screen behind this one. All
+      // invalidated rather than patched, for the same reason.
+      ref.invalidate(myMealsProvider);
+      if (widget.mealId case final String id) {
+        ref.invalidate(mealDetailProvider(id));
+      }
 
       if (!mounted) {
         return;
       }
       context.pop();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('${meal.name} is in your meals')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            widget.isEditing
+                ? '${meal.name} is updated'
+                : '${meal.name} is in your meals',
+          ),
+        ),
+      );
     } on Object catch (error, stackTrace) {
       if (!mounted) {
         return;
@@ -112,7 +162,33 @@ class _CreateMealScreenState extends ConsumerState<CreateMealScreen> {
   @override
   Widget build(BuildContext context) {
     final AppColorScheme colors = context.colors;
-    final String? missing = _draft.validate();
+
+    // Seeded here rather than in `initState`, because the meal arrives
+    // asynchronously and this is the first frame that has it. Assigned once and
+    // never again: re-seeding on a later rebuild would throw away typing.
+    if (widget.mealId case final String id) {
+      final AsyncValue<Meal> stored = ref.watch(mealDetailProvider(id));
+
+      if (_draft == null) {
+        if (stored case AsyncError<Meal>(:final Object error)) {
+          return _FormLoadFailure(
+            failure: error is AppException ? error : const UnknownException(),
+            onRetry: () => ref.invalidate(mealDetailProvider(id)),
+          );
+        }
+        if (stored.value case final Meal meal) {
+          _original = MealDraft.fromMeal(meal);
+          _draft = _original;
+        } else {
+          return const _FormLoading();
+        }
+      }
+    } else {
+      _draft ??= _blank;
+    }
+
+    final MealDraft draft = _draft!;
+    final String? missing = draft.validate();
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -125,7 +201,10 @@ class _CreateMealScreenState extends ConsumerState<CreateMealScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                _Header(onCancel: _isSaving ? null : _cancel),
+                _Header(
+                  title: widget.isEditing ? 'Edit meal' : 'Add a meal',
+                  onCancel: _isSaving ? null : _cancel,
+                ),
                 Expanded(
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(
@@ -146,19 +225,25 @@ class _CreateMealScreenState extends ConsumerState<CreateMealScreen> {
                           AppTextField(
                             label: 'Name',
                             hint: 'Tita Baby adobo',
+                            // `initialValue`, not `controller`: the field owns
+                            // its text and the draft owns the value, so an edit
+                            // opens filled in without the two fighting over the
+                            // cursor on every keystroke.
+                            initialValue: draft.name,
                             textCapitalization: TextCapitalization.words,
                             isEnabled: !_isSaving,
                             onChanged: (String value) =>
-                                _update(_draft.copyWith(name: value)),
+                                _update(draft.copyWith(name: value)),
                           ),
                           const SizedBox(height: AppSpacing.space4),
                           AppTextField(
                             label: 'Description',
                             hint: 'What makes it yours?',
+                            initialValue: draft.description,
                             maxLines: 3,
                             isEnabled: !_isSaving,
                             onChanged: (String value) =>
-                                _update(_draft.copyWith(description: value)),
+                                _update(draft.copyWith(description: value)),
                           ),
                         ],
                       ),
@@ -169,31 +254,31 @@ class _CreateMealScreenState extends ConsumerState<CreateMealScreen> {
                           _ChoiceGroup<Cuisine>(
                             label: 'Cuisine',
                             values: Cuisine.values,
-                            selected: _draft.cuisine,
+                            selected: draft.cuisine,
                             name: (Cuisine value) => value.label,
                             isEnabled: !_isSaving,
                             onSelected: (Cuisine value) =>
-                                _update(_draft.copyWith(cuisine: value)),
+                                _update(draft.copyWith(cuisine: value)),
                           ),
                           const SizedBox(height: AppSpacing.space4),
                           _ChoiceGroup<MealCategory>(
                             label: 'Eaten at',
                             values: MealCategory.values,
-                            selected: _draft.category,
+                            selected: draft.category,
                             name: (MealCategory value) => value.label,
                             isEnabled: !_isSaving,
                             onSelected: (MealCategory value) =>
-                                _update(_draft.copyWith(category: value)),
+                                _update(draft.copyWith(category: value)),
                           ),
                           const SizedBox(height: AppSpacing.space4),
                           _ChoiceGroup<Difficulty>(
                             label: 'Difficulty',
                             values: Difficulty.values,
-                            selected: _draft.difficulty,
+                            selected: draft.difficulty,
                             name: (Difficulty value) => value.label,
                             isEnabled: !_isSaving,
                             onSelected: (Difficulty value) =>
-                                _update(_draft.copyWith(difficulty: value)),
+                                _update(draft.copyWith(difficulty: value)),
                           ),
                         ],
                       ),
@@ -209,10 +294,10 @@ class _CreateMealScreenState extends ConsumerState<CreateMealScreen> {
                               Expanded(
                                 child: _NumberField(
                                   label: 'Minutes',
-                                  value: _draft.cookingTimeMinutes,
+                                  value: draft.cookingTimeMinutes,
                                   isEnabled: !_isSaving,
                                   onChanged: (int? value) => _update(
-                                    _draft.copyWith(cookingTimeMinutes: value),
+                                    draft.copyWith(cookingTimeMinutes: value),
                                   ),
                                 ),
                               ),
@@ -220,10 +305,10 @@ class _CreateMealScreenState extends ConsumerState<CreateMealScreen> {
                               Expanded(
                                 child: _NumberField(
                                   label: 'Pesos',
-                                  value: _draft.estimatedCost,
+                                  value: draft.estimatedCost,
                                   isEnabled: !_isSaving,
                                   onChanged: (int? value) => _update(
-                                    _draft.copyWith(estimatedCost: value),
+                                    draft.copyWith(estimatedCost: value),
                                   ),
                                 ),
                               ),
@@ -231,16 +316,16 @@ class _CreateMealScreenState extends ConsumerState<CreateMealScreen> {
                               Expanded(
                                 child: _NumberField(
                                   label: 'Feeds',
-                                  value: _draft.servings,
+                                  value: draft.servings,
                                   isEnabled: !_isSaving,
                                   onChanged: (int? value) => _update(
-                                    _draft.copyWith(servings: value ?? 0),
+                                    draft.copyWith(servings: value ?? 0),
                                   ),
                                 ),
                               ),
                             ],
                           ),
-                          if (_draft.costPerServingLabel case final String each)
+                          if (draft.costPerServingLabel case final String each)
                             Padding(
                               padding: const EdgeInsets.only(
                                 top: AppSpacing.space3,
@@ -263,11 +348,11 @@ class _CreateMealScreenState extends ConsumerState<CreateMealScreen> {
                             'tonight — staples like salt and oil are assumed.',
                         children: <Widget>[
                           _IngredientEditor(
-                            ingredients: _draft.ingredients,
+                            ingredients: draft.ingredients,
                             isEnabled: !_isSaving,
                             onChanged: (List<DraftIngredient> ingredients) =>
                                 _update(
-                                  _draft.copyWith(ingredients: ingredients),
+                                  draft.copyWith(ingredients: ingredients),
                                 ),
                           ),
                         ],
@@ -278,10 +363,10 @@ class _CreateMealScreenState extends ConsumerState<CreateMealScreen> {
                         subtitle: 'Optional. One step at a time.',
                         children: <Widget>[
                           _StepEditor(
-                            steps: _draft.instructions,
+                            steps: draft.instructions,
                             isEnabled: !_isSaving,
                             onChanged: (List<String> steps) =>
-                                _update(_draft.copyWith(instructions: steps)),
+                                _update(draft.copyWith(instructions: steps)),
                           ),
                         ],
                       ),
@@ -289,6 +374,7 @@ class _CreateMealScreenState extends ConsumerState<CreateMealScreen> {
                   ),
                 ),
                 _SaveBar(
+                  label: widget.isEditing ? 'Save changes' : 'Save meal',
                   missing: missing,
                   isSaving: _isSaving,
                   onSave: missing == null && !_isSaving ? _save : null,
@@ -307,8 +393,9 @@ class _CreateMealScreenState extends ConsumerState<CreateMealScreen> {
 /// **Cancel**, not a back arrow. This is a task you are inside rather than a
 /// place you navigated to, and the label should say which.
 class _Header extends StatelessWidget {
-  const _Header({required this.onCancel});
+  const _Header({required this.title, required this.onCancel});
 
+  final String title;
   final Future<void> Function()? onCancel;
 
   @override
@@ -335,7 +422,7 @@ class _Header extends StatelessWidget {
             ),
             Expanded(
               child: Text(
-                'Add a meal',
+                title,
                 style: context.text.titleLarge,
                 textAlign: TextAlign.center,
               ),
@@ -591,6 +678,7 @@ class _IngredientRow extends StatelessWidget {
                   child: AppTextField(
                     label: 'Ingredient',
                     hint: 'chicken thigh',
+                    initialValue: ingredient.name,
                     isEnabled: isEnabled,
                     onChanged: (String value) =>
                         onChanged(ingredient.copyWith(name: value)),
@@ -744,6 +832,7 @@ class _StepEditor extends StatelessWidget {
                 child: AppTextField(
                   key: ValueKey<int>(index),
                   hint: 'What happens next?',
+                  initialValue: steps[index],
                   maxLines: 3,
                   isEnabled: isEnabled,
                   onChanged: (String value) => onChanged(<String>[
@@ -827,11 +916,13 @@ class _StepNumber extends StatelessWidget {
 /// returns the first missing thing, so the bar says it.
 class _SaveBar extends StatelessWidget {
   const _SaveBar({
+    required this.label,
     required this.missing,
     required this.isSaving,
     required this.onSave,
   });
 
+  final String label;
   final String? missing;
   final bool isSaving;
   final Future<void> Function()? onSave;
@@ -864,7 +955,7 @@ class _SaveBar extends StatelessWidget {
               const SizedBox(height: AppSpacing.space2),
             ],
             AppButton.inverse(
-              label: 'Save meal',
+              label: label,
               isLoading: isSaving,
               onPressed: onSave,
             ),
@@ -874,3 +965,66 @@ class _SaveBar extends StatelessWidget {
     );
   }
 }
+
+/// Waiting for the meal an edit is about.
+///
+/// The header is drawn already, so cancelling works before the meal arrives —
+/// a form you cannot back out of while it loads is a trap on a slow connection.
+class _FormLoading extends StatelessWidget {
+  const _FormLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: context.colors.background,
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            _Header(title: 'Edit meal', onCancel: () async => context.pop()),
+            const Expanded(child: Center(child: CircularProgressIndicator())),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The meal could not be read, so there is nothing to edit.
+class _FormLoadFailure extends StatelessWidget {
+  const _FormLoadFailure({required this.failure, required this.onRetry});
+
+  final AppException failure;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: context.colors.background,
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            _Header(title: 'Edit meal', onCancel: () async => context.pop()),
+            Expanded(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppLayout.screenMargin),
+                  child: ErrorState(
+                    kind: failure.errorStateKind,
+                    body: failure.displayMessage,
+                    errorCode: failure.supportCode,
+                    onRetry: failure.shouldOfferRetry ? onRetry : null,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// An untouched draft, named so the comparison in `_isStarted` reads as one.
+const MealDraft _blank = MealDraft();

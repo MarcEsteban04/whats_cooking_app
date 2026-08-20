@@ -16,11 +16,12 @@ import 'package:whats_cooking/features/auth/presentation/screens/login_screen.da
 import 'package:whats_cooking/features/auth/presentation/screens/register_screen.dart';
 import 'package:whats_cooking/features/auth/presentation/screens/reset_password_screen.dart';
 import 'package:whats_cooking/features/auth/presentation/screens/welcome_screen.dart';
-import 'package:whats_cooking/features/meals/presentation/screens/create_meal_screen.dart';
 import 'package:whats_cooking/features/meals/presentation/screens/disliked_meals_screen.dart';
 import 'package:whats_cooking/features/meals/presentation/screens/favorites_screen.dart';
 import 'package:whats_cooking/features/meals/presentation/screens/meal_detail_screen.dart';
+import 'package:whats_cooking/features/meals/presentation/screens/meal_form_screen.dart';
 import 'package:whats_cooking/features/meals/presentation/screens/meals_screen.dart';
+import 'package:whats_cooking/features/meals/presentation/screens/my_meals_screen.dart';
 import 'package:whats_cooking/features/onboarding/presentation/screens/onboarding_screen.dart';
 import 'package:whats_cooking/features/profile/presentation/screens/account_settings_screen.dart';
 import 'package:whats_cooking/features/profile/presentation/screens/appearance_settings_screen.dart';
@@ -86,6 +87,7 @@ GoRouter appRouter(Ref ref) {
       // declaration order, and the shell holds /meals/:id — so declared after
       // it, /meals/new would resolve to a meal whose id is "new".
       _mealCreateRoute,
+      _mealEditRoute,
       _shellRoute,
       ..._fullScreenRoutes,
       ..._coupleRoutes,
@@ -230,29 +232,20 @@ final StatefulShellRoute _shellRoute = StatefulShellRoute.indexedStack(
               'Meal history',
               sprint: 'Sprint 31',
             ),
-            _child(
-              AppRoute.myMeals,
-              AppRoute.meals,
-              'My meals',
-              sprint: 'Sprint 26',
+            GoRoute(
+              path: _relative(AppRoute.myMeals, AppRoute.meals),
+              name: AppRoute.myMeals.routeName,
+              builder: (BuildContext context, GoRouterState state) =>
+                  const MyMealsScreen(),
             ),
             GoRoute(
               path: _relative(AppRoute.mealDetail, AppRoute.meals),
               name: AppRoute.mealDetail.routeName,
               builder: (BuildContext context, GoRouterState state) =>
                   MealDetailScreen(mealId: state.pathParameters['id']!),
-              routes: <RouteBase>[
-                GoRoute(
-                  path: _relative(AppRoute.mealEdit, AppRoute.mealDetail),
-                  name: AppRoute.mealEdit.routeName,
-                  builder: (BuildContext context, GoRouterState state) =>
-                      PlaceholderScreen(
-                        title: 'Edit meal',
-                        sprint: 'Sprint 26',
-                        detail: state.pathParameters['id'],
-                      ),
-                ),
-              ],
+              // No children. `/meals/:id/edit` is `_mealEditRoute`, on the root
+              // navigator beside `/meals/new`, because the two are the same
+              // screen doing the same job — see its own comment.
             ),
           ],
         ),
@@ -403,7 +396,27 @@ final GoRoute _mealCreateRoute = GoRoute(
   name: AppRoute.mealCreate.routeName,
   parentNavigatorKey: rootNavigatorKey,
   pageBuilder: (BuildContext context, GoRouterState state) =>
-      const AppSlideUpPage<void>(child: CreateMealScreen()),
+      const AppSlideUpPage<void>(child: MealFormScreen()),
+);
+
+/// Rewriting one (Sprint 26).
+///
+/// Beside [_mealCreateRoute] rather than nested under the meal it edits, and on
+/// the same root navigator, because it is the same screen doing the same job.
+/// Half-finished edits deserve the same protection from a stray tap on Home as a
+/// half-written recipe, and one rule for the meal form is one thing to remember.
+///
+/// Three segments, so it could not collide with the shell's two-segment
+/// `/meals/:id` whichever came first — but it is declared before the shell
+/// anyway, next to the route whose ordering *is* load-bearing.
+final GoRoute _mealEditRoute = GoRoute(
+  path: AppRoute.mealEdit.path,
+  name: AppRoute.mealEdit.routeName,
+  parentNavigatorKey: rootNavigatorKey,
+  pageBuilder: (BuildContext context, GoRouterState state) =>
+      AppSlideUpPage<void>(
+        child: MealFormScreen(mealId: state.pathParameters['id']),
+      ),
 );
 
 final List<RouteBase> _fullScreenRoutes = <RouteBase>[

@@ -35,6 +35,7 @@ class Meal {
     this.dietaryTags = const <DietaryTag>{},
     this.tags = const <String>[],
     this.isPublic = true,
+    this.createdBy,
     this.ingredients = const <MealIngredient>[],
   });
 
@@ -72,6 +73,7 @@ class Meal {
       // Defaults to public so a query that did not select the column cannot
       // label the whole catalogue as household-written.
       isPublic: row['is_public'] as bool? ?? true,
+      createdBy: row['created_by'] as String?,
       // Present only when the query asked for the join. The feed does not —
       // twenty meals x six ingredients is a payload nothing on that screen
       // renders — so an empty list here means "not loaded" as often as it
@@ -111,11 +113,33 @@ class Meal {
   /// Whether this is a catalogue meal rather than one a household wrote.
   final bool isPublic;
 
+  /// Who wrote it, when the query asked for the column. Null on catalogue rows.
+  ///
+  /// Needed because reading and writing are scoped differently: the
+  /// `read visible meals` policy is household-wide, but `update own meals` and
+  /// `delete own meals` are author-only. Without this the app would offer an
+  /// Edit button on a partner's recipe and the server would refuse it — an
+  /// action a screen offers must be one the server will accept.
+  final String? createdBy;
+
   /// What it is made of, when the query asked for it.
   ///
   /// Empty on a feed row, because the feed does not join the link table. The
   /// detail screen fetches by id and gets them.
   final List<MealIngredient> ingredients;
+
+  /// Whether this reader may edit or delete it.
+  ///
+  /// Author, not household — [createdBy] explains why. Returns false when the
+  /// column was not selected or there is no session, which is the safe answer:
+  /// a hidden Edit button is a smaller failure than one that errors.
+  ///
+  /// Whether a partner should be able to fix a typo in a recipe you wrote is a
+  /// real question and not this sprint's. It belongs with couple mode
+  /// (Sprint 46), and widening a policy later is easy where narrowing one after
+  /// the data exists is not.
+  bool isWrittenBy(String? userId) =>
+      userId != null && createdBy != null && createdBy == userId;
 
   /// Whether this meal belongs to the reader's household.
   ///
@@ -153,6 +177,7 @@ class Meal {
         other.servings == servings &&
         other.calories == calories &&
         other.isPublic == isPublic &&
+        other.createdBy == createdBy &&
         listEquals(other.instructions, instructions) &&
         setEquals(other.dietaryTags, dietaryTags) &&
         listEquals(other.tags, tags) &&
@@ -172,6 +197,7 @@ class Meal {
     servings,
     calories,
     isPublic,
+    createdBy,
     Object.hashAll(instructions),
     Object.hashAllUnordered(dietaryTags),
     Object.hashAll(tags),
