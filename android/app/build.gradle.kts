@@ -6,7 +6,16 @@ plugins {
 
 android {
     namespace = "com.example.whats_cooking"
-    compileSdk = flutter.compileSdkVersion
+
+    // Ahead of Flutter's default of 36, because flutter_secure_storage 11
+    // compiles against 37 and an AAR cannot be consumed by a project built
+    // against an older SDK.
+    //
+    // compileSdk only decides which APIs are available at compile time. minSdk
+    // (which devices can install) and targetSdk (which runtime behaviours the
+    // app opts into) are untouched below, so this changes nothing about how the
+    // app behaves — it is backward compatible by design.
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
