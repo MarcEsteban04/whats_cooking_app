@@ -285,32 +285,32 @@ class _StatColumn extends StatelessWidget {
         Text(
           data.label.toUpperCase(),
           style: text.overline,
-          maxLines: 1,
+          // Two lines, because a third of a phone-width panel is not enough for
+          // a two-word caps label and the alternative was "NO LONGER …".
+          maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
         const SizedBox(height: AppSpacing.space1),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.baseline,
-          textBaseline: TextBaseline.alphabetic,
-          children: <Widget>[
-            Flexible(
-              child: Text(
-                data.value,
-                style: text.titleLarge.copyWith(
-                  fontFeatures: const <FontFeature>[
-                    FontFeature.tabularFigures(),
-                  ],
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            if (data.unit case final String unit) ...<Widget>[
-              const SizedBox(width: 4),
-              Text(unit, style: text.metadata),
-            ],
-          ],
+        // The unit sits **under** the figure, not beside it. Beside it, the two
+        // shared a third of the panel and the figure lost: "₱150 a head" came
+        // out as "₱1… a head", which is the one part of a budget nobody can
+        // guess. Stacked, the figure gets the whole column — and it matches
+        // `DashboardRow`, which has always put its unit on the line below.
+        Text(
+          data.value,
+          style: text.titleLarge.copyWith(
+            fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
+        if (data.unit case final String unit)
+          Text(
+            unit,
+            style: text.metadata,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         if (data.fraction case final double fraction) ...<Widget>[
           const SizedBox(height: AppSpacing.space2),
           MiniBar(fraction: fraction, color: data.color),

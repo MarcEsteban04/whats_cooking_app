@@ -309,8 +309,13 @@ class _Dietary extends StatelessWidget {
               child: AppButton.tertiary(
                 label: tags.isEmpty ? 'Set them' : 'Change in preferences',
                 size: AppButtonSize.small,
-                onPressed: () =>
-                    context.goNamed(AppRoute.preferences.routeName),
+                // Closes the sheet first, like SPIN does. The sheet lives on the
+                // root navigator now, so leaving it without popping would
+                // replace it mid-transition rather than dismissing it.
+                onPressed: () {
+                  context.pop();
+                  context.goNamed(AppRoute.preferences.routeName);
+                },
               ),
             ),
           ],

@@ -184,6 +184,12 @@ final StatefulShellRoute _shellRoute = StatefulShellRoute.indexedStack(
             GoRoute(
               path: _relative(AppRoute.rouletteFilters, AppRoute.home),
               name: AppRoute.rouletteFilters.routeName,
+              // On the **root** navigator despite being nested under `/home`.
+              // Pushed on the branch navigator, the sheet drew *under* the
+              // floating bottom navigation — which sits above the branch — and
+              // the nav capsule covered its SPIN button. A sheet that hides its
+              // own primary action is worse than no sheet.
+              parentNavigatorKey: rootNavigatorKey,
               pageBuilder: (BuildContext context, GoRouterState state) =>
                   const AppSheetPage<void>(child: SpinFiltersSheet()),
             ),

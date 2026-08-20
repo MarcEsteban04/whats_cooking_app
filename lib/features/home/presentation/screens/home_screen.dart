@@ -130,7 +130,9 @@ class _SpinPanel extends StatelessWidget {
                 value: filters.maxCostPerServing == null
                     ? 'Any'
                     : AppFormat.peso(filters.maxCostPerServing!),
-                unit: 'a head',
+                // No unit when there is no figure to qualify: "Any a head" is
+                // not a thing anybody says.
+                unit: filters.maxCostPerServing == null ? null : 'a head',
                 color: colors.series1,
                 onTap: () => _openFilters(context),
               ),
@@ -142,11 +144,11 @@ class _SpinPanel extends StatelessWidget {
                 onTap: () => _openFilters(context),
               ),
               StatColumnData(
-                label: 'No longer than',
+                label: 'Ready in',
                 value: filters.maxCookingTimeMinutes == null
                     ? 'Any'
                     : '${filters.maxCookingTimeMinutes}',
-                unit: filters.maxCookingTimeMinutes == null ? 'time' : 'min',
+                unit: filters.maxCookingTimeMinutes == null ? null : 'min',
                 color: colors.primary,
                 onTap: () => _openFilters(context),
               ),
