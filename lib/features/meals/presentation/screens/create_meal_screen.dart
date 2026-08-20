@@ -8,24 +8,34 @@ import 'package:whats_cooking/core/errors/error_mapper.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_button.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_icon_button.dart';
+import 'package:whats_cooking/core/widgets/cards/app_card.dart';
 import 'package:whats_cooking/core/widgets/chips/app_filter_chip.dart';
 import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
 import 'package:whats_cooking/core/widgets/inputs/app_text_field.dart';
-import 'package:whats_cooking/core/widgets/section_header.dart';
+import 'package:whats_cooking/core/widgets/overlays/confirmation_dialog.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal_draft.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/meal_repository_provider.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/meals_controller.dart';
 
-/// Write your own meal (docs/USER_FLOWS.md §10, docs/project_dev.md Sprint 26).
+/// The key a number field carries, so a test can find it by label.
+String numberFieldKey(String label) => 'number-$label';
+
+/// Write your own meal (docs/USER_FLOWS.md §10).
 ///
 /// The catalogue is sixty meals somebody else chose. This is how a household's
 /// own food gets in — and it is the only way a meal is ever written, because the
 /// `create own meals` policy accepts an insert only when it is private to the
 /// caller's household. Nothing here can add to the public catalogue.
 ///
-/// One screen rather than a wizard. Seven fields and two lists is a form, and a
-/// form you can see all of is faster to fill than four screens you cannot.
+/// Presented as a full-screen dialog on the **root** navigator, so the bottom
+/// navigation is covered: a half-written recipe should not be one tap on Home
+/// away from gone. `AppSlideUpPage` carries the rest of the reasoning, including
+/// why this is not a bottom sheet.
+///
+/// One screen rather than a wizard, grouped into cards. Twelve controls in a
+/// flat column is a wall; the same twelve under five headings is a form whose
+/// shape you can see.
 class CreateMealScreen extends ConsumerStatefulWidget {
   const CreateMealScreen({super.key});
 
@@ -40,15 +50,33 @@ class _CreateMealScreenState extends ConsumerState<CreateMealScreen> {
 
   void _update(MealDraft draft) => setState(() => _draft = draft);
 
-  Future<void> _save() async {
-    final String? problem = _draft.validate();
-    if (problem != null) {
-      setState(
-        () => _failure = ValidationException(message: problem, field: 'draft'),
-      );
+  /// Whether anything has been typed.
+  ///
+  /// Decides whether cancelling has to ask. An untouched form closes without a
+  /// dialog, because confirming a decision nobody made is pure friction.
+  bool get _isStarted => _draft != const MealDraft();
+
+  Future<void> _cancel() async {
+    if (!_isStarted) {
+      context.pop();
       return;
     }
 
+    final bool discard = await ConfirmationDialog.show(
+      context,
+      title: 'Discard this meal?',
+      body: 'What you have written will not be saved.',
+      confirmLabel: 'Discard',
+      cancelLabel: 'Keep writing',
+      isDestructive: true,
+    );
+
+    if (discard && mounted) {
+      context.pop();
+    }
+  }
+
+  Future<void> _save() async {
     setState(() {
       _isSaving = true;
       _failure = null;
@@ -58,15 +86,15 @@ class _CreateMealScreenState extends ConsumerState<CreateMealScreen> {
       final Meal meal = await ref.read(mealRepositoryProvider).create(_draft);
 
       // The feed is reloaded rather than patched. The new meal has to land in
-      // whatever sort and filters are currently applied, and the server is the
-      // only thing that knows where that is — inserting it at the top would put
-      // it in the wrong place under every sort but one.
+      // whatever sort and filters are applied, and the server is the only thing
+      // that knows where that is — putting it at the top would be wrong under
+      // every sort but one.
       await ref.read(mealsControllerProvider.notifier).refresh();
 
       if (!mounted) {
         return;
       }
-      Navigator.of(context).pop();
+      context.pop();
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('${meal.name} is in your meals')));
@@ -84,6 +112,7 @@ class _CreateMealScreenState extends ConsumerState<CreateMealScreen> {
   @override
   Widget build(BuildContext context) {
     final AppColorScheme colors = context.colors;
+    final String? missing = _draft.validate();
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -96,179 +125,173 @@ class _CreateMealScreenState extends ConsumerState<CreateMealScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppLayout.screenMargin,
-                    AppSpacing.space4,
-                    AppLayout.screenMargin,
-                    AppSpacing.space4,
-                  ),
-                  child: Row(
-                    children: <Widget>[
-                      DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: colors.surface,
-                          shape: BoxShape.circle,
-                          boxShadow: context.shadows.xs,
-                        ),
-                        child: AppIconButton(
-                          icon: AppIcons.back,
-                          semanticLabel: 'Back',
-                          iconSize: AppIconSize.sm,
-                          onPressed: () => context.pop(),
-                        ),
-                      ),
-                      const SizedBox(width: AppSpacing.space3),
-                      Expanded(
-                        child: Text(
-                          'Add a meal',
-                          style: context.text.headlineMedium,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                _Header(onCancel: _isSaving ? null : _cancel),
                 Expanded(
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(
                       AppLayout.screenMargin,
-                      0,
+                      AppSpacing.space4,
                       AppLayout.screenMargin,
-                      AppSpacing.space7,
+                      AppSpacing.space6,
                     ),
                     children: <Widget>[
                       if (_failure case final AppException failure) ...<Widget>[
                         InlineErrorBanner(message: failure.message),
                         const SizedBox(height: AppSpacing.space4),
                       ],
-                      AppTextField(
-                        label: 'Name',
-                        hint: 'Tita Baby’s adobo',
-                        textCapitalization: TextCapitalization.words,
-                        isEnabled: !_isSaving,
-                        onChanged: (String value) =>
-                            _update(_draft.copyWith(name: value)),
-                      ),
-                      const SizedBox(height: AppSpacing.space4),
-                      AppTextField(
-                        label: 'Description',
-                        hint: 'What makes it yours?',
-                        maxLines: 3,
-                        isEnabled: !_isSaving,
-                        onChanged: (String value) =>
-                            _update(_draft.copyWith(description: value)),
-                      ),
 
-                      const SectionHeader(title: 'Cuisine'),
-                      _ChoiceWrap<Cuisine>(
-                        values: Cuisine.values,
-                        selected: _draft.cuisine,
-                        label: (Cuisine value) => value.label,
-                        onSelected: (Cuisine value) =>
-                            _update(_draft.copyWith(cuisine: value)),
-                      ),
-
-                      const SectionHeader(title: 'When is it eaten?'),
-                      _ChoiceWrap<MealCategory>(
-                        values: MealCategory.values,
-                        selected: _draft.category,
-                        label: (MealCategory value) => value.label,
-                        onSelected: (MealCategory value) =>
-                            _update(_draft.copyWith(category: value)),
-                      ),
-
-                      const SectionHeader(title: 'How hard is it?'),
-                      _ChoiceWrap<Difficulty>(
-                        values: Difficulty.values,
-                        selected: _draft.difficulty,
-                        label: (Difficulty value) => value.label,
-                        onSelected: (Difficulty value) =>
-                            _update(_draft.copyWith(difficulty: value)),
-                      ),
-
-                      const SectionHeader(
-                        title: 'The numbers',
-                        subtitle:
-                            'Cost is for everyone it feeds, not per plate — the '
-                            'app works out the rest.',
-                      ),
-                      Row(
+                      _FormSection(
+                        title: 'What is it?',
                         children: <Widget>[
-                          Expanded(
-                            child: _NumberField(
-                              label: 'Minutes',
-                              value: _draft.cookingTimeMinutes,
-                              isEnabled: !_isSaving,
-                              onChanged: (int? value) => _update(
-                                _draft.copyWith(cookingTimeMinutes: value),
-                              ),
-                            ),
+                          AppTextField(
+                            label: 'Name',
+                            hint: 'Tita Baby adobo',
+                            textCapitalization: TextCapitalization.words,
+                            isEnabled: !_isSaving,
+                            onChanged: (String value) =>
+                                _update(_draft.copyWith(name: value)),
                           ),
-                          const SizedBox(width: AppSpacing.space3),
-                          Expanded(
-                            child: _NumberField(
-                              label: 'Pesos',
-                              value: _draft.estimatedCost,
-                              isEnabled: !_isSaving,
-                              onChanged: (int? value) => _update(
-                                _draft.copyWith(estimatedCost: value),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: AppSpacing.space3),
-                          Expanded(
-                            child: _NumberField(
-                              label: 'Feeds',
-                              value: _draft.servings,
-                              isEnabled: !_isSaving,
-                              onChanged: (int? value) => _update(
-                                _draft.copyWith(servings: value ?? 0),
-                              ),
-                            ),
+                          const SizedBox(height: AppSpacing.space4),
+                          AppTextField(
+                            label: 'Description',
+                            hint: 'What makes it yours?',
+                            maxLines: 3,
+                            isEnabled: !_isSaving,
+                            onChanged: (String value) =>
+                                _update(_draft.copyWith(description: value)),
                           ),
                         ],
                       ),
 
-                      const SectionHeader(
-                        title: 'Ingredients',
-                        subtitle:
-                            'Optional. Add what decides whether you can '
-                            'cook it tonight.',
-                      ),
-                      _IngredientEditor(
-                        ingredients: _draft.ingredients,
-                        isEnabled: !_isSaving,
-                        onChanged: (List<DraftIngredient> ingredients) =>
-                            _update(_draft.copyWith(ingredients: ingredients)),
+                      _FormSection(
+                        title: 'Where does it belong?',
+                        children: <Widget>[
+                          _ChoiceGroup<Cuisine>(
+                            label: 'Cuisine',
+                            values: Cuisine.values,
+                            selected: _draft.cuisine,
+                            name: (Cuisine value) => value.label,
+                            isEnabled: !_isSaving,
+                            onSelected: (Cuisine value) =>
+                                _update(_draft.copyWith(cuisine: value)),
+                          ),
+                          const SizedBox(height: AppSpacing.space4),
+                          _ChoiceGroup<MealCategory>(
+                            label: 'Eaten at',
+                            values: MealCategory.values,
+                            selected: _draft.category,
+                            name: (MealCategory value) => value.label,
+                            isEnabled: !_isSaving,
+                            onSelected: (MealCategory value) =>
+                                _update(_draft.copyWith(category: value)),
+                          ),
+                          const SizedBox(height: AppSpacing.space4),
+                          _ChoiceGroup<Difficulty>(
+                            label: 'Difficulty',
+                            values: Difficulty.values,
+                            selected: _draft.difficulty,
+                            name: (Difficulty value) => value.label,
+                            isEnabled: !_isSaving,
+                            onSelected: (Difficulty value) =>
+                                _update(_draft.copyWith(difficulty: value)),
+                          ),
+                        ],
                       ),
 
-                      const SectionHeader(
-                        title: 'How to cook it',
-                        subtitle: 'Optional. One step per line.',
+                      _FormSection(
+                        title: 'The numbers',
+                        subtitle:
+                            'Cost is for everyone it feeds, not per plate. The '
+                            'app works out the rest.',
+                        children: <Widget>[
+                          Row(
+                            children: <Widget>[
+                              Expanded(
+                                child: _NumberField(
+                                  label: 'Minutes',
+                                  value: _draft.cookingTimeMinutes,
+                                  isEnabled: !_isSaving,
+                                  onChanged: (int? value) => _update(
+                                    _draft.copyWith(cookingTimeMinutes: value),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: AppSpacing.space3),
+                              Expanded(
+                                child: _NumberField(
+                                  label: 'Pesos',
+                                  value: _draft.estimatedCost,
+                                  isEnabled: !_isSaving,
+                                  onChanged: (int? value) => _update(
+                                    _draft.copyWith(estimatedCost: value),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: AppSpacing.space3),
+                              Expanded(
+                                child: _NumberField(
+                                  label: 'Feeds',
+                                  value: _draft.servings,
+                                  isEnabled: !_isSaving,
+                                  onChanged: (int? value) => _update(
+                                    _draft.copyWith(servings: value ?? 0),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (_draft.costPerServingLabel case final String each)
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                top: AppSpacing.space3,
+                              ),
+                              child: Text(
+                                // Shown as it is typed, because cost a head is
+                                // what every filter in the app compares and it is
+                                // not the number being entered.
+                                'That is $each',
+                                style: context.text.metadata,
+                              ),
+                            ),
+                        ],
                       ),
-                      _StepEditor(
-                        steps: _draft.instructions,
-                        isEnabled: !_isSaving,
-                        onChanged: (List<String> steps) =>
-                            _update(_draft.copyWith(instructions: steps)),
+
+                      _FormSection(
+                        title: 'Ingredients',
+                        subtitle:
+                            'Optional. What decides whether you can cook it '
+                            'tonight — staples like salt and oil are assumed.',
+                        children: <Widget>[
+                          _IngredientEditor(
+                            ingredients: _draft.ingredients,
+                            isEnabled: !_isSaving,
+                            onChanged: (List<DraftIngredient> ingredients) =>
+                                _update(
+                                  _draft.copyWith(ingredients: ingredients),
+                                ),
+                          ),
+                        ],
+                      ),
+
+                      _FormSection(
+                        title: 'How to cook it',
+                        subtitle: 'Optional. One step at a time.',
+                        children: <Widget>[
+                          _StepEditor(
+                            steps: _draft.instructions,
+                            isEnabled: !_isSaving,
+                            onChanged: (List<String> steps) =>
+                                _update(_draft.copyWith(instructions: steps)),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppLayout.screenMargin,
-                    AppSpacing.space3,
-                    AppLayout.screenMargin,
-                    AppSpacing.space5,
-                  ),
-                  child: AppButton.inverse(
-                    label: 'Save meal',
-                    isLoading: _isSaving,
-                    // Disabled until it could actually be saved, so the button
-                    // never promises something the validator will refuse.
-                    onPressed: _draft.isValid && !_isSaving ? _save : null,
-                  ),
+                _SaveBar(
+                  missing: missing,
+                  isSaving: _isSaving,
+                  onSave: missing == null && !_isSaving ? _save : null,
                 ),
               ],
             ),
@@ -279,39 +302,151 @@ class _CreateMealScreenState extends ConsumerState<CreateMealScreen> {
   }
 }
 
-/// A row of chips for a small fixed set of options.
-class _ChoiceWrap<T> extends StatelessWidget {
-  const _ChoiceWrap({
-    required this.values,
-    required this.selected,
-    required this.label,
-    required this.onSelected,
-  });
+/// Cancel on the left, the title centred.
+///
+/// **Cancel**, not a back arrow. This is a task you are inside rather than a
+/// place you navigated to, and the label should say which.
+class _Header extends StatelessWidget {
+  const _Header({required this.onCancel});
 
-  final List<T> values;
-  final T selected;
-  final String Function(T) label;
-  final ValueChanged<T> onSelected;
+  final Future<void> Function()? onCancel;
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: AppSpacing.space2,
-      runSpacing: AppSpacing.space2,
-      children: <Widget>[
-        for (final T value in values)
-          AppFilterChip(
-            label: label(value),
-            isSelected: value == selected,
-            onSelected: (_) => onSelected(value),
-          ),
-      ],
+    final AppColorScheme colors = context.colors;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: colors.outline)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppLayout.screenMargin,
+          AppSpacing.space3,
+          AppLayout.screenMargin,
+          AppSpacing.space3,
+        ),
+        child: Row(
+          children: <Widget>[
+            AppButton.tertiary(
+              label: 'Cancel',
+              size: AppButtonSize.small,
+              onPressed: onCancel,
+            ),
+            Expanded(
+              child: Text(
+                'Add a meal',
+                style: context.text.titleLarge,
+                textAlign: TextAlign.center,
+              ),
+            ),
+            // Balances the Cancel button's width so the title sits actually
+            // centred rather than shoved right.
+            const Opacity(
+              opacity: 0,
+              child: ExcludeSemantics(
+                child: IgnorePointer(
+                  child: AppButton.tertiary(
+                    label: 'Cancel',
+                    size: AppButtonSize.small,
+                    onPressed: null,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
 
-/// The key a number field carries, so a test can find it by label.
-String numberFieldKey(String label) => 'number-$label';
+/// A titled group of fields on one card.
+class _FormSection extends StatelessWidget {
+  const _FormSection({
+    required this.title,
+    required this.children,
+    this.subtitle,
+  });
+
+  final String title;
+  final String? subtitle;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppColorScheme colors = context.colors;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.space4),
+      child: AppCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Text(title, style: context.text.titleMedium),
+            if (subtitle case final String text) ...<Widget>[
+              const SizedBox(height: AppSpacing.space1),
+              Text(
+                text,
+                style: context.text.bodySmall.copyWith(
+                  color: colors.textSecondary,
+                ),
+              ),
+            ],
+            const SizedBox(height: AppSpacing.space4),
+            ...children,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A labelled row of chips for a small fixed set of options.
+class _ChoiceGroup<T> extends StatelessWidget {
+  const _ChoiceGroup({
+    required this.label,
+    required this.values,
+    required this.selected,
+    required this.name,
+    required this.isEnabled,
+    required this.onSelected,
+  });
+
+  final String label;
+  final List<T> values;
+  final T selected;
+  final String Function(T) name;
+  final bool isEnabled;
+  final ValueChanged<T> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      container: true,
+      label: label,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(label, style: context.text.labelSmall),
+          const SizedBox(height: AppSpacing.space2),
+          Wrap(
+            spacing: AppSpacing.space2,
+            runSpacing: AppSpacing.space2,
+            children: <Widget>[
+              for (final T value in values)
+                AppFilterChip(
+                  label: name(value),
+                  isSelected: value == selected,
+                  onSelected: isEnabled ? (_) => onSelected(value) : null,
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 /// A whole-number field.
 class _NumberField extends StatefulWidget {
@@ -346,14 +481,14 @@ class _NumberFieldState extends State<_NumberField> {
   Widget build(BuildContext context) {
     return AppTextField(
       // Keyed by its label so a test can address one number field among several.
-      // The label itself is a sibling of the input rather than inside it, so
+      // The label is a sibling of the input rather than inside it, so
       // `widgetWithText` cannot reach it.
       key: ValueKey<String>(numberFieldKey(widget.label)),
       controller: _controller,
       label: widget.label,
       keyboardType: TextInputType.number,
-      // Digits only, so the parse below cannot fail on something typed rather
-      // than on something missing.
+      // Digits only, so the parse below can fail on something missing but never
+      // on something typed.
       inputFormatters: <TextInputFormatter>[
         FilteringTextInputFormatter.digitsOnly,
       ],
@@ -363,7 +498,7 @@ class _NumberFieldState extends State<_NumberField> {
   }
 }
 
-/// The ingredient list, one row at a time.
+/// The ingredient list.
 class _IngredientEditor extends StatelessWidget {
   const _IngredientEditor({
     required this.ingredients,
@@ -417,6 +552,11 @@ class _IngredientEditor extends StatelessWidget {
   }
 }
 
+/// One ingredient: the name on its own line, the amount beneath it.
+///
+/// Stacked rather than four controls across a row. Name, quantity, unit and a
+/// remove button side by side left the name field about eight characters wide on
+/// a phone, and unusable at 1.3x text scale.
 class _IngredientRow extends StatelessWidget {
   const _IngredientRow({
     required this.ingredient,
@@ -433,45 +573,83 @@ class _IngredientRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: <Widget>[
-        Expanded(
-          flex: 5,
-          child: AppTextField(
-            label: 'Ingredient',
-            hint: 'chicken thigh',
-            isEnabled: isEnabled,
-            onChanged: (String value) =>
-                onChanged(ingredient.copyWith(name: value)),
-          ),
-        ),
-        const SizedBox(width: AppSpacing.space2),
-        Expanded(
-          flex: 2,
-          child: _NumberField(
-            label: 'Qty',
-            value: ingredient.quantity.round(),
-            isEnabled: isEnabled,
-            onChanged: (int? value) => onChanged(
-              ingredient.copyWith(quantity: (value ?? 0).toDouble()),
+    final AppColorScheme colors = context.colors;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.surfaceMuted,
+        borderRadius: AppRadius.borderLg,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.space3),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: AppTextField(
+                    label: 'Ingredient',
+                    hint: 'chicken thigh',
+                    isEnabled: isEnabled,
+                    onChanged: (String value) =>
+                        onChanged(ingredient.copyWith(name: value)),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.space2),
+                AppIconButton(
+                  icon: AppIcons.clear,
+                  semanticLabel: ingredient.isBlank
+                      ? 'Remove this ingredient'
+                      : 'Remove ${ingredient.name}',
+                  iconSize: AppIconSize.sm,
+                  onPressed: isEnabled ? onRemoved : null,
+                ),
+              ],
             ),
-          ),
+            const SizedBox(height: AppSpacing.space3),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: <Widget>[
+                Expanded(
+                  child: _NumberField(
+                    label: 'How much',
+                    value: ingredient.quantity.round(),
+                    isEnabled: isEnabled,
+                    onChanged: (int? value) => onChanged(
+                      ingredient.copyWith(quantity: (value ?? 0).toDouble()),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.space3),
+                Expanded(
+                  child: _UnitPicker(
+                    unit: ingredient.unit,
+                    isEnabled: isEnabled,
+                    onChanged: (String unit) =>
+                        onChanged(ingredient.copyWith(unit: unit)),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.space3),
+            // "Nice to have" means excluded from the pantry match, not from the
+            // recipe — a missing garnish must never stop a meal being offered
+            // (docs/USER_FLOWS.md §12).
+            Align(
+              alignment: Alignment.centerLeft,
+              child: AppFilterChip(
+                label: 'Nice to have',
+                isSelected: ingredient.isOptional,
+                onSelected: isEnabled
+                    ? (bool value) =>
+                          onChanged(ingredient.copyWith(isOptional: value))
+                    : null,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: AppSpacing.space2),
-        _UnitPicker(
-          unit: ingredient.unit,
-          isEnabled: isEnabled,
-          onChanged: (String unit) =>
-              onChanged(ingredient.copyWith(unit: unit)),
-        ),
-        AppIconButton(
-          icon: AppIcons.clear,
-          semanticLabel: 'Remove ${ingredient.name} from the list',
-          iconSize: AppIconSize.sm,
-          onPressed: isEnabled ? onRemoved : null,
-        ),
-      ],
+      ),
     );
   }
 }
@@ -495,23 +673,43 @@ class _UnitPicker extends StatelessWidget {
   Widget build(BuildContext context) {
     final AppColorScheme colors = context.colors;
 
-    return DropdownButtonHideUnderline(
-      child: DropdownButton<String>(
-        value: unit,
-        onChanged: isEnabled
-            ? (String? value) {
-                if (value != null) {
-                  onChanged(value);
-                }
-              }
-            : null,
-        borderRadius: AppRadius.borderMd,
-        style: context.text.bodyMedium.copyWith(color: colors.textPrimary),
-        items: <DropdownMenuItem<String>>[
-          for (final String value in DraftIngredient.units)
-            DropdownMenuItem<String>(value: value, child: Text(value)),
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text('Unit', style: context.text.labelSmall),
+        const SizedBox(height: AppSpacing.space2),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: AppRadius.borderMd,
+            border: Border.all(color: colors.outline),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.space3),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: unit,
+                isExpanded: true,
+                onChanged: isEnabled
+                    ? (String? value) {
+                        if (value != null) {
+                          onChanged(value);
+                        }
+                      }
+                    : null,
+                borderRadius: AppRadius.borderMd,
+                style: context.text.bodyMedium.copyWith(
+                  color: colors.textPrimary,
+                ),
+                items: <DropdownMenuItem<String>>[
+                  for (final String value in DraftIngredient.units)
+                    DropdownMenuItem<String>(value: value, child: Text(value)),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -538,13 +736,15 @@ class _StepEditor extends StatelessWidget {
           (int i) => i,
         )) ...<Widget>[
           Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
+              _StepNumber(number: index + 1),
+              const SizedBox(width: AppSpacing.space3),
               Expanded(
                 child: AppTextField(
                   key: ValueKey<int>(index),
-                  label: 'Step ${index + 1}',
-                  maxLines: 2,
+                  hint: 'What happens next?',
+                  maxLines: 3,
                   isEnabled: isEnabled,
                   onChanged: (String value) => onChanged(<String>[
                     ...steps.sublist(0, index),
@@ -580,6 +780,97 @@ class _StepEditor extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// The step's position, as a numbered disc.
+class _StepNumber extends StatelessWidget {
+  const _StepNumber({required this.number});
+
+  final int number;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppColorScheme colors = context.colors;
+
+    return Padding(
+      // Aligns the disc with the field's text rather than with its top edge.
+      padding: const EdgeInsets.only(top: AppSpacing.space2),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colors.primaryContainer,
+          shape: BoxShape.circle,
+        ),
+        child: SizedBox.square(
+          dimension: _diameter,
+          child: Center(
+            child: Text(
+              '$number',
+              style: context.text.labelSmall.copyWith(
+                color: colors.onPrimaryContainer,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  static const double _diameter = 28;
+}
+
+/// The pinned save action, and what is still stopping it.
+///
+/// A disabled button with no explanation is the worst state a form can sit in:
+/// the reader can see they cannot continue and not why. The validator already
+/// returns the first missing thing, so the bar says it.
+class _SaveBar extends StatelessWidget {
+  const _SaveBar({
+    required this.missing,
+    required this.isSaving,
+    required this.onSave,
+  });
+
+  final String? missing;
+  final bool isSaving;
+  final Future<void> Function()? onSave;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppColorScheme colors = context.colors;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.surface,
+        border: Border(top: BorderSide(color: colors.outline)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppLayout.screenMargin,
+          AppSpacing.space3,
+          AppLayout.screenMargin,
+          AppSpacing.space4,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            if (missing case final String reason) ...<Widget>[
+              Text(
+                reason,
+                style: context.text.metadata,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: AppSpacing.space2),
+            ],
+            AppButton.inverse(
+              label: 'Save meal',
+              isLoading: isSaving,
+              onPressed: onSave,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

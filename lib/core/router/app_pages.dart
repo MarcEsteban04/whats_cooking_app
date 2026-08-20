@@ -120,3 +120,57 @@ class AppInstantPage<T> extends CustomTransitionPage<T> {
     Widget child,
   ) => child;
 }
+
+/// A full-screen route that slides up from the bottom.
+///
+/// The create-flow presentation: a task you are *in*, not a place you navigated
+/// to. Used for writing a meal, where three things follow from the transition
+/// and matter more than it does:
+///
+/// * It sits on the **root** navigator, so the bottom navigation is covered.
+///   A form you can wander away from with one tap on Home is a form that loses
+///   half-written recipes.
+/// * Its header offers **Cancel** and **Save** rather than a back arrow, which
+///   is the honest label for what those buttons do.
+/// * Cancelling a started draft asks first.
+///
+/// A bottom sheet was the obvious alternative and is the wrong one here.
+/// docs/COMPONENTS.md §9 and docs/NAVIGATION_MAP.md §239 both make
+/// drag-to-dismiss mandatory on every sheet, and this is the one screen in the
+/// app where a stray downward swipe costs real work. Sheets in this app are also
+/// sized for one to three fields — filters, a single ingredient, a grocery item —
+/// not for twelve controls and two growable lists under a keyboard.
+class AppSlideUpPage<T> extends CustomTransitionPage<T> {
+  const AppSlideUpPage({required super.child, super.key, super.name})
+    : super(
+        transitionDuration: AppMotion.normal,
+        reverseTransitionDuration: AppMotion.fast,
+        transitionsBuilder: _transition,
+      );
+
+  static Widget _transition(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    final Animation<double> curved = CurvedAnimation(
+      parent: animation,
+      curve: AppMotion.curveNormal,
+    );
+
+    // Reduce motion keeps the fade and drops the travel, as the other
+    // transitions in this file do (docs/DESIGN_SYSTEM.md §7).
+    if (AppMotion.prefersReducedMotion(context)) {
+      return FadeTransition(opacity: curved, child: child);
+    }
+
+    return SlideTransition(
+      position: Tween<Offset>(
+        begin: const Offset(0, 1),
+        end: Offset.zero,
+      ).animate(curved),
+      child: child,
+    );
+  }
+}

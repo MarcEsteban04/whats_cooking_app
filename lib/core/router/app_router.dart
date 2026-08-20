@@ -79,6 +79,10 @@ GoRouter appRouter(Ref ref) {
     routes: <RouteBase>[
       ..._publicRoutes,
       ..._onboardingRoutes,
+      // Before the shell, and that ordering is load-bearing. GoRouter matches in
+      // declaration order, and the shell holds /meals/:id — so declared after
+      // it, /meals/new would resolve to a meal whose id is "new".
+      _mealCreateRoute,
       _shellRoute,
       ..._fullScreenRoutes,
       ..._coupleRoutes,
@@ -222,12 +226,6 @@ final StatefulShellRoute _shellRoute = StatefulShellRoute.indexedStack(
               AppRoute.meals,
               'My meals',
               sprint: 'Sprint 26',
-            ),
-            GoRoute(
-              path: _relative(AppRoute.mealCreate, AppRoute.meals),
-              name: AppRoute.mealCreate.routeName,
-              builder: (BuildContext context, GoRouterState state) =>
-                  const CreateMealScreen(),
             ),
             GoRoute(
               path: _relative(AppRoute.mealDetail, AppRoute.meals),
@@ -389,6 +387,19 @@ final StatefulShellRoute _shellRoute = StatefulShellRoute.indexedStack(
 // Declared outside the shell for that reason — inside a branch they would render
 // with the capsule still floating on top.
 // -----------------------------------------------------------------------------
+
+/// Writing your own meal.
+///
+/// Full-screen on the root navigator so the bottom navigation is covered: a
+/// half-written recipe should not be one tap on Home away from gone. See
+/// [AppSlideUpPage] for why this is not a bottom sheet.
+final GoRoute _mealCreateRoute = GoRoute(
+  path: AppRoute.mealCreate.path,
+  name: AppRoute.mealCreate.routeName,
+  parentNavigatorKey: rootNavigatorKey,
+  pageBuilder: (BuildContext context, GoRouterState state) =>
+      const AppSlideUpPage<void>(child: CreateMealScreen()),
+);
 
 final List<RouteBase> _fullScreenRoutes = <RouteBase>[
   GoRoute(

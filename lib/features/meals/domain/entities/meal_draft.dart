@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:whats_cooking/core/domain/food_taxonomy.dart';
+import 'package:whats_cooking/core/utils/formatters.dart';
 
 /// One line of a meal's ingredient list, as typed.
 ///
@@ -141,6 +142,18 @@ class MealDraft {
   }
 
   bool get isValid => validate() == null;
+
+  /// What one plate costs, as it stands, or null until both numbers are in.
+  ///
+  /// Shown while typing because cost a head is what every filter in the app
+  /// compares, and it is not the number being entered.
+  String? get costPerServingLabel {
+    final int? total = estimatedCost;
+    if (total == null || servings <= 0) {
+      return null;
+    }
+    return '${AppFormat.peso(total / servings)} a head';
+  }
 
   MealDraft copyWith({
     String? name,
