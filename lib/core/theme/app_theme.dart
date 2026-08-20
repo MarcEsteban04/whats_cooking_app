@@ -92,6 +92,9 @@ class AppColorScheme extends ThemeExtension<AppColorScheme> {
     required this.onPrimaryBrand,
     required this.primaryContainer,
     required this.onPrimaryContainer,
+    required this.series1,
+    required this.series2,
+    required this.seriesTrack,
     required this.skeletonBase,
     required this.skeletonHighlight,
     required this.peach,
@@ -128,6 +131,9 @@ class AppColorScheme extends ThemeExtension<AppColorScheme> {
       onPrimaryBrand: AppColors.onPrimaryBrand,
       primaryContainer: AppColors.primary50,
       onPrimaryContainer: AppColors.primary800,
+      series1: AppColors.series1,
+      series2: AppColors.series2,
+      seriesTrack: AppColors.seriesTrack,
       skeletonBase: AppColors.neutral100,
       skeletonHighlight: AppColors.neutral200,
       peach: AppAccent(
@@ -207,6 +213,9 @@ class AppColorScheme extends ThemeExtension<AppColorScheme> {
       onPrimaryBrand: AppColors.onPrimaryDark,
       primaryContainer: AppColors.darkPrimaryContainer,
       onPrimaryContainer: AppColors.primary200,
+      series1: AppColors.series1Dark,
+      series2: AppColors.series2Dark,
+      seriesTrack: AppColors.seriesTrackDark,
       skeletonBase: AppColors.darkSurfaceMuted,
       skeletonHighlight: AppColors.darkSurfaceHigh,
       peach: _darkAccent(AppColors.accentPeach, AppColors.onAccentPeachDark),
@@ -271,6 +280,19 @@ class AppColorScheme extends ThemeExtension<AppColorScheme> {
   final Color onPrimaryContainer;
 
   // Loading (docs/COMPONENTS.md §11).
+  /// The strong accent a dashboard figure is drawn in.
+  ///
+  /// A series colour, not a brand colour: it names one line on a chart or one
+  /// segment of a bar, and it must never be mistaken for the primary action.
+  final Color series1;
+
+  /// The second series — near-black, so two segments read apart without a
+  /// second hue competing with [series1].
+  final Color series2;
+
+  /// The unfilled remainder of a bar or an arc.
+  final Color seriesTrack;
+
   final Color skeletonBase;
   final Color skeletonHighlight;
 
@@ -354,6 +376,9 @@ class AppColorScheme extends ThemeExtension<AppColorScheme> {
     Color? onPrimaryBrand,
     Color? primaryContainer,
     Color? onPrimaryContainer,
+    Color? series1,
+    Color? series2,
+    Color? seriesTrack,
     Color? skeletonBase,
     Color? skeletonHighlight,
     AppAccent? peach,
@@ -387,6 +412,9 @@ class AppColorScheme extends ThemeExtension<AppColorScheme> {
       onPrimaryBrand: onPrimaryBrand ?? this.onPrimaryBrand,
       primaryContainer: primaryContainer ?? this.primaryContainer,
       onPrimaryContainer: onPrimaryContainer ?? this.onPrimaryContainer,
+      series1: series1 ?? this.series1,
+      series2: series2 ?? this.series2,
+      seriesTrack: seriesTrack ?? this.seriesTrack,
       skeletonBase: skeletonBase ?? this.skeletonBase,
       skeletonHighlight: skeletonHighlight ?? this.skeletonHighlight,
       peach: peach ?? this.peach,
@@ -435,6 +463,9 @@ class AppColorScheme extends ThemeExtension<AppColorScheme> {
         other.onPrimaryContainer,
         t,
       )!,
+      series1: Color.lerp(series1, other.series1, t)!,
+      series2: Color.lerp(series2, other.series2, t)!,
+      seriesTrack: Color.lerp(seriesTrack, other.seriesTrack, t)!,
       skeletonBase: Color.lerp(skeletonBase, other.skeletonBase, t)!,
       skeletonHighlight: Color.lerp(
         skeletonHighlight,

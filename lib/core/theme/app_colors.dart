@@ -153,6 +153,20 @@ abstract final class AppColors {
   // with an icon and words; colour alone never carries meaning (§11).
   // ---------------------------------------------------------------------------
 
+  // Data-series colours (docs/reference_design/dashboards_ref.webp).
+  //
+  // A separate role from the brand. The reference dashboards carry their
+  // figures in one saturated accent, one near-black and one grey track, and
+  // nothing in the food palette does that job: the pastels are backgrounds
+  // and primary green is the SPIN button. Adding three series colours keeps
+  // the charts legible without repainting the brand.
+  static const Color series1 = Color(0xFFE8622A);
+  static const Color series1Dark = Color(0xFFFF8551);
+  static const Color series2 = neutral900;
+  static const Color series2Dark = Color(0xFFE8E8E3);
+  static const Color seriesTrack = neutral200;
+  static const Color seriesTrackDark = Color(0xFF3A3A34);
+
   static const Color success = primary600;
   static const Color onSuccess = neutral0;
   static const Color successSurface = Color(0xFFEDF7F1);

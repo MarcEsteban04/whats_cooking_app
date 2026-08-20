@@ -516,7 +516,10 @@ void main() {
       await pumpScreen(tester);
       expect(find.text('Beef and Broccoli'), findsOneWidget);
 
-      await tester.tap(find.widgetWithText(AppFilterChip, 'Desserts'));
+      final Finder desserts = find.widgetWithText(AppFilterChip, 'Desserts');
+      await tester.ensureVisible(desserts);
+      await tester.pumpAndSettle();
+      await tester.tap(desserts);
       await tester.pumpAndSettle();
 
       expect(find.text('Turon'), findsOneWidget);
@@ -528,12 +531,30 @@ void main() {
     ) async {
       await pumpScreen(tester);
 
-      await tester.tap(find.widgetWithText(AppFilterChip, 'Desserts'));
+      final Finder desserts = find.widgetWithText(AppFilterChip, 'Desserts');
+      await tester.ensureVisible(desserts);
+      await tester.pumpAndSettle();
+      await tester.tap(desserts);
       await tester.pumpAndSettle();
       expect(find.text('Beef and Broccoli'), findsNothing);
 
-      await tester.tap(find.textContaining('Clear'));
+      // The header scrolls away with everything else now, so Clear has to be
+      // brought back before it can be tapped.
+      await tester.ensureVisible(find.text('Clear'));
       await tester.pumpAndSettle();
+      await tester.tap(find.text('Clear'));
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(
+        find.text('Beef and Broccoli'),
+        -200,
+        scrollable: find
+            .descendant(
+              of: find.byType(CustomScrollView),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
 
       expect(find.text('Beef and Broccoli'), findsOneWidget);
     });
@@ -593,10 +614,12 @@ void main() {
       await tester.scrollUntilVisible(
         find.textContaining('That is all'),
         300,
-        scrollable: find.descendant(
-          of: find.byType(ListView),
-          matching: find.byType(Scrollable),
-        ),
+        scrollable: find
+            .descendant(
+              of: find.byType(CustomScrollView),
+              matching: find.byType(Scrollable),
+            )
+            .first,
       );
 
       expect(find.textContaining('That is all'), findsOneWidget);

@@ -37,9 +37,9 @@ class MealCardData {
 
   /// The first line or two of the meal's own description.
   ///
-  /// The card carries no imagery, so this is what fills the space a photograph
-  /// used to — and it is better at the job, because it says something about the
-  /// food rather than merely decorating it.
+  /// The card carries no imagery, so this fills the space a photograph used to —
+  /// and it does the job better, because it says something about the food rather
+  /// than merely decorating it.
   final String? description;
 
   final String? cuisine;
@@ -63,6 +63,20 @@ class MealCardData {
   /// `Filipino · Dinner`, with missing parts dropped.
   String get contextLabel => AppFormat.metadata(<String?>[cuisine, category]);
 
+  /// `Dinner · 45 min · Easy` — everything except the cuisine, which the rail
+  /// and the pill already carry.
+  ///
+  /// One line rather than a pill each. docs/design_ui.md §15 asks for "minimal
+  /// metadata", and six pills per card across twenty cards is a screen of grey
+  /// lozenges — the opposite of minimal.
+  String get detailLine => AppFormat.metadata(<String?>[
+    category,
+    cookingTimeMinutes == null
+        ? null
+        : AppFormat.cookingTime(cookingTimeMinutes!),
+    difficulty,
+  ]);
+
   /// What one plate costs, which is what every budget question in the app means.
   num? get costPerServing => estimatedCost == null || servings == null
       ? estimatedCost
@@ -71,16 +85,16 @@ class MealCardData {
   String? get formattedCost =>
       estimatedCost == null ? null : AppFormat.peso(estimatedCost!);
 
-  /// `₱65 a head`, the figure a reader can actually compare between meals.
+  /// `₱65`, the figure a reader can compare between meals.
   String? get formattedCostPerServing {
     final num? each = costPerServing;
-    return each == null ? null : '${AppFormat.peso(each)} a head';
+    return each == null ? null : AppFormat.peso(each);
   }
 }
 
 /// The three forms of the meal card (docs/COMPONENTS.md §4).
 enum MealCardVariant {
-  /// The Meals tab: full width, name-led, a row of metadata.
+  /// The Meals tab: full width, name-led, a coloured cuisine rail.
   feed,
 
   /// History, planner, search: a single line with its metadata beneath.
@@ -93,26 +107,26 @@ enum MealCardVariant {
 /// A meal, in one of three forms.
 ///
 /// **No imagery, deliberately.** docs/COMPONENTS.md §4 and docs/design_ui.md §15
-/// both describe a 4:3 photograph as the card's leading element, and this card
-/// used to draw one — falling back, per docs/DESIGN_SYSTEM.md §9, to a pastel
-/// block keyed off the meal id when no photo existed.
+/// both lead the card with a 4:3 photograph, and this card used to draw one,
+/// falling back per docs/DESIGN_SYSTEM.md §9 to a pastel block keyed off the
+/// meal id. No photo ever existed — the catalogue ships sixty meals with no
+/// rights-cleared photography — so every card in the app was that fallback: a
+/// 4:3 area of flat colour taking two-thirds of the height and saying nothing.
 ///
-/// No photo ever existed. The catalogue ships sixty meals with no
-/// rights-cleared photography behind them, so every card in the app was that
-/// fallback: a 4:3 area of flat colour taking up two-thirds of the card and
-/// saying nothing. Three attempts at making it say something — a bigger glyph, a
-/// gradient, a glyph on a legible disc — each looked better than the last and
-/// none of them looked like food.
+/// The imagery is gone rather than faked, and the card is built round what a
+/// reader actually wants:
 ///
-/// So the imagery is gone rather than faked. What replaces it is the thing a
-/// reader actually wants: the name, a line of the meal's own description, and
-/// the four numbers that decide dinner — cost a head, time, difficulty, and who
-/// it feeds. A card that is honest about being text is worth more than one
-/// pretending to be a photograph, and five of them fit where one and a half used
-/// to.
+/// * the **name**, which is the thing being chosen;
+/// * a line of the meal's **own description**, in the space the photo had;
+/// * the **cost a head**, set large — §15 gives the price its own line, and it is
+///   the number that settles most arguments about dinner;
+/// * everything else on **one metadata line**, not a pill each.
 ///
-/// If photography arrives, it comes back as a deliberate change, with the
-/// licensing and hosting decided first.
+/// Colour comes from a **cuisine rail** down the left edge. Twenty cards each
+/// carrying a different coloured edge gives the feed rhythm at a glance, where
+/// twenty identical white rectangles gave it none — and unlike the pastel block
+/// it replaced, the colour means something: same cuisine, same colour, every
+/// time (§9).
 ///
 /// In every form the whole card navigates to detail and the heart is an
 /// independent target that must not trigger navigation (§4) — which is why the
@@ -176,7 +190,6 @@ class _FeedForm extends StatelessWidget {
   Widget build(BuildContext context) {
     final AppColorScheme colors = context.colors;
     final AppAccent accent = colors.accentFor(meal.cuisine ?? meal.id);
-
     final bool hasHeart = onFavoriteToggled != null;
 
     // The heart is a sibling of the card, not a child of it. docs/COMPONENTS.md
@@ -188,68 +201,76 @@ class _FeedForm extends StatelessWidget {
         AppCard(
           onTap: onTap,
           semanticLabel: _semanticLabel(meal),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Padding(
-                // Reserves the corner the heart floats over, so a long name
-                // wraps before it reaches it rather than running underneath.
-                padding: EdgeInsets.only(right: hasHeart ? _heartGutter : 0),
-                child: Text(
-                  meal.name,
-                  style: context.text.titleLarge,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
+          padding: EdgeInsets.zero,
+          clipContent: true,
+          // The cuisine rail, as a left border rather than a stretched child.
+          //
+          // A `Row` with `CrossAxisAlignment.stretch` was the obvious way to make
+          // a full-height rail and it is wrong here: stretch needs a bounded
+          // height, and a card inside a scrolling list is given an unbounded one.
+          // It threw "BoxConstraints forces an infinite height" on every card, so
+          // the feed rendered nothing at all.
+          //
+          // A border needs no height to paint. It also costs nothing, where the
+          // usual fix — wrapping in `IntrinsicHeight` — adds a second layout pass
+          // to every card in the list.
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border(
+                left: BorderSide(color: accent.foreground, width: _railWidth),
               ),
-              if (meal.description case final String description) ...<Widget>[
-                const SizedBox(height: AppSpacing.space2),
-                Text(
-                  description,
-                  style: context.text.bodySmall.copyWith(
-                    color: colors.textSecondary,
+            ),
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppLayout.cardPadding),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Padding(
+                          // Reserves the corner the heart floats over, so a long
+                          // name wraps before reaching it rather than running
+                          // underneath.
+                          padding: EdgeInsets.only(
+                            right: hasHeart ? _heartGutter : 0,
+                          ),
+                          child: Text(
+                            meal.name,
+                            style: context.text.titleLarge,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (meal.description
+                            case final String description) ...<Widget>[
+                          const SizedBox(height: AppSpacing.space2),
+                          Text(
+                            description,
+                            style: context.text.bodySmall.copyWith(
+                              color: colors.textSecondary,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                        const SizedBox(height: AppSpacing.space4),
+                        _CostRow(meal: meal, accent: accent),
+                        if (meal.detailLine.isNotEmpty) ...<Widget>[
+                          const SizedBox(height: AppSpacing.space2),
+                          Text(
+                            meal.detailLine,
+                            style: context.text.metadata,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
               ],
-              const SizedBox(height: AppSpacing.space4),
-              // Wraps rather than truncates, so nothing is lost at 1.3x scale.
-              Wrap(
-                spacing: AppSpacing.space2,
-                runSpacing: AppSpacing.space2,
-                children: <Widget>[
-                  // The cuisine carries the colour. It is the one piece of metadata
-                  // that groups meals rather than measuring them, so it is also the
-                  // one worth tinting — and a tinted word is colour with a meaning,
-                  // where a coloured block was colour standing in for a photograph.
-                  if (meal.cuisine case final String cuisine)
-                    _AccentPill(label: cuisine, accent: accent),
-                  if (meal.isMine)
-                    _AccentPill(
-                      label: 'Yours',
-                      accent: AppAccent(
-                        background: colors.primaryContainer,
-                        foreground: colors.onPrimaryContainer,
-                      ),
-                    ),
-                  if (meal.formattedCostPerServing case final String cost)
-                    MetadataPill(label: cost, isNumeric: true),
-                  if (meal.cookingTimeMinutes case final int minutes)
-                    MetadataPill(
-                      label: AppFormat.cookingTime(minutes),
-                      icon: AppIcons.cookingTime,
-                    ),
-                  if (meal.difficulty case final String difficulty)
-                    MetadataPill(label: difficulty, icon: AppIcons.difficulty),
-                  if (meal.servings case final int servings)
-                    MetadataPill(
-                      label: AppFormat.servings(servings),
-                      icon: AppIcons.servings,
-                    ),
-                ],
-              ),
-            ],
+            ),
           ),
         ),
         if (hasHeart)
@@ -266,8 +287,60 @@ class _FeedForm extends StatelessWidget {
     );
   }
 
+  /// Thin enough to read as an edge rather than a block.
+  static const double _railWidth = 5;
+
   /// The width the floating heart needs, plus the gap beside it.
   static const double _heartGutter = 44;
+}
+
+/// The price, the cuisine, and whose meal it is — the card's bottom line.
+///
+/// The cost is set in `titleMedium` rather than tucked into a pill, because it is
+/// the number people are comparing and §15 gives it its own line in the
+/// reference card.
+class _CostRow extends StatelessWidget {
+  const _CostRow({required this.meal, required this.accent});
+
+  final MealCardData meal;
+  final AppAccent accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppColorScheme colors = context.colors;
+
+    return Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: AppSpacing.space2,
+      runSpacing: AppSpacing.space2,
+      children: <Widget>[
+        if (meal.formattedCostPerServing case final String each)
+          Text.rich(
+            TextSpan(
+              children: <InlineSpan>[
+                TextSpan(text: each, style: context.text.titleMedium),
+                TextSpan(text: ' a head', style: context.text.metadata),
+              ],
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        if (meal.cuisine case final String cuisine)
+          // The one tinted pill left on the card. The cuisine is the only piece
+          // of metadata that *groups* meals rather than measuring them, which is
+          // what makes it worth a colour.
+          _AccentPill(label: cuisine, accent: accent),
+        if (meal.isMine)
+          _AccentPill(
+            label: 'Yours',
+            accent: AppAccent(
+              background: colors.primaryContainer,
+              foreground: colors.onPrimaryContainer,
+            ),
+          ),
+      ],
+    );
+  }
 }
 
 /// A pill whose fill carries a meaning rather than a decoration.
