@@ -7,6 +7,7 @@ import 'package:whats_cooking/core/constants/app_constants.dart';
 import 'package:whats_cooking/core/router/app_routes.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/widgets/app_badge.dart';
+import 'package:whats_cooking/core/widgets/brand_logo.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_button.dart';
 import 'package:whats_cooking/core/widgets/feedback/backend_banner.dart';
 
@@ -99,53 +100,36 @@ class WelcomeScreen extends ConsumerWidget {
   }
 }
 
-/// The product mark and name, on one line.
+/// The product mark.
 ///
-/// A glyph on a disc rather than an asset: the app icon is Sprint 69's job, and
-/// a placeholder PNG shipped now would be a second thing to remember to replace.
+/// The real logo now, and **without the app name beside it** — the mark already
+/// says "What's Cooking?", and a wordmark next to its own wording reads as a
+/// mistake. It replaces a glyph-on-a-disc placeholder that existed only because
+/// there was no artwork.
 ///
-/// An icon rather than the slot-machine emoji it used to be. The palette has no
-/// colour of its own any more, so a full-colour glyph was the one thing on the
-/// first screen anybody sees that did not come from the design system.
+/// This is the first screen anybody sees, which is the one place a full-colour
+/// mark belongs in an otherwise monochrome app: it is the product introducing
+/// itself, not a piece of interface. See [BrandLogo].
 class _Wordmark extends StatelessWidget {
   const _Wordmark();
 
   @override
   Widget build(BuildContext context) {
-    final AppColorScheme colors = context.colors;
-
-    return Row(
+    return const Row(
       children: <Widget>[
-        DecoratedBox(
-          decoration: BoxDecoration(
-            color: colors.surface,
-            borderRadius: AppRadius.borderMd,
-            boxShadow: context.shadows.sm,
-          ),
-          child: const SizedBox.square(
-            dimension: _markSize,
-            child: Center(
-              child: ExcludeSemantics(
-                child: Icon(AppIcons.spin, size: AppIconSize.lg),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: AppSpacing.space3),
-        Expanded(
-          child: Text(
-            AppConstants.appName,
-            style: context.text.titleLarge,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        const AppBadge(label: 'Beta', tone: AppBadgeTone.highlight),
+        // Labelled rather than decorative: with the name gone, this *is* the
+        // heading, and a screen reader landing on this screen should hear the
+        // product's name rather than skip straight to the tagline.
+        BrandLogo(height: _markSize, semanticLabel: AppConstants.appName),
+        Spacer(),
+        AppBadge(label: 'Beta', tone: AppBadgeTone.highlight),
       ],
     );
   }
 
-  static const double _markSize = 48;
+  /// Larger than the disc it replaces. A wordmark needs the height to stay
+  /// readable, and at 48 the word "Cooking" was a smudge.
+  static const double _markSize = 72;
 }
 
 /// The pitch, left-aligned as the reference's greeting is.

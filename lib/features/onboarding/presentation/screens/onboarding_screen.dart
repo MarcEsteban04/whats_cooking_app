@@ -5,6 +5,7 @@ import 'package:whats_cooking/core/domain/food_taxonomy.dart';
 import 'package:whats_cooking/core/errors/app_exception.dart';
 import 'package:whats_cooking/core/router/app_routes.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
+import 'package:whats_cooking/core/widgets/brand_logo.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_button.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_icon_button.dart';
 import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
@@ -447,9 +448,10 @@ class _FirstSpinInvitation extends StatelessWidget {
                 children: <Widget>[
                   OnboardingProgress(progress: progress, label: progressLabel),
                   const Spacer(),
-                  const ExcludeSemantics(
-                    child: Icon(AppIcons.spin, size: _markSize),
-                  ),
+                  // The mark, not a glyph: this is the moment the app stops
+                  // asking questions and starts being the product, which is the
+                  // second and last place the full-colour logo belongs.
+                  const BrandLogo(height: _markSize),
                   const SizedBox(height: AppSpacing.space6),
                   Text(
                     'That is all we need',
@@ -481,6 +483,7 @@ class _FirstSpinInvitation extends StatelessWidget {
     );
   }
 
-  static const double _markSize = 64;
+  /// Big enough for a wordmark to read. The glyph this replaced worked at 64.
+  static const double _markSize = 96;
   static const double _bodyMaxWidth = 280;
 }

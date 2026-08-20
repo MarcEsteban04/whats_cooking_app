@@ -31,5 +31,65 @@ dev_dependencies:
   json_serializable: ^6.14.1
   mocktail: ^1.0.5
 
+  # Generates the launcher icons from assets/brand (Sprint 34).
+  flutter_launcher_icons: ^0.14.4
+
+  # Used by tool/build_brand_assets.dart to pad the logo into an adaptive-icon
+  # foreground. A dev dependency because nothing at runtime decodes a PNG by hand.
+  image: ^4.3.0
+
 flutter:
   uses-material-design: true
+
+  assets:
+    # The brand mark, and the only asset the app bundles. Full colour and green,
+    # unlike every other pixel here — see docs/DESIGN_SYSTEM.md §2.2. A logo is a
+    # logo; the interface around it stays ink.
+    #
+    # The directory is *not* declared wholesale on purpose: assets/brand/source/
+    # holds the megabyte master and the launcher-icon sources, which are build
+    # inputs and have no business in an APK.
+    - assets/brand/logo.png
+
+# ---------------------------------------------------------------------------
+# Launcher icons (Sprint 34)
+#
+# Sources are derived from the one brand asset by tool/build_brand_assets.dart;
+# see that file for why a launcher icon needs two of them rather than one.
+# Regenerate with:
+#   dart run tool/build_brand_assets.dart && dart run flutter_launcher_icons
+# ---------------------------------------------------------------------------
+flutter_launcher_icons:
+  # The flattened square, for iOS and for Android's legacy icon. Both show the
+  # launcher's own background through any transparency, and iOS rejects alpha in
+  # an app icon outright.
+  image_path: "assets/brand/source/launcher_opaque.png"
+
+  android: true
+  ios: true
+  remove_alpha_ios: true
+
+  # Adaptive icons get the inset foreground instead, because Android masks the
+  # outer third of that layer to whatever shape the launcher prefers — the cloche
+  # lid and the fork are exactly what disappears when art fills its canvas.
+  adaptive_icon_foreground: "assets/brand/source/launcher_foreground.png"
+
+  # White, matching the flattened version. The mark was drawn for a light ground:
+  # its cutlery is white with grey shading, so it reads on white and vanishes on
+  # anything paler than itself.
+  adaptive_icon_background: "#FFFFFF"
+
+  web:
+    generate: true
+    image_path: "assets/brand/source/launcher_opaque.png"
+    background_color: "#FFFFFF"
+    theme_color: "#E8622A"
+
+  windows:
+    generate: true
+    image_path: "assets/brand/source/launcher_opaque.png"
+    icon_size: 256
+
+  macos:
+    generate: true
+    image_path: "assets/brand/source/launcher_opaque.png"
