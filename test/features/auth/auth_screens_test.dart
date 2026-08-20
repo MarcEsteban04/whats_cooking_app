@@ -469,6 +469,33 @@ void main() {
 
       expectNoOverflow(tester);
     });
+
+    testWidgets('scrolls rather than clipping when content exceeds the screen', (
+      WidgetTester tester,
+    ) async {
+      // A real emulator caught this and no widget test did. The screen used
+      // `IntrinsicHeight` with two `Spacer`s, which pins the column to the
+      // viewport height — so content taller than the viewport overflowed
+      // instead of scrolling, and the sign-in button was the part that got cut
+      // off. The banner alone was enough to trigger it.
+      //
+      // A short viewport reproduces it without needing the banner: every test
+      // above uses a screen tall enough to hide the bug.
+      await pumpScreen(
+        tester,
+        const WelcomeScreen(),
+        surfaceSize: const Size(360, 420),
+      );
+
+      expectNoOverflow(tester);
+
+      // And the thing that was cut off is genuinely reachable.
+      await tester.ensureVisible(
+        find.widgetWithText(AppButton, 'I already have an account'),
+      );
+      await tester.pumpAndSettle();
+      expectNoOverflow(tester);
+    });
   });
 
   group('sign-up when the address needs confirming', () {

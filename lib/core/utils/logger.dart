@@ -100,14 +100,35 @@ abstract final class AppLog {
     }
 
     final String payload = data == null ? '' : ' ${redact(data)}';
+    final String source = name ?? 'whats_cooking';
+    final String line = '${level.label} $message$payload';
 
     developer.log(
-      '${level.label} $message$payload',
-      name: name ?? 'whats_cooking',
+      line,
+      name: source,
       level: level.value,
       error: error,
       stackTrace: stackTrace,
     );
+
+    // Mirrored to the console in debug builds, because `developer.log` goes to
+    // the VM service's logging stream and **nothing prints it**: not
+    // `flutter run`, not `flutter logs`, not `adb logcat`. Only DevTools.
+    //
+    // That was a real cost. The app diagnoses its own backend at startup and
+    // names the fix, and the diagnosis was invisible to anyone running the app
+    // from a terminal — which is how it is always run. A log nobody can read is
+    // not a log.
+    //
+    // `debugPrint` rather than `print`: it rate-limits, so a burst cannot get
+    // truncated by the Android log buffer. Release still emits nothing at all —
+    // the early return above covers both sinks.
+    if (kDebugMode) {
+      debugPrint('[$source] $line');
+      if (error != null) {
+        debugPrint('[$source] cause: $error');
+      }
+    }
   }
 
   /// [data] with the values of any [redactionKeys] replaced.

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:whats_cooking/core/errors/app_exception.dart';
+import 'package:whats_cooking/core/errors/domain_signal.dart';
 import 'package:whats_cooking/core/errors/error_mapper.dart';
 import 'package:whats_cooking/core/network/retry_policy.dart';
 import 'package:whats_cooking/core/utils/logger.dart';
@@ -14,6 +15,8 @@ import 'package:whats_cooking/core/utils/logger.dart';
 ///   type escapes the data layer, because every failure leaves here as an
 ///   [AppException].
 /// * **Transient failures are retried** with backoff, per [RetryPolicy].
+/// * **Deliberate signals pass through.** A [DomainSignal] is an answer rather
+///   than a failure, so it is rethrown unmapped and unretried.
 /// * **The technical detail is logged** and the user-facing message is not
 ///   polluted with it (docs/design_ui.md §31).
 ///
@@ -39,6 +42,14 @@ abstract final class RemoteCall {
       try {
         final Future<T> future = operation();
         return timeout == null ? await future : await future.timeout(timeout);
+      } on DomainSignal {
+        // Passed through untouched. A signal is an answer, not a failure: it
+        // carries meaning the caller acts on, and mapping it to an
+        // `AppException` would replace "this address already has an account"
+        // with "Something went wrong" — which is what happened before this
+        // clause existed. Rethrowing before the retry logic also stops a
+        // retrying policy re-sending a request whose answer was never in doubt.
+        rethrow;
       } on Object catch (error, stackTrace) {
         final AppException mapped = ErrorMapper.map(error, stackTrace);
 

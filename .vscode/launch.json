@@ -1,14 +1,19 @@
 {
-  "// Why this file is committed": [
-    "The app reads its Supabase credentials from compile-time defines, so a bare",
-    "`flutter run` — or pressing F5 without this file — starts with no backend and",
-    "silently falls back to the in-memory auth stand-in. You can sign up, reach",
-    "onboarding, and lose the account on the next launch.",
-    "",
-    "Committing the launch configuration means the default way to run the app is",
-    "also the correct way. config/development.json stays git-ignored; only the",
-    "instruction to read it is shared."
-  ],
+  // The app reads its Supabase credentials from compile-time defines, so a bare
+  // `flutter run` — or an F5 that does not pass them — starts with no backend
+  // and falls back to the in-memory auth stand-in. You can sign up, reach
+  // onboarding, and lose the account on the next launch. The in-app banner says
+  // so while it is happening.
+  //
+  // Committing the launch configuration means the default way to run the app is
+  // also the correct way. config/development.json stays git-ignored; only the
+  // instruction to read it is shared.
+  //
+  // The flag goes in `toolArgs`, not `args`. `args` are handed to the running
+  // Dart program; `toolArgs` are handed to `flutter run` itself, and
+  // `--dart-define-from-file` is the tool's flag. Putting it in `args` is
+  // silently accepted and does nothing — which looks exactly like having no
+  // credentials at all.
   "version": "0.2.0",
   "configurations": [
     {
@@ -16,7 +21,7 @@
       "request": "launch",
       "type": "dart",
       "program": "lib/main.dart",
-      "args": ["--dart-define-from-file=config/development.json"]
+      "toolArgs": ["--dart-define-from-file=config/development.json"]
     },
     {
       "name": "What's Cooking? (profile)",
@@ -24,7 +29,7 @@
       "type": "dart",
       "program": "lib/main.dart",
       "flutterMode": "profile",
-      "args": ["--dart-define-from-file=config/development.json"]
+      "toolArgs": ["--dart-define-from-file=config/development.json"]
     },
     {
       "name": "What's Cooking? (release)",
@@ -32,11 +37,14 @@
       "type": "dart",
       "program": "lib/main.dart",
       "flutterMode": "release",
-      "args": ["--dart-define-from-file=config/development.json"]
+      "toolArgs": ["--dart-define-from-file=config/development.json"]
     },
     {
-      "// No backend": "Deliberately available: supabase/README.md promises a fresh clone runs without credentials. The in-app banner says so while it does.",
-      "name": "What's Cooking? (no backend)",
+      // Deliberately kept: supabase/README.md promises a fresh clone runs
+      // without credentials. Named so it cannot be picked by accident, because
+      // the symptom of picking it — an account that vanishes on restart — is
+      // hard to connect back to a dropdown selection.
+      "name": "What's Cooking? (NO backend — accounts vanish on restart)",
       "request": "launch",
       "type": "dart",
       "program": "lib/main.dart"

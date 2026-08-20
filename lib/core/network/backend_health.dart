@@ -85,9 +85,9 @@ abstract final class BackendHealth {
       probe: () => RemoteCall.guard(
         () => client.from(_probeTable).select(_probeColumn).limit(1),
         label: 'backendHealthCheck',
-        // One attempt: this runs at launch and its answer is a diagnosis, not
-        // data the app needs. Retrying would delay the first frame to improve a
-        // log line.
+        // One attempt. Retrying would not make the diagnosis better: the three
+        // unusable states are all persistent conditions, and a second identical
+        // request tells you nothing the first did not.
         policy: RetryPolicy.none,
         timeout: _probeTimeout,
       ),
@@ -97,9 +97,18 @@ abstract final class BackendHealth {
   static const String _probeTable = 'meals';
   static const String _probeColumn = 'id';
 
-  /// Short on purpose: a slow answer is as useful as no answer here, and this
-  /// must not hold up the app.
-  static const Duration _probeTimeout = Duration(seconds: 5);
+  /// Generous on purpose.
+  ///
+  /// This was five seconds, with a comment saying a slow answer was as useless
+  /// as none and that the probe must not hold up the app. The second half is
+  /// true — `main` does not await this — but that is exactly why the first half
+  /// was wrong: nothing waits, so a late answer costs nothing at all.
+  ///
+  /// Five seconds was measurably too short. On a cold emulator, installing its
+  /// baseline profile while opening its first TLS connection, the probe timed
+  /// out and the app told the user it could not reach a backend that was
+  /// working perfectly. A wrong diagnosis is worse than a slow one.
+  static const Duration _probeTimeout = Duration(seconds: 20);
 }
 
 /// The Supabase client.

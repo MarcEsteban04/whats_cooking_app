@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -43,25 +45,48 @@ class WelcomeScreen extends ConsumerWidget {
                   ),
                   child: ConstrainedBox(
                     constraints: BoxConstraints(
-                      minHeight:
-                          constraints.maxHeight - (AppSpacing.space5 * 2),
-                    ),
-                    child: const IntrinsicHeight(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: <Widget>[
-                          Spacer(),
-                          BackendBanner(),
-                          _Wordmark(),
-                          SizedBox(height: AppSpacing.space7),
-                          _Headline(),
-                          SizedBox(height: AppSpacing.space7),
-                          _PromiseCluster(),
-                          Spacer(),
-                          SizedBox(height: AppSpacing.space7),
-                          _Actions(),
-                        ],
+                      minHeight: math.max(
+                        0,
+                        constraints.maxHeight - (AppSpacing.space5 * 2),
                       ),
+                    ),
+                    // `spaceBetween` rather than `IntrinsicHeight` and two
+                    // `Spacer`s. The Spacer version looked identical and was
+                    // broken: `IntrinsicHeight` resolves to the *tighter* of the
+                    // intrinsic height and the incoming constraint, so once the
+                    // content grew past the viewport — which the backend banner
+                    // alone was enough to do — the column was pinned to the
+                    // viewport height and overflowed instead of scrolling. It
+                    // cost the sign-in button, and only a real device showed it.
+                    //
+                    // A plain column under `minHeight` sizes to whichever is
+                    // larger, so it fills a tall screen and scrolls on a short
+                    // one, and `spaceBetween` distributes whatever slack there
+                    // is between the three groups.
+                    child: const Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: <Widget>[
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            BackendBanner(),
+                            _Wordmark(),
+                            SizedBox(height: AppSpacing.space7),
+                            _Headline(),
+                          ],
+                        ),
+                        // The minimum gaps, so the groups never touch when
+                        // `spaceBetween` has no slack to give.
+                        Padding(
+                          padding: EdgeInsets.symmetric(
+                            vertical: AppSpacing.space6,
+                          ),
+                          child: _PromiseCluster(),
+                        ),
+                        _Actions(),
+                      ],
                     ),
                   ),
                 );
@@ -145,12 +170,18 @@ class _Headline extends StatelessWidget {
   }
 }
 
-/// Spin, decide, eat — as three staggered floating cards.
+/// Spin, agree, eat — three floating cards, flush left.
 ///
-/// Staggered rather than aligned, following the reference's overlapping stat
-/// cards (docs/design_ui.md §35). Each is offset a little further than the last,
-/// which reads as depth without any of them actually overlapping — overlap on a
-/// 320 px screen would clip.
+/// These were staggered, each indented 12 px further than the last, on the
+/// reasoning that it echoed the reference's overlapping stat cards
+/// (docs/design_ui.md §35). It did not. The reference's cards overlap, and
+/// overlap is what makes them read as layered; indentation without overlap just
+/// makes three cards look misaligned, especially under a headline and a
+/// paragraph that both start at the margin.
+///
+/// They are also the wrong thing to stagger. §35's cards are small decorative
+/// figures sitting in front of content; these are three equal promises, and a
+/// set of equals should line up.
 class _PromiseCluster extends StatelessWidget {
   const _PromiseCluster();
 
@@ -162,16 +193,11 @@ class _PromiseCluster extends StatelessWidget {
         for (final (int index, (String emoji, String title, String body))
             in _promises.indexed) ...<Widget>[
           if (index > 0) const SizedBox(height: AppSpacing.space3),
-          Padding(
-            // The stagger. Held to three steps of 12 px, so the last card is
-            // still comfortably inside the screen margin.
-            padding: EdgeInsets.only(left: index * AppSpacing.space3),
-            child: _PromiseCard(
-              emoji: emoji,
-              title: title,
-              body: body,
-              accentSeed: title,
-            ),
+          _PromiseCard(
+            emoji: emoji,
+            title: title,
+            body: body,
+            accentSeed: title,
           ),
         ],
       ],

@@ -1,3 +1,4 @@
+import 'package:whats_cooking/core/errors/domain_signal.dart';
 import 'package:whats_cooking/features/auth/domain/entities/app_session.dart';
 
 /// What the auth feature needs from a backend.
@@ -51,7 +52,7 @@ abstract interface class AuthRepository {
 ///
 /// A distinct type rather than a message match, so the screen can react to it —
 /// offering login with the address pre-filled — without string-sniffing an error.
-class EmailAlreadyRegistered implements Exception {
+class EmailAlreadyRegistered implements DomainSignal {
   const EmailAlreadyRegistered(this.email);
 
   final String email;
@@ -68,7 +69,7 @@ class EmailAlreadyRegistered implements Exception {
 ///
 /// A distinct type, like [EmailAlreadyRegistered], so the screen can say what
 /// actually happened instead of string-matching an error.
-class EmailConfirmationRequired implements Exception {
+class EmailConfirmationRequired implements DomainSignal {
   const EmailConfirmationRequired(this.email);
 
   final String email;
