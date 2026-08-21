@@ -106,11 +106,12 @@ class _ResultLoading extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        // Real text, not a bar. The overline is the same on every result, so
-        // there is nothing to load and no reason to grey it out — and it keeps
-        // the reader oriented while the card fills in.
+        // Real text, not a bar — it keeps the reader oriented while the card
+        // fills in. Neutral, because the meal is not known yet and the category
+        // is what decides the wording: guessing "tonight's" here would flicker
+        // to "BREAKFAST PICK" a moment later.
         Text(
-          "TONIGHT'S PICK",
+          'YOUR PICK',
           style: context.text.overline,
           textAlign: TextAlign.center,
         ),
@@ -325,7 +326,9 @@ class _ResultState extends ConsumerState<_Result> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         Text(
-          "TONIGHT'S PICK",
+          // From the meal's own category rather than from the filter, so it is
+          // right on a deep link and on a spin nobody narrowed.
+          meal.category.pickOverline,
           style: context.text.overline,
           textAlign: TextAlign.center,
         ),

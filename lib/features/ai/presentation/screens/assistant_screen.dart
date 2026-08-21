@@ -355,12 +355,20 @@ class _Composer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // **No keyboard inset here.** It used to add `viewInsets.bottom`, and the
+    // `Scaffold` above already resizes its body for the keyboard — so the inset
+    // was counted twice and the composer floated a whole keyboard-height up the
+    // screen, sitting on top of the conversation with empty space beneath it.
+    //
+    // The Scaffold's `resizeToAvoidBottomInset` is left on, which is the one that
+    // should own this: it moves the whole column, so the last message stays
+    // visible above the field instead of being covered by it.
     return Padding(
-      padding: EdgeInsets.only(
+      padding: const EdgeInsets.only(
         left: AppLayout.screenMargin,
         right: AppLayout.screenMargin,
         top: AppSpacing.space2,
-        bottom: AppSpacing.space3 + MediaQuery.viewInsetsOf(context).bottom,
+        bottom: AppSpacing.space3,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,

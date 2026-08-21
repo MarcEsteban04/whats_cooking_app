@@ -135,6 +135,12 @@ class _RestaurantSpinScreenState extends ConsumerState<RestaurantSpinScreen>
       return;
     }
     setState(() => _isReelStopped = true);
+
+    // The card the reel landed on is now the answer — told to the controller so a
+    // late assistant reply cannot replace it. See `SpinScreen` for the bug this
+    // closes.
+    ref.read(restaurantSpinControllerProvider.notifier).lockIn();
+
     _scheduleReveal();
   }
 
@@ -153,23 +159,6 @@ class _RestaurantSpinScreenState extends ConsumerState<RestaurantSpinScreen>
   /// Goes to the result, once the reel has stopped and the pick has arrived.
   void _maybeReveal() {
     if (_hasRevealed || !_isReelStopped || !mounted) {
-      return;
-    }
-
-    // **The grace window** (Sprint 50), the same one the meal roulette has. The
-    // engine's answer is already here and already planted, so nothing is waiting
-    // on a network call — but the reel takes about two seconds and a model usually
-    // takes longer, so revealing the instant the reel stops would mean the
-    // assistant almost never got to matter.
-    //
-    // It only ever *delays* a reveal that is already correct, so a slow evening
-    // costs a moment rather than an answer.
-    if (ref.read(restaurantSpinControllerProvider)
-        case RestaurantSpinSettled(isAwaitingAssistant: true)) {
-      _graceTimer ??= Timer(_assistantGrace, () {
-        _graceTimer = null;
-        _reveal();
-      });
       return;
     }
 
@@ -235,7 +224,18 @@ class _RestaurantSpinScreenState extends ConsumerState<RestaurantSpinScreen>
         if (_reelPool == null) {
           setState(() => _reelPool = _plant(pool, place));
         }
-        _startReel();
+
+        // The assistant's window sits *before* the roll, not after the stop —
+        // `SpinScreen` carries the reasoning. Held here so the reel rolls to the
+        // final answer, and rolled anyway once the timer is up.
+        if (next case RestaurantSpinSettled(isAwaitingAssistant: true)) {
+          _graceTimer ??= Timer(_assistantGrace, _startReel);
+        } else {
+          _graceTimer?.cancel();
+          _graceTimer = null;
+          _startReel();
+        }
+
         _maybeReveal();
         return;
       }

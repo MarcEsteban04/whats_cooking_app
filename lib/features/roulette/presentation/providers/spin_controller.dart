@@ -281,6 +281,9 @@ class SpinController extends _$SpinController {
   /// happens on a heavy one.
   bool _assistantRestedForSession = false;
 
+  /// Set once the reel has stopped on this spin's answer. See [lockIn].
+  bool _isLockedIn = false;
+
   @override
   SpinState build() => const SpinIdle();
 
@@ -419,6 +422,9 @@ class SpinController extends _$SpinController {
         ),
       );
 
+      // A fresh spin can be changed again, whatever the last one committed to.
+      _isLockedIn = false;
+
       final bool willAsk = _shouldAskAssistant(scoring.candidates);
 
       state = SpinSettled(
@@ -451,6 +457,26 @@ class SpinController extends _$SpinController {
   /// has been hit — see [_assistantRestedForSession].
   bool _shouldAskAssistant(List<ScoredMeal> candidates) =>
       candidates.length > 1 && !_assistantRestedForSession;
+
+  /// The screen has committed to what is on the reel — no more swapping.
+  ///
+  /// **The reel stopping is a promise.** Before this existed, an assistant answer
+  /// arriving after the wheel came to rest still replaced the meal, and the result
+  /// screen showed something the reel had not landed on: it stopped on champorado
+  /// and served arroz caldo. A slot machine that does that is broken, whatever the
+  /// second answer was worth.
+  ///
+  /// So the screen calls this the moment the travel ends, and after it the
+  /// assistant can only clear the waiting flag. Its window is now *before* the
+  /// roll rather than after it — see `SpinScreen`, which spends the same second
+  /// and a half where it can still change the answer.
+  void lockIn() {
+    _isLockedIn = true;
+
+    if (state case final SpinSettled current when current.isAwaitingAssistant) {
+      state = current.copyWith(isAwaitingAssistant: false);
+    }
+  }
 
   /// Asks the assistant to pick from the shortlist, and takes its answer if it
   /// arrives in time (Sprint 47c).
@@ -502,6 +528,17 @@ class SpinController extends _$SpinController {
     // The spin may have been left, restarted, or accepted while this was in
     // flight. Anything other than the state this call was started for is a state
     // this answer is no longer about.
+    // Locked in means the reel has already stopped on the engine's pick and the
+    // reader has seen it. The answer is discarded whole — including its reason,
+    // which was written about a different meal.
+    if (_isLockedIn) {
+      if (state case final SpinSettled current
+          when current.isAwaitingAssistant) {
+        state = current.copyWith(isAwaitingAssistant: false);
+      }
+      return;
+    }
+
     if (state case final SpinSettled current
         when current.meal.id == drawn.meal.id &&
             current.isAwaitingAssistant) {
@@ -579,11 +616,26 @@ class SpinController extends _$SpinController {
         if (item.statusAsOf(now).needsAttention) item.name,
     ];
 
+    // What meal this actually is. It said 'tonight' regardless, so a breakfast
+    // spin asked the model to choose dinner and then showed the answer under a
+    // breakfast heading — the same mismatch the result screen's overline had.
+    final Set<MealCategory> categories = ref
+        .read(spinFiltersControllerProvider)
+        .categories;
+
     return <String, Object?>{
       if (recent.isNotEmpty) 'eaten_recently': recent.join(', '),
       if (urgent.isNotEmpty)
         'going_off_soon': urgent.take(_urgentForPrompt).join(', '),
-      'deciding_for': 'tonight',
+      'deciding_for': switch (categories.length) {
+        // Nothing narrowed. "Tonight" is the honest default: it is the meal this
+        // app was built for and the one somebody opens it at.
+        0 => 'tonight',
+        1 => categories.first.label.toLowerCase(),
+        _ => categories
+            .map((MealCategory category) => category.label.toLowerCase())
+            .join(' or '),
+      },
     };
   }
 

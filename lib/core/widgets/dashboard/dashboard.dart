@@ -365,18 +365,26 @@ class AppSegmentedControl<T> extends StatelessWidget {
       ),
       child: Padding(
         padding: const EdgeInsets.all(_trackPadding),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: <Widget>[
-              for (final (T value, String label) in options)
-                _Segment<T>(
+        // **Equal shares, filling the track.** This used to wrap its Row in a
+        // `SingleChildScrollView`, which sized every segment to its own label and
+        // parked them at the left — so a two-option control drew a small "Cook"
+        // pill, "Eat out" beside it, and a third of the track left empty on the
+        // right. It read as a broken row rather than as a switch.
+        //
+        // No scroll view either. A segmented control that scrolls is a control
+        // whose options you cannot all see, which is the one thing this shape
+        // promises — past four options the answer is chips or a sheet, not this.
+        child: Row(
+          children: <Widget>[
+            for (final (T value, String label) in options)
+              Expanded(
+                child: _Segment<T>(
                   label: label,
                   isSelected: value == selected,
                   onTap: () => onSelected(value),
                 ),
-            ],
-          ),
+              ),
+          ],
         ),
       ),
     );
@@ -423,6 +431,7 @@ class _Segment<T> extends StatelessWidget {
             color: isSelected ? colors.surface : colors.textSecondary,
           ),
           maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
       ),
     );

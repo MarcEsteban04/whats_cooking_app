@@ -153,6 +153,24 @@ enum MealCategory {
 
   String get value => name;
 
+  /// What the roulette's result screen calls its answer.
+  ///
+  /// **Not "TONIGHT'S PICK" for everything.** It said that regardless, so
+  /// filtering to Breakfast and spinning produced a bowl of champorado announced
+  /// as tonight's dinner — a small thing that makes the app look like it was not
+  /// listening.
+  ///
+  /// Dinner keeps the warmer phrasing because dinner is the case this app was
+  /// built for and "DINNER PICK" is flatter than what it replaced. The rest are
+  /// plain, because a cute line per category is five chances to be wrong.
+  String get pickOverline => switch (this) {
+    MealCategory.breakfast => 'BREAKFAST PICK',
+    MealCategory.lunch => 'LUNCH PICK',
+    MealCategory.dinner => "TONIGHT'S PICK",
+    MealCategory.snack => 'SNACK PICK',
+    MealCategory.dessert => 'DESSERT PICK',
+  };
+
   /// Null rather than throwing, for the same reason [Cuisine.fromValue] does: a
   /// value the app does not recognise should hide one meal, not break a feed.
   static MealCategory? fromValue(String value) {

@@ -202,6 +202,13 @@ class _SpinScreenState extends ConsumerState<SpinScreen>
       return;
     }
     setState(() => _isReelStopped = true);
+
+    // **The card the reel landed on is now the answer.** Told to the controller
+    // rather than merely remembered here, because it is the controller that a
+    // late assistant reply would otherwise change — and the reader has just
+    // watched the wheel stop.
+    ref.read(spinControllerProvider.notifier).lockIn();
+
     _scheduleReveal();
   }
 
@@ -227,27 +234,16 @@ class _SpinScreenState extends ConsumerState<SpinScreen>
     _revealTimer = Timer(AppRouletteMotion.reveal, _maybeReveal);
   }
 
-  /// Goes to the result, once the reel has stopped and the pick has arrived.
+  /// Goes to the result, once the reel has stopped.
+  ///
+  /// **No grace window here any more** (Sprint 53b). It used to hold the reveal
+  /// for a second and a half after the reel stopped, so a slow assistant could
+  /// still be adopted — and that is exactly what produced a reel stopped on
+  /// champorado and a result screen showing arroz caldo. The same second and a
+  /// half is now spent *before* the roll, where the answer it buys can still
+  /// change what the wheel lands on.
   void _maybeReveal() {
     if (_hasRevealed || !_isReelStopped || !mounted) {
-      return;
-    }
-
-    // **The grace window** (Sprint 47c). The engine's answer is already here and
-    // already planted, so nothing is waiting on a network call — but the reel
-    // takes 2.2 seconds and a model usually takes longer, so revealing the instant
-    // the reel stops would mean the assistant almost never got to matter.
-    //
-    // A second and a half. Long enough that most answers land, short enough that
-    // the worst case is under four seconds — and it only ever *delays* a reveal
-    // that is already correct, so a slow evening costs a moment rather than an
-    // answer.
-    if (ref.read(spinControllerProvider)
-        case SpinSettled(isAwaitingAssistant: true)) {
-      _graceTimer ??= Timer(_assistantGrace, () {
-        _graceTimer = null;
-        _reveal();
-      });
       return;
     }
 
@@ -315,8 +311,28 @@ class _SpinScreenState extends ConsumerState<SpinScreen>
           _plantedId = meal.id;
           setState(() => _reelPool = _plant(pool, meal));
         }
-        // Now there is something to roll.
-        _startReel();
+
+        // **The roll waits for the assistant, not the reveal** (Sprint 53b).
+        //
+        // The window used to sit after the reel stopped, which is the one place
+        // it cannot be spent honestly: the wheel had already landed on the
+        // engine's pick and the reader had seen it, so adopting a different meal
+        // meant the result screen contradicted the reel — champorado on the
+        // wheel, arroz caldo on the card.
+        //
+        // Held here instead, for the same second and a half. If the answer lands
+        // first the reel rolls to the *final* winner and the reveal is immediate;
+        // if it does not, the timer rolls anyway and `lockIn` makes the engine's
+        // pick permanent. Either way the card the wheel stops on is the card the
+        // next screen shows, which is the only promise a reel makes.
+        if (next case SpinSettled(isAwaitingAssistant: true)) {
+          _graceTimer ??= Timer(_assistantGrace, _startReel);
+        } else {
+          _graceTimer?.cancel();
+          _graceTimer = null;
+          _startReel();
+        }
+
         _maybeReveal();
         return;
       }

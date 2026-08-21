@@ -245,6 +245,9 @@ class RestaurantSpinController extends _$RestaurantSpinController {
   /// one.
   bool _assistantRestedForSession = false;
 
+  /// Set once the reel has stopped on this spin's answer. See [lockIn].
+  bool _isLockedIn = false;
+
   @override
   RestaurantSpinState build() => const RestaurantSpinIdle();
 
@@ -368,6 +371,9 @@ class RestaurantSpinController extends _$RestaurantSpinController {
         ),
       );
 
+      // A fresh spin can be changed again, whatever the last one committed to.
+      _isLockedIn = false;
+
       final bool willAsk = _shouldAskAssistant(outcome.candidates);
 
       state = RestaurantSpinSettled(
@@ -416,6 +422,20 @@ class RestaurantSpinController extends _$RestaurantSpinController {
   bool _shouldAskAssistant(List<ScoredRestaurant> candidates) =>
       candidates.length > 1 && !_assistantRestedForSession;
 
+  /// The screen has committed to what is on the reel — no more swapping.
+  ///
+  /// Mirrors `SpinController.lockIn`, including the reason: a wheel that stops on
+  /// one place and hands over another is broken whatever the second answer was
+  /// worth.
+  void lockIn() {
+    _isLockedIn = true;
+
+    if (state case final RestaurantSpinSettled current
+        when current.isAwaitingAssistant) {
+      state = current.copyWith(isAwaitingAssistant: false);
+    }
+  }
+
   /// Asks the assistant to pick from the shortlist, and takes its answer if it
   /// arrives in time (Sprint 50).
   ///
@@ -460,6 +480,16 @@ class RestaurantSpinController extends _$RestaurantSpinController {
     // The spin may have been left, restarted, or accepted while this was in
     // flight. Anything other than the state this call was started for is a state
     // this answer is no longer about.
+    // Locked in means the reel has stopped and the reader has seen where. The
+    // answer goes, reason included — it was written about a different place.
+    if (_isLockedIn) {
+      if (state case final RestaurantSpinSettled current
+          when current.isAwaitingAssistant) {
+        state = current.copyWith(isAwaitingAssistant: false);
+      }
+      return;
+    }
+
     if (state case final RestaurantSpinSettled current
         when current.place.id == drawn.restaurant.id &&
             current.isAwaitingAssistant) {
