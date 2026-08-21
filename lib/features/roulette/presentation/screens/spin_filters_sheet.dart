@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:whats_cooking/core/domain/food_taxonomy.dart';
+import 'package:whats_cooking/core/domain/mood.dart';
 import 'package:whats_cooking/core/router/app_routes.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/utils/formatters.dart';
@@ -43,7 +44,12 @@ class SpinFiltersSheet extends ConsumerWidget {
       children: <Widget>[
         _Header(
           count: filters.chosenCount,
-          onClear: filters.hasChosen ? controller.clear : null,
+          // A mood counts as something to clear even though it counts as nothing
+          // to *relax*: it is not a constraint, but it is a choice, and a choice
+          // with no visible way back is the thing §7 rules out.
+          onClear: filters.hasChosen || filters.mood != null
+              ? controller.clear
+              : null,
         ),
         Flexible(
           child: ListView(
@@ -54,6 +60,17 @@ class SpinFiltersSheet extends ConsumerWidget {
               AppSpacing.space5,
             ),
             children: <Widget>[
+              // First, and it is the one control here that is not a filter — see
+              // `_Moods`. It leads because it is the question design_ui §12 puts
+              // under the Home headline: "Pick something based on your mood."
+              _Section(
+                title: 'In the mood for',
+                subtitle: 'Nudges what we lean towards. Never rules anything out.',
+                child: _Moods(
+                  selected: filters.mood,
+                  onSelected: controller.setMood,
+                ),
+              ),
               _Section(
                 title: 'Budget',
                 subtitle: 'A head, not per pot.',
@@ -257,6 +274,59 @@ class _ChipSet<T extends Object> extends StatelessWidget {
     );
   }
 }
+
+/// The nine moods (Sprint 36, docs/app_feature.md §15).
+///
+/// **The only control in this sheet that cannot empty the pool**, and the copy
+/// above it says so. Every other row here is a hard filter; a mood moves scores
+/// and hands the engine the same sixty meals it started with. That distinction is
+/// worth spending a line of subtitle on, because a reader who thinks "healthy"
+/// filters will not understand why they were just offered lechon.
+///
+/// One at a time, so tapping the selected one clears it. Two moods would need a
+/// rule for what "healthy and junk food" means, and there is not one — the tag
+/// sets contradict each other on purpose.
+class _Moods extends StatelessWidget {
+  const _Moods({required this.selected, required this.onSelected});
+
+  final Mood? selected;
+  final ValueChanged<Mood?> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: AppSpacing.space2,
+      runSpacing: AppSpacing.space2,
+      children: <Widget>[
+        for (final Mood mood in Mood.values)
+          AppFilterChip(
+            label: mood.label,
+            icon: _moodIcon(mood),
+            isSelected: selected == mood,
+            onSelected: (_) => onSelected(mood),
+          ),
+      ],
+    );
+  }
+}
+
+/// The glyph for each mood.
+///
+/// Here rather than on the enum because `core/domain` imports nothing but Dart —
+/// and outline icons rather than the emoji docs/app_feature.md §15 lists, because
+/// this app does not use coloured glyphs anywhere else and nine of them in a row
+/// would be the loudest thing on the screen.
+IconData _moodIcon(Mood mood) => switch (mood) {
+  Mood.comfort => Icons.soup_kitchen_outlined,
+  Mood.craving => Icons.ramen_dining_outlined,
+  Mood.healthy => Icons.eco_outlined,
+  Mood.spicy => Icons.local_fire_department_outlined,
+  Mood.junk => Icons.fastfood_outlined,
+  Mood.light => Icons.spa_outlined,
+  Mood.highProtein => Icons.fitness_center_outlined,
+  Mood.cheap => Icons.savings_outlined,
+  Mood.surpriseMe => Icons.casino_outlined,
+};
 
 /// Dietary needs, shown and locked.
 ///

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:whats_cooking/core/domain/food_preferences.dart';
 import 'package:whats_cooking/core/domain/food_taxonomy.dart';
+import 'package:whats_cooking/core/domain/mood.dart';
 import 'package:whats_cooking/core/utils/formatters.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal.dart';
 
@@ -63,6 +64,7 @@ class SpinFilters {
     this.categories = const <MealCategory>{},
     this.difficulties = const <Difficulty>{},
     this.dietaryTags = const <DietaryTag>{},
+    this.mood,
   });
 
   /// The user's settings as the starting point for every spin.
@@ -100,7 +102,23 @@ class SpinFilters {
   /// "any" would offer them a wheat-based vegetarian dish and call it a match.
   final Set<DietaryTag> dietaryTags;
 
+  /// What the household is in the mood for tonight, or null (Sprint 36).
+  ///
+  /// **Deliberately not a [SpinConstraint], and it never blocks a meal.** Every
+  /// other field here can empty the pool and therefore has to be relaxable and
+  /// nameable in the no-match sentence. A mood cannot: it moves scores, so the
+  /// pool it hands the scorer is exactly the pool it was given. Putting it in the
+  /// constraint enum would offer readers a "drop the mood" button that opens
+  /// nothing, and put it in a sentence explaining an emptiness it did not cause.
+  ///
+  /// It lives here anyway rather than in its own provider because it is a
+  /// per-spin choice made on the same sheet, cleared by the same "clear all", and
+  /// carried to the scorer alongside the budget and the time limit.
+  final Mood? mood;
+
   /// Whether [meal] survives every filter here.
+  ///
+  /// [mood] is not consulted. See its own doc for why.
   bool allows(Meal meal) => _blockers(meal).isEmpty;
 
   /// Which of these filters [meal] fails.
@@ -200,9 +218,11 @@ class SpinFilters {
     Set<Cuisine>? cuisines,
     Set<MealCategory>? categories,
     Set<Difficulty>? difficulties,
+    Mood? mood,
     Set<DietaryTag>? dietaryTags,
     bool clearBudget = false,
     bool clearTime = false,
+    bool clearMood = false,
   }) {
     return SpinFilters(
       // The explicit clear flags exist because null is a meaningful value here:
@@ -217,6 +237,7 @@ class SpinFilters {
       cuisines: cuisines ?? this.cuisines,
       categories: categories ?? this.categories,
       difficulties: difficulties ?? this.difficulties,
+      mood: clearMood ? null : (mood ?? this.mood),
       dietaryTags: dietaryTags ?? this.dietaryTags,
     );
   }
@@ -241,6 +262,7 @@ class SpinFilters {
       setEquals(other.cuisines, cuisines) &&
       setEquals(other.categories, categories) &&
       setEquals(other.difficulties, difficulties) &&
+      other.mood == mood &&
       setEquals(other.dietaryTags, dietaryTags);
 
   @override
@@ -250,6 +272,7 @@ class SpinFilters {
     Object.hashAllUnordered(cuisines),
     Object.hashAllUnordered(categories),
     Object.hashAllUnordered(difficulties),
+    mood,
     Object.hashAllUnordered(dietaryTags),
   );
 

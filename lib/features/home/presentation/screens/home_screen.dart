@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:whats_cooking/core/constants/app_constants.dart';
+import 'package:whats_cooking/core/domain/mood.dart';
 import 'package:whats_cooking/core/router/app_routes.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/utils/formatters.dart';
@@ -200,6 +201,16 @@ class _SpinPanel extends StatelessWidget {
 
   String get _filterLabel {
     final int chosen = filters.chosenCount;
+
+    // The mood leads when there is one. It is the choice that changes the
+    // *character* of what comes back rather than the size of the pool, so
+    // "Comfort food" tells a reader more about their next spin than "2 filters
+    // on" does — and a mood chosen last night and forgotten is exactly the
+    // surprise §6 exists to prevent.
+    if (filters.mood case final Mood mood) {
+      return chosen == 0 ? mood.label : '${mood.label} · $chosen';
+    }
+
     if (chosen == 0) {
       return 'Narrow it down';
     }

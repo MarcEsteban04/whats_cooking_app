@@ -63,6 +63,7 @@ final class SpinStarted extends AnalyticsEvent {
     required this.filtersApplied,
     required this.householdSize,
     required this.spinCountThisSession,
+    this.mood,
   });
 
   /// How many constraints the reader had chosen — not which ones.
@@ -86,6 +87,13 @@ final class SpinStarted extends AnalyticsEvent {
   /// different products.
   final int spinCountThisSession;
 
+  /// The mood asked for, or null (Sprint 36).
+  ///
+  /// The app's own vocabulary — `comfort`, `spicy`, `surpriseMe` — so this is not
+  /// PII, and it is the question the whole feature has to answer: whether naming
+  /// a mood makes people accept the first meal they are offered.
+  final String? mood;
+
   @override
   String get name => 'spin_started';
 
@@ -94,6 +102,7 @@ final class SpinStarted extends AnalyticsEvent {
     'filters_applied': filtersApplied,
     'household_size': householdSize,
     'spin_count': spinCountThisSession,
+    'mood': mood,
   };
 }
 

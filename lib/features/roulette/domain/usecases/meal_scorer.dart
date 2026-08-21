@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:whats_cooking/core/domain/food_taxonomy.dart';
+import 'package:whats_cooking/core/domain/mood.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal.dart';
 
 /// One reason a meal's score moved.
@@ -76,6 +77,7 @@ class ScoreWeights {
     this.cuisineVariety = 10,
     this.cookingTimeMatch = 10,
     this.recentMeal = -15,
+    this.moodMatch = 35,
     this.temperature = 25,
   });
 
@@ -107,6 +109,24 @@ class ScoreWeights {
 
   /// Eaten inside the soft window. Scaled by how recently.
   final double recentMeal;
+
+  /// It suits the mood asked for tonight (Sprint 36).
+  ///
+  /// **The heaviest single signal, above even a favourite cuisine at 30**, and
+  /// the reasoning is about what kind of statement each one is. A favourite
+  /// cuisine is a standing fact the household mentioned once; a mood is a request
+  /// made thirty seconds ago about this evening. When the two disagree — somebody
+  /// who loves Italian asking for something light — the fresher and more specific
+  /// answer should win, or the mood row is decoration.
+  ///
+  /// Applied in both directions: the same figure is subtracted from a meal the
+  /// mood argues against. That symmetry is what makes a mood legible in one spin.
+  /// Promoting three `healthy` meals out of sixty barely moves a weighted draw;
+  /// pushing the deep-fried pork down at the same time does.
+  ///
+  /// Not in docs/ARCHITECTURE.md §5.2's table, which predates the mood feature.
+  /// Recorded here rather than added silently.
+  final double moodMatch;
 
   /// **How random the roulette is.** The one number that decides whether this is
   /// a roulette or a ranking.
@@ -226,6 +246,7 @@ class ScoringContext {
     this.maxCookingTimeMinutes,
     this.settings = const RepetitionSettings(),
     this.weights = const ScoreWeights(),
+    this.mood,
   });
 
   /// Cuisines the household said it likes. A *preference*, weighted — never a
@@ -245,6 +266,17 @@ class ScoringContext {
 
   final RepetitionSettings settings;
   final ScoreWeights weights;
+
+  /// What was asked for tonight, or null (Sprint 36).
+  final Mood? mood;
+
+  /// The temperature this pass runs at.
+  ///
+  /// [Mood.surpriseMe] multiplies it, which flattens the weighted draw toward
+  /// genuine chance. Resolved here rather than inside the scoring loop so there is
+  /// exactly one place the engine's randomness is decided.
+  double get temperature =>
+      weights.temperature * (mood?.temperatureMultiplier ?? 1);
 }
 
 /// What came out of a scoring pass.
@@ -444,6 +476,97 @@ abstract final class MealScorer {
         );
       }
 
+      // --- Mood ---------------------------------------------------------------
+      //
+      // Both directions, deliberately. See `ScoreWeights.moodMatch`: promoting a
+      // handful of tagged meals barely moves a weighted draw over sixty, and
+      // pushing the contradiction down at the same time is what makes a mood
+      // readable in one spin instead of ten.
+      if (context.mood case final Mood mood) {
+        if (mood.favoursAnyOf(meal.tags)) {
+          reasons.add(
+            ScoreReason(
+              // Written as the mood's own claim about the meal rather than as
+              // "matches your mood", because this line can end up under the
+              // result as the reason it was chosen.
+              label: switch (mood) {
+                Mood.comfort => 'Proper comfort food',
+                Mood.craving => 'Exactly what you were after',
+                Mood.healthy => 'One of the healthier ones',
+                Mood.spicy => 'This one has heat',
+                Mood.junk => 'Gloriously bad for you',
+                Mood.light => 'Light on its feet',
+                Mood.highProtein => 'Plenty of protein',
+                Mood.cheap => 'Cheap as anything',
+                Mood.surpriseMe => 'Something different',
+              },
+              points: weights.moodMatch,
+            ),
+          );
+        } else if (mood.discouragesAnyOf(meal.tags)) {
+          reasons.add(
+            ScoreReason(
+              label: 'Not quite the mood',
+              points: -weights.moodMatch,
+            ),
+          );
+        }
+
+        // Calories, where the meal states them. A third of the mood's weight:
+        // it is a supporting signal, and the number is an estimate on a recipe
+        // somebody typed rather than a measurement.
+        if (mood.calories != CaloriePreference.none &&
+            (meal.calories ?? 0) > 0) {
+          final double perHead = meal.calories! / max(1, meal.servings);
+          final double lightness =
+              ((_calorieMidpoint - perHead) / _calorieMidpoint).clamp(-1.0, 1.0);
+          final double direction = mood.calories == CaloriePreference.fewer
+              ? lightness
+              : -lightness;
+
+          if (direction.abs() > 0.15) {
+            reasons.add(
+              ScoreReason(
+                label: direction > 0
+                    ? (mood.calories == CaloriePreference.fewer
+                          ? 'Lighter than most'
+                          : 'Substantial')
+                    : 'Not what you asked for',
+                points: weights.moodMatch / 3 * direction,
+              ),
+            );
+          }
+        }
+
+        // Cheap as its own signal, because somebody asking for cheap has not
+        // necessarily set a budget for the existing one to measure against.
+        if (mood.favoursLowCost) {
+          final double thrift =
+              ((_cheapPerHead - meal.costPerServing) / _cheapPerHead)
+                  .clamp(-1.0, 1.0);
+          if (thrift.abs() > 0.15) {
+            reasons.add(
+              ScoreReason(
+                label: thrift > 0 ? 'Barely costs anything' : 'On the dear side',
+                points: weights.moodMatch / 3 * thrift,
+              ),
+            );
+          }
+        }
+
+        // Novelty, for the mood that exists to widen the draw. Additive on top
+        // of the recency signal above rather than replacing it: that one asks
+        // "how stale is this", and this one asks "has it ever been on the table".
+        if (mood.favoursNovelty && daysAgo == null) {
+          reasons.add(
+            ScoreReason(
+              label: 'You have never had this',
+              points: weights.moodMatch / 2,
+            ),
+          );
+        }
+      }
+
       final double total = reasons.fold<double>(
         0,
         (double sum, ScoreReason reason) => sum + reason.points,
@@ -453,7 +576,7 @@ abstract final class MealScorer {
         ScoredMeal(
           meal: meal,
           score: total,
-          weight: _weightFor(total, weights.temperature),
+          weight: _weightFor(total, context.temperature),
           reasons: reasons,
         ),
       );
@@ -515,6 +638,21 @@ abstract final class MealScorer {
   ///
   /// Floored so nothing is unreachable, and capped so one runaway score cannot
   /// swallow the whole draw and turn the roulette into an answer.
+  /// Calories a head where a dish stops being light and starts being a meal.
+  ///
+  /// Six hundred. Roughly a third of a day for one adult, which is what the
+  /// seeded catalogue clusters around for a dinner — so it sits near the middle
+  /// of the real distribution rather than at a nutritional ideal, and the signal
+  /// separates the pool instead of condemning most of it.
+  static const double _calorieMidpoint = 600;
+
+  /// Pesos a head where a meal stops feeling cheap.
+  ///
+  /// A hundred, matching the "under ₱100" figure the Meals dashboard already
+  /// counts by — so the number the app shows and the number the engine believes
+  /// are the same one.
+  static const double _cheapPerHead = 100;
+
   static double _weightFor(double score, double temperature) {
     if (temperature <= 0) {
       // A temperature of zero would mean "always the best meal", which is a

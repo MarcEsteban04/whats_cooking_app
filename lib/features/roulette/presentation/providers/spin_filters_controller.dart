@@ -1,6 +1,7 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:whats_cooking/core/domain/food_preferences.dart';
 import 'package:whats_cooking/core/domain/food_taxonomy.dart';
+import 'package:whats_cooking/core/domain/mood.dart';
 import 'package:whats_cooking/features/profile/presentation/providers/profile_controller.dart';
 import 'package:whats_cooking/features/roulette/domain/entities/spin_filters.dart';
 
@@ -57,6 +58,14 @@ class SpinFiltersController extends _$SpinFiltersController {
   void toggleDifficulty(Difficulty difficulty) => state = state.copyWith(
     difficulties: _toggled(state.difficulties, difficulty),
   );
+
+  /// Tapping the chosen mood again clears it (Sprint 36).
+  ///
+  /// One mood at a time. Two would need a rule for what "healthy and junk food"
+  /// means, and there isn't one — the tag sets contradict each other by design.
+  void setMood(Mood? mood) => state = mood == null || state.mood == mood
+      ? state.copyWith(clearMood: true)
+      : state.copyWith(mood: mood);
 
   /// Replaces the lot — used by the no-match state's one-tap relaxation.
   void replace(SpinFilters filters) => state = filters;

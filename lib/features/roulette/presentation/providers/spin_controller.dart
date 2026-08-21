@@ -261,6 +261,7 @@ class SpinController extends _$SpinController {
     analytics.record(
       SpinStarted(
         filtersApplied: ref.read(spinFiltersProvider).chosenCount,
+        mood: ref.read(spinFiltersProvider).mood?.value,
         householdSize:
             ref
                 .read(profileControllerProvider)
@@ -491,6 +492,10 @@ class SpinController extends _$SpinController {
       settings: RepetitionSettings.fromWindowDays(
         preferences?.repetitionWindowDays,
       ),
+      // Tonight's mood (Sprint 36). From the filters rather than the profile: a
+      // mood is a statement about this evening, and storing it would make it a
+      // standing preference nobody asked for.
+      mood: filters.mood,
     );
   }
 
