@@ -395,21 +395,18 @@ class _Elsewhere extends StatelessWidget {
     return DashboardPanel(
       child: DashboardActionRow(
         actions: <DashboardAction>[
-          // Three tiles, and the count is the point.
+          // Two tiles, and the count is the point.
           //
           // This row held six and the labels truncated — "Brows e", "Recen t" —
           // which is what happens when a row is used as a drawer. Four of those
-          // six were **Meals-tab destinations that the Meals tab already lists in
-          // its own action row**: Saved, Hidden, Yours, and browsing itself, which
-          // is the tab. Duplicating them here bought nothing and cost the room
-          // that the two things with no tab actually needed.
+          // six were **Meals-tab destinations the Meals tab already lists in its
+          // own action row**: Saved, Hidden, Yours, and browsing itself, which is
+          // the tab. Eat out went the same way and further: it is a segment of the
+          // Meals tab now, because it is the other answer to the same question
+          // rather than a different place to be.
           //
-          // So this row now holds exactly what is unreachable elsewhere.
-          DashboardAction(
-            label: 'Eat out',
-            icon: AppIcons.cuisine,
-            onTap: () => context.pushNamed(AppRoute.restaurants.routeName),
-          ),
+          // What is left is what genuinely has nowhere else: the assistant, and
+          // what we ate this week.
           DashboardAction(
             label: 'Ask',
             icon: AppIcons.assistant,

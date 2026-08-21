@@ -7,6 +7,7 @@ import 'package:whats_cooking/core/router/app_routes.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/utils/formatters.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_button.dart';
+import 'package:whats_cooking/core/widgets/buttons/circle_action.dart';
 import 'package:whats_cooking/core/widgets/dashboard/dashboard.dart';
 import 'package:whats_cooking/core/widgets/feedback/app_skeleton.dart';
 import 'package:whats_cooking/core/widgets/feedback/empty_state.dart';
@@ -30,14 +31,55 @@ import 'package:whats_cooking/features/restaurants/presentation/providers/restau
 /// Reached from Home rather than being a tab. Eating out is the *other* answer to
 /// the same question, so it belongs beside the roulette, not in the navigation bar
 /// as a fifth destination.
-class RestaurantsScreen extends ConsumerStatefulWidget {
+/// The route at `/eat-out`, for deep links and for the spin screen's siblings.
+///
+/// **The primary way in is the Meals tab**, which embeds [RestaurantLibraryView]
+/// under a Cook / Eat out segment — eating out is the same decision as cooking, so
+/// it belongs in the same tab rather than in a shortcut on Home. This screen
+/// exists because `/eat-out/new`, `/eat-out/:id/edit` and `/eat-out/spin` are all
+/// children of this path, and a parent that resolves is tidier than a path that
+/// only ever 404s.
+class RestaurantsScreen extends StatelessWidget {
   const RestaurantsScreen({super.key});
 
   @override
-  ConsumerState<RestaurantsScreen> createState() => _RestaurantsScreenState();
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: context.colors.background,
+      appBar: AppBar(
+        backgroundColor: context.colors.background,
+        surfaceTintColor: Colors.transparent,
+        leading: IconButton(
+          icon: const Icon(AppIcons.back),
+          onPressed: () => context.pop(),
+          tooltip: 'Back',
+        ),
+        title: const Text('Eat out'),
+      ),
+      body: const SafeArea(top: false, child: RestaurantLibraryView()),
+    );
+  }
 }
 
-class _RestaurantsScreenState extends ConsumerState<RestaurantsScreen> {
+/// The restaurant library, without a Scaffold of its own.
+///
+/// Extracted so the Meals tab and the `/eat-out` route render the *same* screen
+/// rather than two that drift. [aboveContent] is the slot the Meals tab puts its
+/// Cook / Eat out segment into, so the switch sits with the content it switches
+/// rather than floating above it in a bar of its own.
+class RestaurantLibraryView extends ConsumerStatefulWidget {
+  const RestaurantLibraryView({this.aboveContent, super.key});
+
+  /// Rendered between the header and the panel. Null on the standalone route.
+  final Widget? aboveContent;
+
+  @override
+  ConsumerState<RestaurantLibraryView> createState() =>
+      _RestaurantLibraryViewState();
+}
+
+class _RestaurantLibraryViewState
+    extends ConsumerState<RestaurantLibraryView> {
   /// Narrowed to one distance, or null for all of them.
   Proximity? _proximity;
 
@@ -57,44 +99,43 @@ class _RestaurantsScreenState extends ConsumerState<RestaurantsScreen> {
               .where((Restaurant place) => place.proximity == _proximity)
               .toList();
 
-    return Scaffold(
-      backgroundColor: context.colors.background,
-      appBar: AppBar(
-        backgroundColor: context.colors.background,
-        surfaceTintColor: Colors.transparent,
-        leading: IconButton(
-          icon: const Icon(AppIcons.back),
-          onPressed: () => context.pop(),
-          tooltip: 'Back',
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(
+          maxWidth: AppLayout.contentMaxWidth,
         ),
-        title: const Text('Eat out'),
-        actions: <Widget>[
-          IconButton(
-            icon: const Icon(AppIcons.add),
-            tooltip: 'Add a place',
-            onPressed: () =>
-                context.pushNamed(AppRoute.restaurantCreate.routeName),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        top: false,
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: AppLayout.contentMaxWidth,
+        child: RefreshIndicator(
+          onRefresh: controller.refresh,
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(
+              AppLayout.screenMargin,
+              AppSpacing.space4,
+              AppLayout.screenMargin,
+              AppLayout.scrollBottomPadding,
             ),
-            child: RefreshIndicator(
-              onRefresh: controller.refresh,
-              child: ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(
-                  AppLayout.screenMargin,
-                  AppSpacing.space4,
-                  AppLayout.screenMargin,
-                  AppLayout.scrollBottomPadding,
-                ),
-                children: <Widget>[
+            children: <Widget>[
+              // The dashboard header, matching every other tab — this view is
+              // embedded in one now, so an AppBar here would be a second title
+              // bar under the first.
+              DashboardHeader(
+                title: 'Eat out',
+                subtitle: _subtitle(all),
+                actions: <Widget>[
+                  AppCircleAction(
+                    icon: AppIcons.add,
+                    label: 'Add a place',
+                    onTap: () => context.pushNamed(
+                      AppRoute.restaurantCreate.routeName,
+                    ),
+                  ),
+                ],
+              ),
+              if (widget.aboveContent case final Widget above) ...<Widget>[
+                const SizedBox(height: AppSpacing.space4),
+                above,
+              ],
+              const SizedBox(height: AppSpacing.space5),
                   switch (places) {
                     AsyncError<List<Restaurant>>(:final Object error) =>
                       ErrorState(
@@ -121,15 +162,24 @@ class _RestaurantsScreenState extends ConsumerState<RestaurantsScreen> {
                                     : picked,
                               ),
                             ),
-                    _ => const _Loading(),
-                  },
-                ],
-              ),
-            ),
+                _ => const _Loading(),
+              },
+            ],
           ),
         ),
       ),
     );
+  }
+
+  /// The context line under the title.
+  String _subtitle(List<Restaurant> all) {
+    if (all.isEmpty) {
+      return 'nowhere yet';
+    }
+    if (_proximity case final Proximity limit) {
+      return 'within ${limit.phrase}';
+    }
+    return '${all.length} ${all.length == 1 ? 'place' : 'places'} we go';
   }
 }
 

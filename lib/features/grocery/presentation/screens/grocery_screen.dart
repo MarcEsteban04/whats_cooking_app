@@ -8,6 +8,7 @@ import 'package:whats_cooking/core/router/app_routes.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/utils/app_haptics.dart';
 import 'package:whats_cooking/core/utils/formatters.dart';
+import 'package:whats_cooking/core/widgets/buttons/circle_action.dart';
 import 'package:whats_cooking/core/widgets/dashboard/dashboard.dart';
 import 'package:whats_cooking/core/widgets/feedback/app_skeleton.dart';
 import 'package:whats_cooking/core/widgets/feedback/empty_state.dart';
@@ -70,7 +71,7 @@ class GroceryScreen extends ConsumerWidget {
                           title: 'Shopping',
                           subtitle: _subtitle(list.value),
                           actions: <Widget>[
-                            _CircleAction(
+                            AppCircleAction(
                               icon: AppIcons.add,
                               label: 'Add something to buy',
                               onTap: () => context.pushNamed(
@@ -509,45 +510,6 @@ class _Loading extends StatelessWidget {
   static const double _figureHeight = 40;
   static const double _barHeight = 28;
   static const int _rows = 6;
-}
-
-/// A circular header action, matching the other tabs'.
-class _CircleAction extends StatelessWidget {
-  const _CircleAction({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final AppColorScheme colors = context.colors;
-
-    return PressFeedback(
-      onTap: onTap,
-      semanticLabel: label,
-      expandTouchTarget: false,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: colors.surface,
-          shape: BoxShape.circle,
-          boxShadow: context.shadows.sm,
-        ),
-        child: SizedBox.square(
-          dimension: _size,
-          child: Center(
-            child: Icon(icon, size: AppIconSize.sm, color: colors.textPrimary),
-          ),
-        ),
-      ),
-    );
-  }
-
-  static const double _size = 40;
 }
 
 /// The glyph for each aisle.

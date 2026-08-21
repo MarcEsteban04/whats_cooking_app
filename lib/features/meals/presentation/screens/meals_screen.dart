@@ -21,6 +21,7 @@ import 'package:whats_cooking/features/meals/presentation/providers/meals_contro
 import 'package:whats_cooking/features/meals/presentation/widgets/meal_table_row.dart';
 import 'package:whats_cooking/features/pantry/domain/entities/pantry_match.dart';
 import 'package:whats_cooking/features/pantry/presentation/providers/pantry_controller.dart';
+import 'package:whats_cooking/features/restaurants/presentation/screens/restaurants_screen.dart';
 
 /// The Meals tab, built in the dashboard language of
 /// `docs/reference_design/dashboards_ref.webp`.
@@ -53,6 +54,27 @@ import 'package:whats_cooking/features/pantry/presentation/providers/pantry_cont
 /// What is *not* borrowed: the donut, the cohort heatmap and the time series.
 /// A meal list has no time axis and no segments to divide, and drawing one
 /// anyway would be the reference's shape without its meaning.
+/// Which library the Meals tab is showing (Sprint 47b).
+enum MealsLibrary {
+  cook('Cook'),
+  eatOut('Eat out');
+
+  const MealsLibrary(this.label);
+
+  final String label;
+}
+
+/// The Meals tab: **one tab, two libraries** (Sprint 47b).
+///
+/// Eating out used to be a shortcut on Home. It is a segment here instead,
+/// because it is not a different *place* — it is the other answer to the same
+/// question, and the food we know about is the food we know about whether we cook
+/// it or go to it. A tab called Meals that excludes half of what a household eats
+/// was a filing decision pretending to be a product one.
+///
+/// The segment sits **inside** the scroll view rather than in a fixed bar, so it
+/// travels with the content it switches. A control pinned above a scrolling header
+/// reads as chrome; one under the header reads as part of the screen.
 class MealsScreen extends ConsumerStatefulWidget {
   const MealsScreen({this.autofocusSearch = false, super.key});
 
@@ -65,6 +87,20 @@ class MealsScreen extends ConsumerStatefulWidget {
 }
 
 class _MealsScreenState extends ConsumerState<MealsScreen> {
+  MealsLibrary _library = MealsLibrary.cook;
+
+  /// The switch, handed to whichever library is showing so it can place it under
+  /// its own header.
+  Widget get _switcher => AppSegmentedControl<MealsLibrary>(
+    selected: _library,
+    options: <(MealsLibrary, String)>[
+      for (final MealsLibrary option in MealsLibrary.values)
+        (option, option.label),
+    ],
+    onSelected: (MealsLibrary picked) =>
+        setState(() => _library = picked),
+  );
+
   final ScrollController _scroll = ScrollController();
   bool _isSearching = false;
 
@@ -109,6 +145,16 @@ class _MealsScreenState extends ConsumerState<MealsScreen> {
     // current query while the next page is in flight. Blanking the control you
     // just used is how a fast filter starts to feel slow.
     final MealFeed? current = feed.value;
+
+    if (_library == MealsLibrary.eatOut) {
+      return Scaffold(
+        backgroundColor: context.colors.background,
+        body: SafeArea(
+          bottom: false,
+          child: RestaurantLibraryView(aboveContent: _switcher),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: context.colors.background,
@@ -173,6 +219,9 @@ class _MealsScreenState extends ConsumerState<MealsScreen> {
                             ),
                           ],
                         ),
+                        const SizedBox(height: AppSpacing.space4),
+                        _switcher,
+
                         if (_isSearching) ...<Widget>[
                           const SizedBox(height: AppSpacing.space4),
                           SearchField(
