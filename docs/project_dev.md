@@ -1,1570 +1,533 @@
-# What's Cooking? — 70-Sprint Development Roadmap
+# What's Cooking? — Development Roadmap
 
-> **Complete development roadmap from project initialization to production deployment.**
+> **A private app for one household of two. Rescoped at Sprint 37.**
 
-This document defines the full development plan for **What's Cooking?**, a Flutter + Supabase application that helps couples, households, and individuals decide what to eat.
+This document was a 70-sprint plan for a product with users, a store listing, a
+freemium tier and a couple-mode feature set. It is not that any more.
 
-The project is divided into **70 sprints**, progressing from planning and architecture through development, testing, beta release, and production deployment.
-
----
-
-# 📋 Project Overview
-
-**App:** What's Cooking?
-**Platform:** Mobile
-**Frontend:** Flutter / Dart
-**Backend:** Supabase / PostgreSQL
-**Authentication:** Supabase Auth
-**Storage:** Supabase Storage
-**Realtime:** Supabase Realtime
-**Server Logic:** Supabase Edge Functions
-**State Management:** Riverpod
-**Navigation:** GoRouter
-**Version Control:** Git + GitHub
+**What's Cooking? is for Marc and his girlfriend.** Two accounts, one shared
+kitchen, two phones. Nothing to launch, nobody to acquire, no retention to
+engineer. Six features are wanted; everything else has been cut.
 
 ---
 
-# 🎯 Development Goals
+# 📌 Why the numbering does not restart
 
-The development process should prioritize:
+Sprints 01–36 are **done and shipped**, and hundreds of code comments, doc
+references and commit messages cite them by number — `Sprint 33`'s scoring engine,
+`Sprint 25`'s dislike exclusion, `Sprint 32`'s repetition window. Renumbering
+history to make the new plan tidy would silently invalidate every one of those.
 
-* A fast and intuitive meal-decision experience.
-* A fun roulette/randomization system.
-* Couple and household collaboration.
-* Personalized recommendations.
-* Pantry and grocery management.
-* Meal planning.
-* Budget awareness.
-* Reliable synchronization.
-* Strong security.
-* Excellent performance.
-* Production-ready architecture.
-
-The core experience should always remain:
-
-> **Open → Choose preferences → Spin → Decide → Eat**
+So the history stays where it is, compressed into one table, and the new plan
+continues from **Sprint 37**. The roadmap is now **52 sprints**, not 70 — sixteen
+remain.
 
 ---
 
-# 🗺️ Development Phases
+# 🎯 The Six Features
 
-| Phase | Sprints | Focus                            |
-| ----- | ------: | -------------------------------- |
-| 1     |   01–05 | Planning & Product Architecture  |
-| 2     |   06–10 | Flutter Foundation               |
-| 3     |   11–15 | Supabase Backend                 |
-| 4     |   16–20 | Authentication & Onboarding      |
-| 5     |   21–27 | Meal System                      |
-| 6     |   28–34 | Roulette & Recommendation Engine |
-| 7     |   35–40 | Personalization                  |
-| 8     |   41–47 | Couple Mode                      |
-| 9     |   48–53 | Pantry & Grocery                 |
-| 10    |   54–58 | Meal Planning                    |
-| 11    |   59–63 | AI Features                      |
-| 12    |   64–66 | Testing & Optimization           |
-| 13    |   67–68 | Beta Release                     |
-| 14    |   69–70 | Production Deployment            |
+| # | Feature | State |
+| - | ------- | ----- |
+| 1 | **Meal roulette** (our own meals) | Built, Sprints 28–36 |
+| 2 | **Meals** (library, ours to write) | Built, Sprints 21–27 |
+| 3 | **Pantry** | Not built |
+| 4 | **Grocery** | Not built |
+| 5 | **AI** | Backend built (Sprint 59 work, done early); no UI |
+| 6 | **Restaurant roulette** (our own list) | Not built |
+
+The core experience stays:
+
+> **Open → Narrow it down → Spin → Decide → Eat**
 
 ---
 
-# PHASE 1 — Planning & Product Architecture
+# ✂️ Cut
 
-## Sprint 01 — Project Initialization
+Removed from the plan, with the reason, so each is a decision rather than
+something that quietly never happened.
 
-### Objectives
+| Cut | Was | Why |
+| --- | --- | --- |
+| **Couple Mode** | Phase 8, Sprints 41–47 | No partner to invite twice, no compatibility score worth computing, no "can't agree" voting round — two people in a kitchen can talk. What survives is **Sprint 38**: one shared household so both phones see the same pantry, grocery list and history. |
+| **Meal Planning** | Phase 10, Sprints 54–58 | We decide at seven in the evening. A weekly planner is the opposite of a roulette, and the roulette is the product. |
+| **Personalization phase** | Sprints 37–40 as written | Budget intelligence, variety engine and preference learning were designed for a large catalogue and an unknown user. Over a library we curated ourselves, "learn what you like" is largely answered by the fact that we added it. Variety and repetition already ship (Sprints 32–33). |
+| **Beta Release** | Phase 13, Sprints 67–68 | No alpha group, no closed beta, no bug backlog triage across testers. Two people find the bugs by using it. |
+| **Store deployment** | Phase 14, Sprints 69–70 | No Play listing, no App Store review, no screenshots, no privacy policy, no store description. Replaced by **Sprint 52**: release builds installed on two phones. |
+| **Gamification, statistics, notifications, monetization** | app_feature §16–18 | Retention and revenue mechanics for a product that has neither problem. |
+| **Cooking mode** | app_feature §10 | Step-by-step recipe walkthrough. Genuinely nice, genuinely not one of the six. Listed so it is on the record. |
+| **Restaurant discovery** | Future Features | No maps, no ratings API, no location search. Sprint 45 is a list we write. |
 
-Establish the project and development workflow.
+**Not cut: security.** Row Level Security, the service-role assertion, the AI-key
+assertion and the query-side exclusions all stay. Supabase is on the public
+internet whether it has two users or two million.
 
-### Tasks
-
-* Create GitHub repository.
-* Initialize Flutter project.
-* Define project name and package identifiers.
-* Create initial README.
-* Configure `.gitignore`.
-* Establish Git branching strategy.
-* Create development, staging, and production environments.
-* Define project coding standards.
-
-### Deliverables
-
-* Working Flutter project.
-* GitHub repository.
-* Initial project documentation.
-
----
-
-## Sprint 02 — Product Requirements
-
-### Objectives
-
-Define exactly what the application needs to accomplish.
-
-### Tasks
-
-Document:
-
-* Target users.
-* Core problem.
-* Core value proposition.
-* MVP features.
-* Future features.
-* User stories.
-* Success metrics.
-* Non-goals.
-
-### Deliverables
-
-* Product requirements document.
-* MVP scope.
+**Also not cut: Sprint 66.** Performance, RLS verification and the stale test
+suite become Sprint 51. Two users is a reason to skip a beta programme, not a
+reason to ship something broken to the two people who have to live with it.
 
 ---
 
-## Sprint 03 — User Flows
+# 🗺️ Phases
 
-### Objectives
-
-Map the major application journeys.
-
-### Tasks
-
-Design flows for:
-
-* First launch.
-* Registration.
-* Login.
-* Onboarding.
-* Home.
-* Meal discovery.
-* Roulette.
-* Meal acceptance.
-* Meal history.
-* Favorites.
-* Pantry.
-* Grocery list.
-* Couple mode.
-* Meal planning.
-* Profile.
-
-### Deliverables
-
-* User-flow documentation.
-* Navigation map.
+| Phase | Sprints | Focus | State |
+| ----- | ------: | ----- | ----- |
+| 1 | 01–05 | Planning & Product Architecture | ✅ Done |
+| 2 | 06–10 | Flutter Foundation | ✅ Done |
+| 3 | 11–15 | Supabase Backend | ✅ Done |
+| 4 | 16–20 | Authentication & Onboarding | ✅ Done |
+| 5 | 21–27 | Meal System | ✅ Done |
+| 6 | 28–36 | Roulette, Recommendations & Mood | ✅ Done |
+| 7 | 37–38 | Our Library, Our Kitchen | ▶ Next |
+| 8 | 39–41 | Pantry | |
+| 9 | 42–44 | Grocery | |
+| 10 | 45–46 | Restaurant Roulette | |
+| 11 | 47–50 | AI | |
+| 12 | 51–52 | Hardening & Two Phones | |
 
 ---
 
-## Sprint 04 — UI/UX Design System
+# ✅ Sprints 01–36 — Shipped
 
-### Objectives
+Kept as the record. Code and commits reference these numbers.
 
-Create a consistent visual language.
-
-### Tasks
-
-Define:
-
-* Colors.
-* Typography.
-* Spacing.
-* Border radius.
-* Icons.
-* Buttons.
-* Cards.
-* Bottom navigation.
-* Dialogs.
-* Bottom sheets.
-* Loading states.
-* Empty states.
-* Error states.
-
-### Deliverables
-
-* UI design system.
-* Reusable component specifications.
-
----
-
-## Sprint 05 — Technical Architecture
-
-### Objectives
-
-Finalize the application's technical architecture.
-
-### Tasks
-
-Define:
-
-* Flutter architecture.
-* Feature-based folder structure.
-* State management strategy.
-* Repository pattern.
-* Supabase architecture.
-* Database relationships.
-* Authentication architecture.
-* Security model.
-* API/Edge Function strategy.
-
-### Deliverables
-
-* Technical architecture document.
-* Database ERD.
-* Initial development conventions.
+| Sprint | Delivered |
+| -----: | --------- |
+| 01 | Project initialization, repo, environments, coding standards |
+| 02 | Product requirements, MVP scope |
+| 03 | User flows, navigation map |
+| 04 | Design system — colour, type, spacing, radius, icons, components |
+| 05 | Technical architecture, database ERD, conventions |
+| 06 | Feature-based folder structure; Riverpod, GoRouter, codegen |
+| 07 | Material 3 light and dark themes, typography, spacing tokens |
+| 08 | Reusable components — buttons, fields, cards, chips, states, sheets |
+| 09 | Routing, shell, auth guards |
+| 10 | Environment config, logging, error handling, network abstraction |
+| 11 | Supabase project, SDK wiring, connectivity |
+| 12 | Core tables — profiles, households, members, meals, ingredients |
+| 13 | Meal relationships — meal_ingredients, favourites, dislikes, history |
+| 14 | Pantry and grocery tables |
+| 15 | Row Level Security across every table |
+| 16 | Auth screens — welcome, login, register, forgot, reset |
+| 17 | Supabase auth, session persistence, recovery, error mapping |
+| 18 | Onboarding (social auth cancelled; see docs/MVP_SCOPE.md §7) |
+| 19 | *Folded into 18. Left vacant rather than renumbered.* |
+| 20 | Profile — avatar, display name, preferences, account settings |
+| 21 | The 60-meal starting catalogue |
+| 22 | Meal feed — search, categories, filters, sort, pagination |
+| 23 | Meal detail screen |
+| 24 | Favourites |
+| 25 | Disliked meals, excluded in the query |
+| 26 | Custom meals — write our own |
+| 27 | Meal system optimisation — indexes, caching, offline states |
+| 28 | Roulette UI — the reel, the reveal, try again |
+| 29 | Basic randomiser |
+| 30 | Roulette filters — budget, cuisine, category, time, difficulty, type |
+| 31 | Meal history integration |
+| 32 | Repetition prevention, configurable window |
+| 33 | Weighted recommendation engine — scores become likelihoods |
+| 34 | Roulette polish — anticipation, haptics, states, analytics |
+| 35 | Preference engine; disliked *ingredients* finally excluded |
+| 36 | Mood-based recommendations — nine moods as a bias |
 
 ---
 
-# PHASE 2 — Flutter Foundation
+# PHASE 7 — Our Library, Our Kitchen
 
-## Sprint 06 — Flutter Project Structure
+## Sprint 37 — Our Meals First
 
-### Tasks
+The roulette currently spins over sixty meals somebody else chose. The point of
+this app is that it spins over ours.
 
-Create:
+Implement:
+
+* A **"ours only"** switch on the spin, so the pool can be restricted to meals
+  this household wrote.
+* A **weighting** for our own meals when the switch is off, so a meal we bothered
+  to type in outranks a catalogue entry we have never cooked.
+* **Add a meal from the spin screen** — the no-match state's best answer is often
+  "because we have not told it about the thing we actually cook".
+* Make the Meals screen's **"Yours"** count the primary figure it leads with.
+
+The bundled catalogue stays. It is what makes the app usable before the library
+fills up, and it is what "Surprise me" needs in order to surprise.
+
+---
+
+## Sprint 38 — Two Phones, One Kitchen
+
+Everything shared, nothing ceremonial. This is what remains of Couple Mode.
+
+Implement:
+
+* **One household**, created on first run.
+* **Join by code**, once — the second account joins the first's household.
+* Shared: **meal history, pantry, grocery, restaurants, custom meals**.
+* Private: **favourites, hidden meals, dietary needs, avoided foods**. A partner
+  seeing what you dislike is a social cost with no product benefit; the engine
+  reads both server-side regardless.
+* Household name and members on the profile screen.
+
+Explicitly **not** built: invitation management, roles beyond owner/member,
+compatibility scores, voting rounds, per-partner preference merging.
+
+---
+
+# PHASE 8 — Pantry
+
+## Sprint 39 — Pantry
+
+Implement:
+
+* Add and remove ingredients.
+* Quantity and unit.
+* Search against the shared ingredient vocabulary.
+* Categories.
+* Shared across both phones.
+
+---
+
+## Sprint 40 — Expiry
+
+Implement:
+
+* Expiry dates, optional.
+* An expiring-soon indicator.
+* Expired items called out rather than silently ignored.
+* Home surfacing what needs using tonight.
+
+Staples — salt, oil, rice — are marked as such and never expire in the app's
+opinion.
+
+---
+
+## Sprint 41 — Cook From What We Have
+
+The pantry earns its keep here.
 
 ```text
-lib/
-├── core/
-│   ├── constants/
-│   ├── errors/
-│   ├── extensions/
-│   ├── network/
-│   ├── router/
-│   ├── theme/
-│   └── utils/
-│
-├── features/
-│   ├── auth/
-│   ├── onboarding/
-│   ├── home/
-│   ├── meals/
-│   ├── roulette/
-│   ├── couple/
-│   ├── pantry/
-│   ├── grocery/
-│   ├── planner/
-│   ├── history/
-│   ├── ai/
-│   └── profile/
-│
-└── main.dart
+Pantry
+   ↓
+Compare against meals
+   ↓
+Match %
+   ↓
+Weight the roulette
 ```
 
-Configure:
+Implement:
 
-* Riverpod.
-* GoRouter.
-* Freezed.
-* JSON serialization.
-
----
-
-## Sprint 07 — Theme Implementation
-
-### Tasks
-
-* Implement Material 3.
-* Create light theme.
-* Create dark theme.
-* Create typography system.
-* Create spacing constants.
-* Create reusable button styles.
-* Create card styles.
-* Create input styles.
+* Ingredient match percentage per meal, ignoring staples — without that
+  exclusion every meal caps near 80% and the number stops meaning anything.
+* **The `ingredientMatch` weight (+20) the scorer has been declaring and not
+  applying since Sprint 33.**
+* "Everything but the bay leaves" on the result, naming what is short.
+* A meals-screen filter for what we can cook right now.
 
 ---
 
-## Sprint 08 — Reusable UI Components
+# PHASE 9 — Grocery
 
-Build reusable components:
-
-* AppButton.
-* AppTextField.
-* MealCard.
-* CuisineChip.
-* FilterChip.
-* LoadingIndicator.
-* EmptyState.
-* ErrorState.
-* ConfirmationDialog.
-* AppBottomSheet.
-
----
-
-## Sprint 09 — Navigation
+## Sprint 42 — Grocery Lists
 
 Implement:
 
-* Splash route.
-* Auth routes.
-* Onboarding routes.
-* Main application shell.
-* Home.
-* Meals.
-* Pantry.
-* Grocery.
-* Planner.
-* Couple.
-* Profile.
-
-Add authentication-based route guards.
+* Create a list.
+* Add, edit, delete an item.
+* Check an item off.
+* Clear completed.
+* Quantities and units.
 
 ---
 
-## Sprint 10 — Application Infrastructure
+## Sprint 43 — From A Meal
 
-Implement:
+```text
+Accepted meal
+      ↓
+Required ingredients
+      ↓
+Compare pantry
+      ↓
+Missing only
+      ↓
+Grocery list
+```
 
-* Environment configuration.
-* Logging.
-* Error handling.
-* App constants.
-* Network abstraction.
-* Repository interfaces.
-* Service layer.
-* Global exception handling.
-
----
-
-# PHASE 3 — Supabase Backend
-
-## Sprint 11 — Supabase Setup
-
-### Tasks
-
-* Create Supabase project.
-* Configure Flutter Supabase SDK.
-* Configure environment variables.
-* Connect Flutter to Supabase.
-* Test database connectivity.
+Duplicates combine. Two meals wanting chicken produce one line for 1.5 kg, not
+two lines to puzzle over in an aisle.
 
 ---
 
-## Sprint 12 — Core Database
+## Sprint 44 — Live Sync
 
-Create:
+Supabase Realtime on the grocery list, and **only** the grocery list.
 
-* `profiles`
-* `households`
-* `household_members`
-* `meals`
-* `ingredients`
+This is the one place realtime is worth its complexity: one of us is standing in
+the shop and the other is at home remembering something.
 
-Add:
+> Partner A checks ☑ Chicken → Partner B sees ☑ Chicken
 
-* Primary keys.
-* Foreign keys.
-* Constraints.
-* Timestamps.
-* Indexes.
+Everything else stays on refresh-and-invalidate. Realtime subscriptions on
+favourites and history would be plumbing for a problem two people who live
+together do not have.
 
 ---
 
-## Sprint 13 — Meal Database Relationships
+# PHASE 10 — Restaurant Roulette
 
-Create:
+## Sprint 45 — The Restaurant List
 
-* `meal_ingredients`
-* `favorite_meals`
-* `disliked_meals`
-* `meal_history`
+Our own list. No discovery layer, no maps, no ratings API.
 
-Implement relationships between meals and ingredients.
-
----
-
-## Sprint 14 — Pantry & Grocery Database
-
-Create:
-
-* `pantry_items`
-* `grocery_lists`
-* `grocery_items`
-
-Add household relationships.
-
----
-
-## Sprint 15 — Security & RLS
-
-Implement Row Level Security.
-
-Ensure users can only access:
-
-* Their own profile.
-* Their own preferences.
-* Their household data.
-* Their own private information.
-
-Test unauthorized access attempts.
-
----
-
-# PHASE 4 — Authentication & Onboarding
-
-## Sprint 16 — Authentication Screens
-
-Build:
-
-* Welcome.
-* Login.
-* Registration.
-* Forgot password.
-* Reset password.
-
----
-
-## Sprint 17 — Supabase Authentication
-
-Implement:
-
-* Session persistence.
-* Authentication state.
-* Login.
-* Registration.
-* Logout.
-* Password recovery.
-* Auth error handling.
-
----
-
-## Sprint 18 — Onboarding
-
-**Social Authentication was cancelled here** — see docs/MVP_SCOPE.md §7. Onboarding
-moved forward into this slot. Numbering from Sprint 20 is unchanged, so every other
-reference in this document still holds.
-
-Create onboarding questions for:
+Table and screens for:
 
 * Name.
-* Favorite cuisines.
-* Disliked foods.
-* Dietary preferences.
-* Cooking preferences.
-* Default budget.
-* Maximum cooking time.
-
----
-
-## Sprint 19 — *(folded into Sprint 18)*
-
-Vacated by the change above. Left in place rather than renumbered.
-
----
-
-## Sprint 20 — Profile
-
-Implement:
-
-* Profile information.
-* Avatar.
-* Display name.
-* Food preferences.
-* Budget.
-* Cooking preferences.
-* Dietary settings.
-* Account settings.
-
----
-
-# PHASE 5 — Meal System
-
-## Sprint 21 — Initial Meal Database
-
-Create the initial meal catalog.
-
-Categories should include:
-
-* Filipino.
-* Japanese.
-* Korean.
-* Chinese.
-* Italian.
-* Mexican.
-* American.
-* Breakfast.
-* Lunch.
-* Dinner.
-* Snacks.
-* Desserts.
-
----
-
-## Sprint 22 — Meal Discovery
-
-Implement:
-
-* Meal feed.
-* Search.
-* Categories.
-* Cuisine filters.
-* Sorting.
-* Pagination.
-
----
-
-## Sprint 23 — Meal Details
-
-Implement meal detail screen displaying:
-
-* Image.
-* Description.
 * Cuisine.
-* Category.
-* Ingredients.
-* Estimated cost.
-* Cooking time.
-* Difficulty.
-* Servings.
-* Instructions.
+* Cost a head.
+* Proximity as **walk / short ride / worth the trip**, not kilometres — the
+  distinction we actually make, and it needs no location permission.
+* Whether it delivers.
+* Notes, and what we order there.
+* Tags, so moods work here too.
+
+Add, edit, delete, favourite, hide — the same verbs as meals, because it is the
+same job.
 
 ---
 
-## Sprint 24 — Favorites
+## Sprint 46 — Spin For Restaurants
+
+The second roulette, reusing the first.
 
 Implement:
 
-* Add favorite.
-* Remove favorite.
-* Favorites screen.
-* Favorite synchronization.
+* The same reel, the same haptics, the same reveal.
+* Filters: budget a head, cuisine, proximity, delivers, mood.
+* Its own **repetition window**, so we are not sent to the same place twice in a
+  week.
+* Its own history, and its own accepted-decision record.
+* An entry point that makes the choice plainly: **cook something, or eat out.**
+
+The scoring engine is shared. A restaurant scores on budget, cuisine preference,
+variety, favourites and recency exactly as a meal does — the signals are the same
+and only the pool changes.
 
 ---
 
-## Sprint 25 — Disliked Meals
+# PHASE 11 — AI
+
+The Edge Function, the three-provider failover chain, rate limiting and usage
+tracking are **already deployed** (built ahead of schedule during Sprint 34's
+window). What is missing is everything a person can see.
+
+## Sprint 47 — Ask In Words
+
+The assistant screen.
+
+> "What can we cook tonight?"
+
+> "We only have chicken and eggs."
+
+> "Something cheap, under 20 minutes."
 
 Implement:
 
-* Dislike.
-* Remove dislike.
-* Disliked meals management.
-* Recommendation exclusion.
+* Conversation UI with streaming where the provider supports it.
+* Context assembly — pantry, budget, dietary needs, avoided foods, recent meals.
+* Answers that name a meal **from our library**, or say honestly that nothing
+  fits rather than inventing one.
+* Rate-limit and provider-failure states that read as sentences, not error codes.
 
 ---
 
-## Sprint 26 — Custom Meals
+## Sprint 48 — Generate A Recipe
 
-Allow users to create their own meals.
+> "Make something from chicken, eggs and rice."
 
-Support:
+Out: name, ingredients with quantities, instructions, cooking time, estimated
+cost.
 
-* Name.
-* Description.
-* Ingredients.
-* Instructions.
-* Cost.
-* Cooking time.
-* Category.
-* Image.
+**Saveable to our library**, which is how the library grows without typing — and
+the reason this ranks above the fridge scanner.
 
 ---
 
-## Sprint 27 — Meal System Optimization
-
-Improve:
-
-* Search performance.
-* Database indexes.
-* Pagination.
-* Caching.
-* Image loading.
-* Offline-friendly states.
-
----
-
-# PHASE 6 — Roulette & Recommendation Engine
-
-## Sprint 28 — Roulette UI
-
-Build the signature **What's Cooking?** interaction.
+## Sprint 49 — Read The Fridge
 
 Implement:
 
-* Spin button.
-* Animation.
-* Meal cycling.
-* Suspense effect.
-* Result reveal.
-* Try Again button.
+* Image capture and upload.
+* Vision analysis.
+* Detected ingredients presented **for confirmation**, never inserted silently.
+* Correction before anything is written.
+
+Image recognition is wrong often enough that trusting it would poison the pantry,
+and a poisoned pantry poisons the roulette.
 
 ---
 
-## Sprint 29 — Basic Randomizer
+## Sprint 50 — AI Personalization
 
-Implement basic randomized meal selection.
+Feed the assistant everything the app knows: history, preferences, budget,
+pantry, the restaurant list, and previous conversations.
 
-Requirements:
-
-* Random selection.
-* Exclude disliked meals.
-* Exclude unavailable meals.
-* Support custom meals.
+Bounded deliberately. Context is tokens and tokens are money, so what goes in is
+chosen rather than dumped.
 
 ---
 
-## Sprint 30 — Roulette Filters
+# PHASE 12 — Hardening & Two Phones
 
-Add:
+## Sprint 51 — Make It Solid
 
-* Budget.
-* Cuisine.
-* Category.
-* Cooking time.
-* Difficulty.
-* Meal type.
+The sprint that used to be a beta programme.
 
----
-
-## Sprint 31 — Meal History Integration
-
-When a meal is accepted:
-
-```text
-Roulette
-    ↓
-Accepted Meal
-    ↓
-Meal History
-    ↓
-Recommendation Engine
-```
-
-Store:
-
-* Meal.
-* Date.
-* Time.
-* Meal type.
-* Estimated/actual cost.
-* Household.
+* **Fix the stale test suite.** Roughly a dozen assertions have been wrong since
+  the card and filter redesigns. It compiles and lies, which is worse than
+  failing.
+* **Widget tests for the dashboard components under a `ListView`** — the gap that
+  let an unbounded-height bug ship three times.
+* Verify every RLS policy, including the negative cases.
+* Query performance and index review.
+* Slow-network and offline behaviour.
+* Memory and animation performance on the two real devices.
+* Confirm no service-role key and no AI provider key reach the client.
 
 ---
 
-## Sprint 32 — Repetition Prevention
-
-Implement:
-
-* Recently eaten detection.
-* Repeat penalties.
-* Variety rules.
-* Recent cuisine penalties.
-* Configurable repetition window.
-
----
-
-## Sprint 33 — Weighted Recommendation Engine
-
-Create the first intelligent scoring system.
-
-Example:
-
-```text
-Preference Match        +30
-Budget Match            +20
-Ingredient Match        +20
-Partner Compatibility   +25
-Favorite Meal           +15
-Cuisine Variety         +10
-Cooking Time Match      +10
-Recent Meal             -15
-Disliked Meal           -100
-```
-
-The engine should still preserve randomness.
-
----
-
-## Sprint 34 — Roulette Polish
-
-Improve:
-
-* Animation quality.
-* Haptic feedback.
-* Loading states.
-* Error states.
-* Result transitions.
-* Meal acceptance flow.
-* Analytics events.
-
-The roulette should feel like the application's signature feature.
-
----
-
-# PHASE 7 — Personalization
-
-## Sprint 35 — Preference Engine
-
-Implement:
-
-* Favorite cuisines.
-* Disliked ingredients.
-* Dietary preferences.
-* Cooking preferences.
-* Budget preferences.
-* Time preferences.
-
----
-
-## Sprint 36 — Mood-Based Recommendations
-
-Add:
-
-* Comfort food.
-* Craving.
-* Healthy.
-* Spicy.
-* Junk food.
-* Light meal.
-* High protein.
-* Cheap.
-* Surprise me.
-
----
-
-## Sprint 37 — Meal Preference Learning
-
-Track:
-
-* Accepted meals.
-* Rejected meals.
-* Favorites.
-* Repeated selections.
-* Cuisines.
-* Categories.
-
-Use this data to improve future recommendations.
-
----
-
-## Sprint 38 — Budget Intelligence
-
-Implement:
-
-* Per-meal budget.
-* Daily budget.
-* Weekly budget.
-* Budget history.
-* Budget-aware recommendations.
-
----
-
-## Sprint 39 — Variety Engine
-
-Prevent users from receiving repetitive recommendations.
-
-Prioritize:
-
-* Different cuisines.
-* Different proteins.
-* Different meal types.
-* Different cooking methods.
-
----
-
-## Sprint 40 — Recommendation Testing
-
-Test the recommendation engine against multiple scenarios:
-
-* Low budget.
-* Short cooking time.
-* Multiple restrictions.
-* Recent meal repetition.
-* Strong preferences.
-* Conflicting preferences.
-
-Tune recommendation weights.
-
----
-
-# PHASE 8 — Couple Mode
-
-## Sprint 41 — Household Creation
-
-Implement:
-
-* Create household.
-* Household name.
-* Household owner.
-* Household settings.
-
----
-
-## Sprint 42 — Partner Invitations
-
-Implement:
-
-* Invite partner.
-* Invitation code/link.
-* Accept invitation.
-* Decline invitation.
-* Remove member.
-
----
-
-## Sprint 43 — Shared Preferences
-
-Support shared household information:
-
-* Favorite meals.
-* Meal history.
-* Pantry.
-* Grocery list.
-* Meal plans.
-
----
-
-## Sprint 44 — Individual Preferences
-
-Maintain separate preferences for each household member.
-
-Example:
-
-```text
-Partner A
-Likes chicken.
-Avoids fish.
-
-Partner B
-Likes pasta.
-Avoids spicy food.
-```
-
----
-
-## Sprint 45 — Can't Agree Mode
-
-Implement collaborative meal voting.
-
-Flow:
-
-```text
-Generate Meals
-      ↓
-Partner A Votes
-      ↓
-Partner B Votes
-      ↓
-Compare
-      ↓
-Find Match
-```
-
----
-
-## Sprint 46 — Couple Recommendation Engine
-
-Modify the recommendation engine to consider:
-
-* Partner A preferences.
-* Partner B preferences.
-* Shared favorites.
-* Conflicting dislikes.
-* Household budget.
-* Recent shared meals.
-
----
-
-## Sprint 47 — Realtime Couple Features
-
-Use Supabase Realtime for:
-
-* Favorites.
-* Voting.
-* Grocery updates.
-* Household changes.
-* Meal planning.
-
----
-
-# PHASE 9 — Pantry & Grocery
-
-## Sprint 48 — Pantry
-
-Implement:
-
-* Add ingredient.
-* Remove ingredient.
-* Edit quantity.
-* Units.
-* Search.
-* Categories.
-
----
-
-## Sprint 49 — Pantry Expiration
-
-Add:
-
-* Expiration dates.
-* Expiring-soon indicator.
-* Expired ingredients.
-* Expiration notifications.
-
----
-
-## Sprint 50 — Ingredient Matching
-
-Implement:
-
-```text
-Pantry Ingredients
-       ↓
-Compare Against Meals
-       ↓
-Calculate Match %
-       ↓
-Recommend Meals
-```
-
-Example:
-
-> Chicken Adobo — 100% available
-
----
-
-## Sprint 51 — Grocery Lists
-
-Implement:
-
-* Create list.
-* Add item.
-* Edit item.
-* Delete item.
-* Check item.
-* Clear completed items.
-
----
-
-## Sprint 52 — Automatic Grocery Generation
-
-When a meal is selected:
-
-```text
-Selected Meal
-      ↓
-Required Ingredients
-      ↓
-Compare Pantry
-      ↓
-Find Missing Ingredients
-      ↓
-Add To Grocery List
-```
-
----
-
-## Sprint 53 — Realtime Grocery Sync
-
-Synchronize grocery lists between household members.
-
-Example:
-
-Partner A checks:
-
-> ☑ Chicken
-
-Partner B immediately sees:
-
-> ☑ Chicken
-
----
-
-# PHASE 10 — Meal Planning
-
-## Sprint 54 — Weekly Planner
-
-Create weekly calendar.
-
-Support:
-
-* Breakfast.
-* Lunch.
-* Dinner.
-* Snacks.
-
----
-
-## Sprint 55 — Add Meals To Planner
-
-Allow users to:
-
-* Add meal.
-* Replace meal.
-* Remove meal.
-* Move meal.
-* View meal details.
-
----
-
-## Sprint 56 — Automatic Meal Planning
-
-Generate weekly plans based on:
-
-* Budget.
-* Preferences.
-* History.
-* Pantry.
-* Variety.
-* Cooking time.
-
----
-
-## Sprint 57 — Ingredient Reuse
-
-Optimize plans to reuse ingredients.
-
-Example:
-
-```text
-Monday
-Chicken Adobo
-
-Tuesday
-Chicken Fried Rice
-
-Wednesday
-Chicken Sandwich
-```
-
----
-
-## Sprint 58 — Planner → Grocery
-
-Generate a grocery list from the entire weekly meal plan.
-
-Combine duplicate ingredients.
-
-Example:
-
-```text
-Chicken
-Required: 1.5kg
-```
-
-instead of three separate grocery entries.
-
----
-
-# PHASE 11 — AI Features
-
-## Sprint 59 — AI Infrastructure
-
-Create secure AI architecture.
-
-```text
-Flutter
-   ↓
-Supabase Edge Function
-   ↓
-AI Provider
-```
-
-Implement:
-
-* AI request service.
-* Authentication.
-* Rate limiting.
-* Error handling.
-* Usage tracking.
-
-Never expose AI API keys inside Flutter.
-
----
-
-## Sprint 60 — AI Meal Assistant
-
-Implement conversational requests such as:
-
-> “What should we eat tonight?”
-
-> “I only have chicken and eggs.”
-
-> “We have ₱200.”
-
-> “I don't want to cook for more than 20 minutes.”
-
-The AI should use available user context.
-
----
-
-## Sprint 61 — AI Recipe Generation
-
-Allow users to request recipes from ingredients.
-
-Example:
-
-> “Create a recipe using chicken, eggs, and rice.”
-
-AI generates:
-
-* Recipe name.
-* Ingredients.
-* Quantities.
-* Instructions.
-* Estimated cooking time.
-
-Generated recipes can optionally be saved.
-
----
-
-## Sprint 62 — AI Fridge Scanner
-
-Implement:
-
-* Image upload.
-* AI image analysis.
-* Ingredient detection.
-* User confirmation.
-* Pantry insertion.
-
-Users must be able to correct detected ingredients.
-
----
-
-## Sprint 63 — AI Personalization
-
-Combine:
-
-* Meal history.
-* Preferences.
-* Budget.
-* Pantry.
-* Couple preferences.
-* Planner.
-* Previous AI interactions.
-
-Use this context to generate increasingly relevant recommendations.
-
----
-
-# PHASE 12 — Testing & Optimization
-
-## Sprint 64 — Unit Testing
-
-Test:
-
-* Recommendation engine.
-* Budget calculations.
-* Ingredient matching.
-* Meal history.
-* Preference logic.
-* Household permissions.
-* Grocery calculations.
-
----
-
-## Sprint 65 — Integration Testing
-
-Test:
-
-* Authentication.
-* Supabase queries.
-* Realtime synchronization.
-* Household sharing.
-* Roulette flow.
-* Pantry flow.
-* Grocery flow.
-* Meal planner.
-
----
-
-## Sprint 66 — UI, Performance & Security Testing
-
-Test:
-
-* Screen responsiveness.
-* Animation performance.
-* Memory usage.
-* Image loading.
-* Offline states.
-* Slow networks.
-* Error handling.
-* RLS policies.
-* Authentication security.
-
-Optimize:
-
-* Database queries.
-* Image sizes.
-* Flutter rebuilds.
-* Network requests.
-* Caching.
-
----
-
-# PHASE 13 — Beta Release
-
-## Sprint 67 — Internal Alpha
-
-Release the application to the development team.
-
-Test:
-
-* Complete user registration.
-* Complete onboarding.
-* Roulette.
-* Meal management.
-* Couple mode.
-* Pantry.
-* Grocery.
-* Planner.
-* AI.
-
-Create a bug backlog.
-
-Classify issues:
-
-```text
-P0 — Critical
-P1 — High
-P2 — Medium
-P3 — Low
-```
-
-Fix all P0 issues before continuing.
-
----
-
-## Sprint 68 — Closed Beta
-
-Release to a small group of real users.
-
-Collect feedback on:
-
-* Ease of use.
-* Roulette experience.
-* Recommendation quality.
-* Couple mode.
-* Performance.
-* Bugs.
-* Missing features.
-
-Track:
-
-* Daily active users.
-* Weekly active users.
-* Roulette spins.
-* Accepted meals.
-* User retention.
-* Time to decision.
-
-Prioritize real user feedback over adding unnecessary features.
-
----
-
-# PHASE 14 — Production Deployment
-
-## Sprint 69 — Production Preparation
-
-### App
-
-Finalize:
-
-* App icon.
-* Splash screen.
-* App name.
-* Screenshots.
-* Store descriptions.
-* Privacy policy.
-* Terms of service.
-* Support information.
-
-### Backend
-
-Prepare:
-
-* Production Supabase project.
-* Production database.
-* Production RLS policies.
-* Production storage.
-* Edge Functions.
-* AI API configuration.
-* Monitoring.
-* Backups.
-
-### Flutter
-
-Configure:
-
-* Production environment.
-* Release signing.
-* Android package.
-* iOS bundle identifier.
-* Version number.
-* Build number.
-
-Run final release tests.
-
----
-
-## Sprint 70 — Production Deployment
-
-### Android
-
-Build:
-
-```text
-flutter build appbundle --release
-```
-
-Prepare the Google Play release.
-
-### iOS
-
-Build and archive the production application.
-
-Submit through App Store Connect.
-
-### Backend
-
-Deploy:
-
-* Production database migrations.
-* Edge Functions.
-* Storage policies.
-* RLS policies.
-* Production configuration.
-
-### Final Verification
-
-Test the production environment:
-
-* Registration.
-* Login.
-* Logout.
-* Onboarding.
-* Meal browsing.
-* Roulette.
-* Favorites.
-* Meal history.
-* Couple mode.
-* Pantry.
-* Grocery.
-* Planner.
-* AI.
-* Notifications.
-* Realtime synchronization.
-
-### Launch
-
-Release **What's Cooking?** to production.
-
-Monitor:
-
-* Crash reports.
-* API errors.
-* Supabase logs.
-* AI usage.
-* Database performance.
-* User feedback.
-* Authentication failures.
+## Sprint 52 — Two Phones
+
+Not a launch. An install.
+
+* Replace `com.example.whats_cooking` with a real application id, and update the
+  **Supabase auth redirect URLs** to match — the deep link back from email
+  confirmation and password reset is keyed to the scheme, and getting it wrong
+  silently breaks sign-up.
+* Real release signing config, replacing the debug keys.
+* Production Supabase project, migrations applied, backups on.
+* Edge Function secrets set in production.
+* `flutter build apk --release`, installed on both phones.
+* iOS via a development profile if wanted.
+
+No store listing. No screenshots. No privacy policy. No review process.
+
+**Note:** with no Play listing, `com.example.*` stops being a hard blocker and
+becomes a tidiness issue — but the application id is still permanent per install,
+so it is worth setting once, here, before either phone has data worth keeping.
 
 ---
 
 # 🚦 Definition of Done
 
-A sprint is considered complete when:
+A sprint is complete when:
 
-* The feature is implemented.
-* UI states are complete.
-* Loading states exist.
-* Empty states exist.
-* Error states exist.
-* Authentication rules are respected.
-* Database queries are secured.
+* The feature works.
+* Loading, empty and error states exist.
+* Auth rules are respected and queries are secured.
 * RLS policies are tested where applicable.
-* The feature works on supported devices.
-* Relevant tests pass.
+* It runs on the real device.
 * No critical bugs remain.
-* Code is committed to Git.
-* Code review is completed.
-* Documentation is updated where necessary.
+* Code is committed **and pushed** to `main`.
+* Documentation is updated where it stopped being true.
 
 ---
 
 # 🌿 Git Workflow
 
-Recommended branch structure:
+Commit straight to `main`. Two developers, one of whom is an agent, do not need a
+`develop` branch and a feature-branch convention to coordinate — that ceremony
+exists to stop a team stepping on each other.
+
+Conventional commits:
 
 ```text
-main
-│
-├── develop
-│
-├── feature/auth
-├── feature/roulette
-├── feature/meals
-├── feature/couple
-├── feature/pantry
-├── feature/grocery
-├── feature/planner
-└── feature/ai
-```
-
-### Commit format
-
-Use conventional commits:
-
-```text
-feat: add meal roulette
-fix: resolve meal history sync
+feat: add restaurant roulette
+fix: resolve pantry unit conversion
 refactor: simplify recommendation engine
 docs: update setup instructions
-test: add roulette unit tests
 chore: update dependencies
 ```
 
----
-
-# 📦 Release Strategy
-
-## Development
-
-Used for active development.
-
-```text
-Flutter
-   ↓
-Development Supabase
-```
-
-## Staging
-
-Used for QA and beta testing.
-
-```text
-Flutter
-   ↓
-Staging Supabase
-```
-
-## Production
-
-Used by real users.
-
-```text
-Flutter
-   ↓
-Production Supabase
-```
-
-Development data must never be mixed with production data.
+Push before the next sprint starts.
 
 ---
 
-# 🔐 Production Security Checklist
+# 🔐 Security Checklist
 
-Before launch:
+Unchanged by the rescope. Two users is not a security model.
 
-* [ ] Supabase RLS enabled.
-* [ ] RLS policies tested.
+* [ ] Supabase RLS enabled on every table.
+* [ ] RLS policies tested, including negative cases.
 * [ ] No service-role key inside Flutter.
-* [ ] No AI API key inside Flutter.
-* [ ] Environment variables secured.
+* [ ] No AI provider key inside Flutter.
+* [ ] Environment files git-ignored, values never logged.
 * [ ] Storage policies configured.
-* [ ] Authentication redirects verified.
-* [ ] Household access verified.
-* [ ] Database indexes reviewed.
-* [ ] Production backups enabled.
+* [ ] Auth redirects verified after the application-id change.
+* [ ] Household access verified — the other household's data is unreachable.
 * [ ] Edge Functions authenticated.
-* [ ] Rate limiting implemented where required.
-* [ ] Sensitive logs removed.
-* [ ] Debug mode disabled in production.
+* [ ] Rate limiting on AI.
+* [ ] No credential or technical exception text in user-facing copy.
+* [ ] Debug logging off in release.
 
 ---
 
-# 📱 Production Quality Checklist
+# 📱 Quality Checklist
 
-Before publishing:
-
-* [ ] Android tested.
-* [ ] iOS tested.
-* [ ] Small screen tested.
-* [ ] Large screen tested.
-* [ ] Dark mode tested.
-* [ ] Slow network tested.
-* [ ] Offline behavior tested.
-* [ ] Loading states tested.
-* [ ] Empty states tested.
-* [ ] Error states tested.
-* [ ] Push notifications tested.
-* [ ] Realtime tested.
-* [ ] Authentication tested.
-* [ ] Deep links tested.
-* [ ] App performance checked.
-* [ ] Crash reporting configured.
+* [ ] Both real phones tested.
+* [ ] Small and large screens.
+* [ ] Dark mode.
+* [ ] Slow network.
+* [ ] Offline behaviour.
+* [ ] Loading, empty and error states.
+* [ ] Reduced motion.
+* [ ] Text scaling at both clamp bounds.
+* [ ] Realtime grocery sync between the two phones.
+* [ ] Deep links, after the application-id change.
 
 ---
 
-# 🎯 MVP Definition
+# 🎯 Done Definition For The Whole Thing
 
-The MVP is considered successful when users can:
+The app is finished when the two of us can:
 
-1. Create an account.
-2. Complete onboarding.
-3. Browse meals.
-4. Save favorite meals.
-5. Exclude disliked meals.
-6. Set a budget.
-7. Spin the meal roulette.
-8. Receive an intelligent recommendation.
-9. Accept the recommendation.
-10. View meal history.
-11. Create a household.
-12. Invite a partner.
-13. Share meals with their partner.
-14. Add pantry ingredients.
-15. Find meals using pantry ingredients.
-16. Create a grocery list.
-17. Use the application reliably without critical bugs.
+1. Sign in on both phones and share one kitchen.
+2. Write our own meals, and spin over only those if we want.
+3. Get a recommendation that knows our budget, our time, our mood and what we ate
+   yesterday.
+4. Accept it, and have it recorded.
+5. See what is in the pantry, and what is about to go off.
+6. Be offered meals we can cook right now.
+7. Get a grocery list that updates in the other person's hand.
+8. Ask the app in words, and get an answer from our own library.
+9. Photograph the fridge and have the pantry mostly fill itself in.
+10. Spin for a restaurant on the nights nobody is cooking.
+11. Use all of it for a month without hitting a bug that matters.
 
 ---
 
-# 🚀 Launch Success Criteria
+# ⏱️ The One Metric
 
-The initial production release should focus on validating one primary hypothesis:
+## Time to Decision — under 60 seconds
 
-> **Can What's Cooking? reliably help people decide what to eat faster than they normally would?**
+Recorded on every accepted meal, measured from app open rather than from the
+spin: the browsing and the filter-fiddling before the first tap are part of the
+cost, and a measurement starting at the spin would flatter it.
 
-The most important metric is:
-
-## ⏱️ Time to Decision
-
-### Target:
-
-**Under 60 seconds.**
-
-Secondary metrics:
-
-* Roulette spins per user.
-* Accepted recommendations.
-* Daily active users.
-* Weekly active users.
-* Couple households created.
-* Meals recorded.
-* Pantry usage.
-* Grocery lists created.
-* Weekly retention.
-* Recommendation acceptance rate.
+Everything else recorded is diagnostic — how many spins it took, what emptied the
+pool, how long the pick took against the animation.
 
 ---
 
-# 🏁 Final Development Goal
+# 🏁 Final Goal
 
-After 70 sprints, What's Cooking? should be a production-ready mobile application capable of helping users answer one simple question:
-
-# 🍽️ “What's cooking?”
-
-The application should turn:
-
-> “I don't know.”
-
-> “You decide.”
-
-> “Anything is fine.”
+> **"I don't know."**
+>
+> **"You decide."**
+>
+> **"Anything is fine."**
 
 into:
 
-> **🎰 What's Cooking? has decided.**
-
-The final product should feel **fast, playful, intelligent, reliable, and genuinely useful**, while maintaining a simple core experience:
+# **🎰 What's Cooking? has decided.**
 
 # **Spin. Decide. Eat.**

@@ -1,6 +1,6 @@
 /// What somebody is in the mood for tonight (Sprint 36).
 ///
-/// docs/app_feature.md §15 lists nine, and one line about what they do: "the
+/// docs/app_feature.md's "Mood" lists nine, and one line about what they do: "the
 /// recommendation engine adjusts accordingly". That word — adjusts — is the whole
 /// design, and it is worth being explicit about the alternative that was not
 /// taken.

@@ -275,7 +275,7 @@ class _ChipSet<T extends Object> extends StatelessWidget {
   }
 }
 
-/// The nine moods (Sprint 36, docs/app_feature.md §15).
+/// The nine moods (Sprint 36, docs/app_feature.md, "Mood").
 ///
 /// **The only control in this sheet that cannot empty the pool**, and the copy
 /// above it says so. Every other row here is a hard filter; a mood moves scores
@@ -313,7 +313,7 @@ class _Moods extends StatelessWidget {
 /// The glyph for each mood.
 ///
 /// Here rather than on the enum because `core/domain` imports nothing but Dart —
-/// and outline icons rather than the emoji docs/app_feature.md §15 lists, because
+/// and outline icons rather than the emoji docs/app_feature.md lists, because
 /// this app does not use coloured glyphs anywhere else and nine of them in a row
 /// would be the loudest thing on the screen.
 IconData _moodIcon(Mood mood) => switch (mood) {

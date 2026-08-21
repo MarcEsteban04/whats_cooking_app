@@ -1,44 +1,37 @@
 # 🍽️ What's Cooking?
 
-> **No more “ikaw bahala.”**
+> **No more "ikaw bahala."**
 
-**What's Cooking?** is a smart meal-decision app designed for couples, families, roommates, and individuals who constantly struggle with deciding what to eat.
+**What's Cooking?** decides what two people are eating tonight.
 
-Instead of endlessly asking:
-
-> **“What should we eat?”**
-
-Users can save their favorite meals, set their budget and preferences, enter ingredients they already have, and let **What's Cooking?** intelligently decide what they should eat.
-
-The app combines **meal randomization, couple decision-making, meal planning, budgeting, grocery management, pantry tracking, and AI-powered recommendations** into one simple experience.
+It is a **private app for one household of two** — Marc and his girlfriend. Not a
+product, not a launch, no users to acquire. That single fact is the most important
+thing in this document, because it changes what is worth building and what is
+worth deleting.
 
 ---
 
 # 🎯 The Problem
 
-One of the most common everyday problems for couples is deciding what to eat.
+The conversation goes:
 
-The conversation usually goes:
+> "What's for dinner?"
 
-> “What's for dinner?”
+> "You decide."
 
-> “You decide.”
+> "Anything is fine."
 
-> “Anything is fine.”
+> "Pizza?"
 
-> “Pizza?”
+> "I don't feel like pizza."
 
-> “I don't feel like pizza.”
+> "Then what do you want?"
 
-> “Then what do you want?”
+> "I don't know."
 
-> “I don't know.”
+Every day.
 
-And the cycle repeats almost every day.
-
-**What's Cooking?** solves this by turning the decision into a fast, fun, and interactive experience.
-
-Instead of spending 30 minutes deciding:
+**What's Cooking?** replaces it with:
 
 # Open → Spin → Decide → Eat.
 
@@ -46,565 +39,279 @@ Instead of spending 30 minutes deciding:
 
 # 💡 Core Concept
 
-The core idea behind **What's Cooking?** is simple:
-
 ## 🎰 Let the app decide.
 
-Users can create their own meal library or choose from the application's meal database.
+Two roulettes, over two libraries the household writes itself:
 
-Before spinning, users can optionally provide:
+* **Cook something** — spin over the meals we know how to cook.
+* **Eat out** — spin over the restaurants we actually go to.
 
-* Budget
-* Meal type
-* Cuisine
-* Cooking method
-* Available ingredients
-* Cooking time
-* Food preferences
-* Dietary restrictions
-* Current mood
-* Eat at home vs. order out
-
-The app then recommends a meal that matches those conditions.
+Before spinning, either can be narrowed by budget, time, cuisine, mood and the
+rest. After spinning, the answer is recorded so it does not come round again
+tomorrow.
 
 ### Example
 
-**Budget:** ₱300
-**People:** 2
-**Cuisine:** Filipino
-**Available ingredients:** Chicken, eggs, potatoes
+**Budget:** ₱300 a head
 **Cooking time:** Under 45 minutes
+**Mood:** Comfort food
 
 ### Result
 
 > 🍗 **Chicken Adobo**
 >
-> Estimated cost: ₱180
-> Cooking time: ~35 minutes
-> Servings: 2
+> ₱180 a head · ~35 minutes · 2 servings
 >
-> **[Accept] [Try Again]**
+> **[This is it] [Try again]**
 
 Once accepted:
 
-> ✅ **Dinner decided. No more “ikaw bahala.”**
+> ✅ **Dinner decided. No more "ikaw bahala."**
 
 ---
 
-# 🚀 Product Goals
+# 🚦 Scope
 
-What's Cooking? should:
+## What this app is
 
-1. Make meal decisions faster.
-2. Make deciding what to eat fun.
-3. Help couples compromise on food.
-4. Reduce unnecessary food spending.
-5. Reduce food waste.
-6. Help users use ingredients they already have.
-7. Make meal planning easier.
-8. Provide increasingly personalized recommendations.
-9. Encourage users to cook more often.
-10. Turn an everyday annoyance into an enjoyable experience.
+Six features. Everything in this document serves one of them.
 
----
+| # | Feature | What it means |
+| - | ------- | ------------- |
+| 1 | **Meal roulette** | Spin over our own meals. Weighted, not random. |
+| 2 | **Meals** | The library we write. Add, edit, favourite, hide. |
+| 3 | **Pantry** | What is in the kitchen right now. |
+| 4 | **Grocery** | What we need to buy, shared while one of us is at the shop. |
+| 5 | **AI** | Ask in words. Generate a recipe. Read a fridge from a photo. |
+| 6 | **Restaurant roulette** | Spin over our own list of places. |
 
-# 👥 Target Users
+**Both libraries are manually curated, and that is the design rather than a
+shortcut.** A recommendation drawn from sixty meals somebody else chose is a
+guess; a recommendation drawn from thirty meals we wrote down because we like
+them and know how to cook them cannot be wrong about the food — only about
+tonight. The bundled catalogue exists to make the app usable on day one and to
+have something to spin before the library fills up. It is a starting point, not
+the product.
 
-### Primary
+## What this app is not
 
-* Couples
-* Young adults
-* Roommates
-* Students
-* Working professionals
-* Small families
+Cut, deliberately, because two people do not need them:
 
-### Secondary
+| Cut | Why |
+| --- | --- |
+| **Couple mode as a feature** | There is no partner to invite twice, no compatibility score to compute, no "can't agree" voting round. Two people in a kitchen can talk. What remains is the *plumbing*: one shared household so both phones see the same pantry, grocery list and history. |
+| **Weekly meal planner** | We do not plan a week. We decide at seven in the evening — which is the entire premise of the roulette, and a planner is the opposite of it. |
+| **Gamification** | Streaks and achievements are retention mechanics. There is no retention problem when the users are the developers. |
+| **Food statistics** | An interesting dashboard nobody opens twice. Meal history already answers "what have we been eating". |
+| **Smart notifications** | Two people who live together do not need to be pushed a reminder that it is nearly dinner. |
+| **Monetization** | No. |
+| **App Store / Play listing** | It installs on two phones. No store listing, no privacy policy, no screenshots, no review process. |
+| **Restaurant *discovery*** | No maps, no ratings API, no location search. We know where we like to eat; the app spins over that list. |
+| **Cooking mode** | Step-by-step recipe walkthrough. Genuinely nice, genuinely not one of the six. Recorded here so it is a decision rather than an omission. |
+| **Guest mode / social login** | Two accounts, created once. |
 
-* Individuals living alone
-* People learning to cook
-* Budget-conscious households
-* People who frequently order food
-
----
-
-# ✨ Core Features
-
-## 1. 🎰 Smart Meal Roulette
-
-The main feature of What's Cooking?
-
-Users tap the **What's Cooking?** button and receive a meal recommendation.
-
-The randomizer should not simply choose any random meal.
-
-Instead, it considers:
-
-* User preferences
-* Previous meals
-* Budget
-* Meal category
-* Cuisine
-* Available ingredients
-* Cooking time
-* Dietary restrictions
-* Favorite meals
-* Disliked meals
-* Partner preferences
-
-### Example
-
-Instead of:
-
-> Random → Adobo
-
-The recommendation engine understands:
-
-> “You had adobo yesterday, you only have 30 minutes, and your budget is ₱250.”
-
-It may recommend:
-
-> 🍝 **Chicken Carbonara**
-
-The experience should feel random, but the result should still make sense.
+**Row Level Security is not cut.** Supabase sits on the public internet whether
+the app has two users or two million, and "only we use it" is not a security
+model. Every policy stays.
 
 ---
 
-# 2. ❤️ Couple Mode
+# ✨ The Six
 
-One of the application's main differentiating features.
+# 1. 🎰 Meal Roulette
 
-Users can connect with their partner and create a shared household.
+The signature interaction, and the reason the app exists.
 
-Both users can participate in deciding what to eat.
+A spin is **weighted, not random**. The engine scores every candidate and then
+draws from those scores, so the result feels like chance and never feels stupid.
 
-Each partner can have their own:
+What moves a score:
 
-* Favorite meals
-* Disliked meals
-* Favorite cuisines
-* Dietary restrictions
-* Ingredient preferences
-* Budget preferences
-* Cooking preferences
+| Signal | Points |
+| ------ | -----: |
+| Mood match | ±35 |
+| Favourite cuisine | +30 |
+| Under budget | +20 (scaled by how far under) |
+| Saved meal | +15 |
+| Cuisine variety | ±10 |
+| Fits the time we have | +10 (scaled) |
+| Eaten recently | −15 (tapered) |
 
-The recommendation engine considers both users.
+Plus one knob that matters more than any of them: a **temperature** that decides
+how much the scores count at all. Lower it and the app becomes a menu that always
+serves the optimum. Raise it and the scores stop mattering. It is what keeps
+"weighted" from quietly becoming "ranked".
 
----
+Three things are **not** scored, they are excluded outright, because a penalty
+however large still produces the wrong answer eventually:
 
-## 🤝 Can't Agree Mode
+* A meal we hid.
+* A meal containing a food we said we avoid.
+* A meal eaten inside the repetition window.
 
-When both partners can't agree, they can independently vote on meals.
+### The no-match state
 
-Each person sees a selection of meals and can choose:
-
-❤️ Like
-
-👎 Pass
-
-### Example
-
-**Partner A**
-
-❤️ Chicken Katsu
-❌ Sinigang
-❤️ Carbonara
-
-**Partner B**
-
-❤️ Chicken Katsu
-❤️ Sinigang
-❌ Carbonara
-
-The app identifies:
-
-> ❤️ **Chicken Katsu**
->
-> You both liked this.
-
-No arguments.
-
-No “ikaw bahala.”
-
-Just dinner.
+When nothing survives, the app says which constraint emptied the pool and offers
+to drop the one that opens the most options — with the real number. It never
+offers to relax a dietary need or an avoided ingredient.
 
 ---
 
-# 3. 🍽️ Meal Database
+# 2. 🍽️ Meals
 
-What's Cooking? contains a searchable meal database.
+The library. Ours, plus a starting catalogue.
 
-Each meal can include:
+Each meal carries:
 
-* Name
-* Description
-* Image
-* Cuisine
-* Category
-* Ingredients
+* Name, description
+* Cuisine, category, difficulty
+* Ingredients with quantities
 * Instructions
-* Estimated cost
-* Cooking time
-* Difficulty
-* Servings
+* Estimated cost, cooking time, servings
 * Calories (optional)
-* Tags
+* Tags — the vocabulary the moods read
 
-### Example
+Browse, search, filter and sort it. Save what we like. Hide what we do not.
+**Write our own**, which is the point: the roulette is only as good as the
+library, and the library is ours to grow.
+
+### Meal history
+
+Every accepted meal is recorded — what, when, which meal type, what it cost. That
+record is what stops the roulette repeating itself, and it is the honest answer to
+"what have we actually been eating".
+
+---
+
+# 3. 🏠 Pantry
+
+What is in the kitchen, right now, shared between both phones.
 
 ```text
-Chicken Adobo
-
-Cuisine:
-Filipino
-
-Category:
-Dinner
-
-Estimated Cost:
-₱180
-
-Cooking Time:
-35 minutes
-
-Difficulty:
-Easy
-
-Servings:
-2
+Chicken        1 kg
+Eggs           6
+Potatoes       500 g
+Rice           2 kg
+Garlic         1 bulb
+Soy sauce      1 bottle
 ```
 
+Items carry a quantity, a unit, and optionally an **expiry date** — which is the
+half of a pantry that earns its keep, because the app can then say *use the
+kangkong tonight* rather than waiting to be asked.
+
+### Cook from what we have
+
+The pantry feeds the roulette. Meals we can make now score higher; meals needing
+one more thing are still offered, with the gap named.
+
+> 🍗 **Chicken & Potato Adobo** — everything but the bay leaves
+
 ---
 
-# 4. ❤️ Favorites
+# 4. 🛒 Grocery
 
-Users can save meals they enjoy.
+What we need to buy.
 
-Favorites influence future recommendations.
-
-Example:
+Built by hand, and built automatically: accept a meal, and anything it needs that
+the pantry does not have lands on the list.
 
 ```text
-⭐ Favorite Meals
+🛒 Grocery
 
-Chicken Adobo
-Chicken Katsu
-Carbonara
-Sinigang
-Fried Chicken
-```
-
-The recommendation engine can prioritize these meals when appropriate.
-
----
-
-# 5. 👎 Disliked Meals
-
-Users can exclude meals they don't enjoy.
-
-For example:
-
-```text
-❌ Disliked
-
-Fish
-Very spicy food
-Dinuguan
-```
-
-These meals should not appear during normal recommendations.
-
----
-
-# 6. 🧠 Meal History
-
-What's Cooking? keeps track of what users have eaten.
-
-This allows the recommendation system to avoid unnecessary repetition.
-
-### Example
-
-```text
-Monday
-Chicken Adobo
-
-Tuesday
-Pizza
-
-Wednesday
-Sinigang
-
-Thursday
-Chicken Katsu
-```
-
-If the user tries to spin:
-
-> ⚠️ You had Chicken Adobo recently.
-
-The system can reduce the probability of recommending it again.
-
----
-
-# 7. 🏠 What's In The Fridge?
-
-Users can enter ingredients they currently have at home.
-
-Example:
-
-```text
-Chicken
-Eggs
-Potatoes
-Onion
-Garlic
-Soy Sauce
-Rice
-```
-
-What's Cooking? finds meals that can be prepared using those ingredients.
-
-### Example
-
-## You can make:
-
-### 🍗 Chicken & Potato Adobo
-
-**100% ingredients available**
-
-### 🍳 Chicken Omelette
-
-**90% ingredients available**
-
-### 🍜 Chicken Stir Fry
-
-**80% ingredients available**
-
-Meals requiring the fewest additional ingredients should be prioritized.
-
----
-
-# 8. 💰 Budget Mode
-
-Users can set a meal budget.
-
-Example:
-
-> **Tonight's budget**
->
-> ₱200
-
-The recommendation engine prioritizes meals within that budget.
-
-### Presets
-
-* ₱100
-* ₱200
-* ₱300
-* ₱500
-* Custom
-
-Budget can be configured per:
-
-* Meal
-* Day
-* Week
-
----
-
-# 9. 🛒 Grocery List
-
-When a user selects a meal, What's Cooking? determines which ingredients are missing.
-
-### Example
-
-Chicken Adobo requires:
-
-* Chicken
-* Soy sauce
-* Vinegar
-* Garlic
-* Onion
-* Bay leaves
-* Black pepper
-
-The app checks the user's pantry.
-
-If they already have:
-
-* Garlic
-* Onion
-* Soy sauce
-
-Only the missing ingredients are added.
-
-```text
-🛒 Grocery List
-
-☐ Chicken
-☐ Vinegar
+☐ Chicken       500 g
+☐ Vinegar       1 bottle
 ☐ Bay leaves
 ☐ Black pepper
 ```
 
----
+**Synchronised live between the two phones**, which is the one place realtime is
+genuinely worth its complexity: one of us is standing in the shop and the other
+is at home remembering something.
 
-# 10. 👨‍🍳 Cooking Mode
-
-After selecting a meal, users can enter a dedicated cooking mode.
-
-Instead of displaying the entire recipe at once, instructions are presented step-by-step.
-
-### Step 1
-
-Prepare the chicken.
-
-**Next →**
-
-### Step 2
-
-Marinate the chicken with soy sauce and garlic.
-
-**Next →**
-
-### Step 3
-
-Heat the pan.
-
-**Next →**
-
-The goal is to make cooking easier without requiring users to constantly scroll through a recipe.
+Duplicates combine. Two meals wanting chicken produce one line for 1.5 kg, not
+two lines to puzzle over in an aisle.
 
 ---
 
-# 11. 📅 Weekly Meal Planner
+# 5. 🤖 AI
 
-Users can generate a meal plan for the week.
+Three things, in order of how much they are worth.
 
-### Example
+### Ask in words
 
-| Day       | Meal          |
-| --------- | ------------- |
-| Monday    | Chicken Adobo |
-| Tuesday   | Carbonara     |
-| Wednesday | Sinigang      |
-| Thursday  | Chicken Katsu |
-| Friday    | Pizza         |
-| Saturday  | Korean Beef   |
-| Sunday    | Fried Chicken |
+> "What can we cook tonight?"
 
-The planner considers:
+> "We only have chicken and eggs."
 
-* Budget
-* Preferences
-* Meal history
-* Ingredient reuse
-* Variety
-* Cooking time
+> "Something cheap, I don't want to cook for more than 20 minutes."
 
----
+The assistant reads what the app already knows — the pantry, the budget, what we
+have eaten lately, what we avoid — and answers with a meal from our library, or
+tells us honestly that nothing fits.
 
-# 12. 🧺 Ingredient Reuse
+### Generate a recipe
 
-The meal planner should intelligently reuse ingredients.
+> "Make something from chicken, eggs and rice."
 
-Example:
+Name, ingredients, quantities, instructions, time. Saveable to the library, which
+is how the library grows without typing.
 
-**Monday**
+### Read the fridge
 
-Chicken Adobo
+A photo in, a list of ingredients out, into the pantry — **with a confirmation
+step**, because image recognition is wrong often enough that silently trusting it
+would poison the pantry and therefore the roulette.
 
-**Tuesday**
+### The rule
 
-Chicken Fried Rice
-
-**Wednesday**
-
-Chicken Sandwich
-
-Instead of buying completely different ingredients every day, users can strategically reuse what they already purchased.
-
-Benefits:
-
-* Less food waste
-* Lower grocery costs
-* Easier shopping
+AI runs behind a Supabase Edge Function. **A provider key never goes in the
+Flutter app**, where anybody with the APK can read it. Three providers in a chain,
+so one being slow or down is not a dead feature.
 
 ---
 
-# 13. 🤖 What's Cooking? AI Assistant
+# 6. 🍴 Restaurant Roulette
 
-An advanced AI assistant can become one of the application's biggest features.
+The other half of the question, and it deserves the same treatment as the first.
 
-Users can simply ask:
+Some nights nobody is cooking. "Where should we eat?" is the same argument with
+the same non-answer, so it gets the same solution: a list we wrote, and a spin.
 
-> **“What can we cook tonight?”**
+Each place carries:
 
-The AI considers:
-
-* Available ingredients
-* Budget
-* Previous meals
-* Preferences
-* Cooking time
-* Partner preferences
-
-### Example
-
-> **AI**
->
-> You have chicken, eggs, potatoes, and rice available.
->
-> Your budget is ₱250 and you haven't had Filipino food in four days.
->
-> I'd recommend:
->
-> 🍗 **Chicken & Potato Adobo**
->
-> Estimated cost: ₱180
-> Cooking time: 35 minutes
-> Servings: 2
-
----
-
-# 14. 📸 AI Fridge Scanner
-
-Future AI feature.
-
-Users take a photo of their refrigerator, pantry, or ingredients.
-
-AI attempts to identify available ingredients.
-
-### Example
-
-📷 Photo
-
-↓
-
-AI detects:
+* Name
+* Cuisine
+* Roughly what a meal costs, a head
+* How far — as *walk / short ride / worth the trip*, not kilometres
+* Whether it delivers
+* Notes, and what we order there
+* Tags, so the moods work here too
 
 ```text
-Chicken
-Eggs
-Tomatoes
-Onions
-Milk
-Cheese
+🍜 Ramen Nagi
+
+Japanese · ₱450 a head · short ride
+Delivers
+
+"Get the Butao. Ask for extra chashu."
 ```
 
-↓
+Spun, filtered and recorded exactly like meals: budget, cuisine, mood, distance,
+and a repetition window so the roulette does not send us to the same place twice
+in a week.
 
-> **Here are 5 meals you can make.**
-
-Because image recognition isn't perfect, users should be able to review and correct detected ingredients before generating recommendations.
+**Manually added, with no discovery layer.** No maps, no ratings, no location
+search. A list of places we already like is better than every restaurant in the
+city, and it does not need an API.
 
 ---
 
-# 15. 🎭 Mood-Based Recommendations
+# 🎭 Mood
 
-Users can choose what they're craving.
+Both roulettes take a mood.
 
-### Mood options
+### The nine
 
 🍔 Comfort Food
 🍜 Craving
@@ -616,851 +323,205 @@ Users can choose what they're craving.
 💰 Cheap
 🎲 Surprise Me
 
-The recommendation engine adjusts accordingly.
+**A mood is a bias, never a filter.** It moves scores and hands the engine the
+same pool it was given. As a filter, "healthy" over a small library would leave
+three dishes to choose between for the rest of the month.
+
+Each mood names what it leans *away* from as well as toward, and that half is
+load-bearing: promoting three healthy meals out of sixty barely moves a weighted
+draw, but pushing the deep-fried pork down at the same time does.
+
+**"Surprise me" is a real mood, not the absence of one.** It favours nothing by
+tag, rewards food we have never had, and raises the temperature so the draw
+flattens toward genuine chance.
 
 ---
 
-# 16. 🏆 Gamification
+# 💰 Budget
 
-Make cooking and trying new meals more enjoyable.
+A budget is set per head, not per pot, because that is the number both of us
+actually think in.
 
-### Statistics
+### Presets
+
+* ₱100
+* ₱150
+* ₱250
+* Custom
+* Any
+
+Set once in preferences as the standing assumption, and overridable for one
+evening from the filter sheet. Tightening it tonight must not silently change what
+the app assumes next week.
+
+Applied two ways at once: a **hard filter** on what may be offered, and a
+**scaled bonus** on how far under it a meal comes in. A meal at half the budget is
+a better answer to "we have ₱200" than one at ₱199.
+
+---
+
+# 📱 Screens
+
+## Home
 
 ```text
-🔥 7 Day Cooking Streak
-
-🍽️ 32 Meals Tried
-
-🇵🇭 18 Filipino Meals
-
-🍜 6 Asian Meals
-
-💰 ₱1,250 Estimated Savings
-```
-
-### Achievements
-
-🏆 **Adobo Addict**
-Eat adobo 10 times.
-
-🍳 **Home Cook**
-Cook 20 meals.
-
-💰 **Budget Master**
-Stay within your budget for 30 days.
-
-🌎 **Food Explorer**
-Try 10 different cuisines.
-
-❤️ **Perfect Match**
-Find 20 meals both partners like.
-
----
-
-# 17. 📊 Food Statistics
-
-Users can view their eating patterns.
-
-### Example
-
-```text
-Your Month
-
-Filipino       42%
-Asian          27%
-Western        18%
-Other          13%
-
-Average Meal Cost
-₱187
-
-Meals Cooked
-24
-
-Meals Ordered
-9
-```
-
-This helps users understand their eating habits and spending.
-
----
-
-# 18. 🔔 Smart Notifications
-
-Optional notifications can remind users:
-
-> 🍽️ It's almost dinner time.
-
-> You haven't planned dinner yet.
-
-> 🥬 You have ingredients that may expire soon.
-
-> ❤️ Your partner added a new favorite meal.
-
-> 🛒 You still have items on your grocery list.
-
-Notifications should be fully configurable.
-
----
-
-# 19. 🔗 Couple / Household Sharing
-
-Users can create a household.
-
-### Example
-
-```text
-Marc's Household
-
-Members:
-❤️ Marc
-❤️ Partner
-```
-
-Shared information includes:
-
-* Meal history
-* Favorites
-* Grocery list
-* Pantry
-* Meal plans
-* Budget
-* Recommendations
-
-Personal preferences can remain private when appropriate.
-
----
-
-# 📱 Main Screens
-
-## 1. Home
-
-The main screen should immediately answer the question:
-
-> **What's cooking?**
-
-Example:
-
-```text
-Good evening, Marc 👋
+WC  Tonight
+    Marc Esteban's Kitchen ⌄
 
 What are we eating tonight?
+Let us decide for you.
 
-        🎰
-   WHAT'S COOKING?
+BUDGET    COOKING FOR    READY IN
+Any       2 people       Any
 
-Budget: ₱300
-People: 2
+      [    SPIN    ]
 
-Quick Picks
-
-🍗 Comfort
-🍜 Asian
-🥗 Healthy
-💰 Budget
-🎲 Surprise
+      ⚙ Narrow it down
 ```
 
----
-
-# 2. Meal Result
-
-The result screen should feel exciting.
+## Result
 
 ```text
-🎉 Tonight's Pick
+TONIGHT'S PICK
 
-🍗 Chicken Katsu
+🍗 Chicken Adobo
 
-₱220 estimated
-30 minutes
-2 servings
+₱180 a head · 35 min · 2 servings
 
-❤️ You both liked this before.
+Filipino is one of your favourites
 
-[ ACCEPT ]
-[ TRY AGAIN ]
+[ This is it ]
+[ Try again ]  [ Details ]
+      Not now
 ```
 
----
+## The rest
 
-# 3. Meals
-
-Browse:
-
-* All meals
-* Favorites
-* Recently eaten
-* Saved recipes
-* My meals
-
----
-
-# 4. Fridge / Pantry
-
-```text
-🏠 What's In The Fridge?
-
-Chicken
-Eggs
-Potatoes
-Rice
-Garlic
-Onion
-
-[ + Add Ingredient ]
-
-✨ Find Meals
-```
-
----
-
-# 5. Grocery
-
-```text
-🛒 Grocery List
-
-Chicken
-☐ 500g
-
-Vinegar
-☐ 1 bottle
-
-Garlic
-☐ 1 bulb
-
-[ + Add Item ]
-```
-
----
-
-# 6. Planner
-
-Weekly calendar with meals assigned to each day.
-
----
-
-# 7. Couple
-
-```text
-❤️ Our Food Profile
-
-Marc
-Favorite: Chicken
-Avoids: Fish
-
-Partner
-Favorite: Pasta
-Avoids: Spicy food
-
-Compatibility
-
-❤️ 87%
-```
-
----
-
-# 8. Profile / Settings
-
-Includes:
-
-* Account
-* Preferences
-* Dietary restrictions
-* Budget
-* Notifications
-* Household
-* Subscription
-* Privacy
-* Data management
+| Screen | Holds |
+| ------ | ----- |
+| **Meals** | The library, browsable and searchable. Favourites, hidden, ours, recently eaten. |
+| **Pantry** | What we have. Add, adjust, expiry. |
+| **Grocery** | The list, live. |
+| **Eat out** | The restaurant list, and its own spin. |
+| **Profile** | Preferences, budget, dietary needs, avoided foods, effort, repetition window, appearance, account. |
 
 ---
 
 # 🧱 Technical Architecture
 
-## Frontend
-
-### Flutter
-
-Flutter is the primary mobile application framework.
-
-### Recommended Technologies
-
-* Flutter
-* Dart
-* Material 3
-* Riverpod
-* GoRouter
-* Freezed
-* Dio where external APIs are required
-
-### Suggested Project Structure
+| Layer | Technology |
+| ----- | ---------- |
+| Mobile | Flutter · Dart · Material 3 |
+| State | Riverpod |
+| Navigation | GoRouter |
+| Backend | Supabase — Postgres, Auth, Storage, Realtime, Edge Functions |
+| AI | Three external providers, behind an Edge Function |
+| Architecture | Feature-based / Clean Architecture |
 
 ```text
 lib/
 ├── core/
-│   ├── constants/
-│   ├── errors/
-│   ├── network/
-│   ├── router/
-│   ├── theme/
-│   └── utils/
+│   ├── analytics/   constants/   domain/   errors/
+│   ├── extensions/  network/     router/   theme/
+│   ├── utils/       widgets/
 │
 ├── features/
-│   ├── auth/
-│   ├── home/
-│   ├── meals/
-│   ├── roulette/
-│   ├── couple/
-│   ├── pantry/
-│   ├── grocery/
-│   ├── planner/
-│   ├── history/
-│   ├── ai/
-│   └── profile/
+│   ├── auth/        onboarding/  home/      meals/
+│   ├── roulette/    history/     pantry/    grocery/
+│   ├── restaurants/ ai/          profile/
 │
 └── main.dart
 ```
 
----
+## Backend rules
 
-# ☁️ Backend
-
-## Supabase
-
-Supabase handles:
-
-* Authentication
-* PostgreSQL database
-* Row Level Security
-* Storage
-* Realtime
-* Edge Functions
+* **Row Level Security on every table.** Two users is not a security model.
+* **The service-role key never reaches Flutter.** A startup assertion fails the
+  first frame if one is compiled in.
+* **No AI provider key in Flutter.** Same assertion, same reason.
+* **Promises live in the query, not in client-side filtering.** A hidden meal, an
+  avoided ingredient and a dietary need are excluded by the database, so no
+  forgotten `.where` can break them.
 
 ---
 
-# 🗄️ Database Structure
+# 🗄️ Database
 
-## profiles
+Tables the six features need.
+
+## Identity and sharing
 
 ```text
-id
-display_name
-avatar_url
-created_at
-updated_at
+profiles            id · display_name · avatar_url
+households          id · name · created_by
+household_members   household_id · user_id · role
+user_preferences    user_id · favorite_cuisines · dietary_tags
+                    disliked_ingredient_names · disliked_ingredients
+                    default_budget · max_cooking_time · max_difficulty
+                    preferred_servings · repetition_window_days
 ```
 
----
-
-## households
+## Meals
 
 ```text
-id
-name
-created_by
-created_at
+meals               id · name · description · cuisine · category
+                    difficulty · cooking_time_minutes · estimated_cost
+                    cost_per_serving · servings · calories · instructions
+                    dietary_tags · tags · is_public · household_id
+ingredients         id · name · category · default_unit · is_staple
+meal_ingredients    meal_id · ingredient_id · quantity · unit · is_optional
+favorite_meals      user_id · meal_id
+disliked_meals      user_id · meal_id
+meal_history        household_id · meal_id · eaten_at · meal_type
+                    estimated_cost · actual_cost · was_cooked · source
 ```
 
----
-
-## household_members
+## Pantry and grocery
 
 ```text
-id
-household_id
-user_id
-role
-joined_at
+pantry_items        household_id · ingredient_id · quantity · unit
+                    expiration_date
+grocery_lists       household_id · name
+grocery_items       grocery_list_id · ingredient_id · quantity · unit
+                    is_completed
 ```
 
----
-
-## meals
+## Restaurants
 
 ```text
-id
-name
-description
-image_url
-cuisine
-category
-difficulty
-cooking_time
-estimated_cost
-servings
-instructions
-created_at
+restaurants         id · household_id · name · cuisine · cost_per_head
+                    proximity · delivers · notes · go_to_order · tags
+restaurant_history  household_id · restaurant_id · eaten_at · actual_cost
 ```
 
----
-
-## ingredients
+## Support
 
 ```text
-id
-name
-category
-unit
-created_at
+ai_usage            user_id · provider · tokens · created_at
+analytics_events    user_id · name · properties · occurred_at
 ```
 
----
-
-## meal_ingredients
-
-```text
-id
-meal_id
-ingredient_id
-quantity
-unit
-```
-
----
-
-## user_preferences
-
-```text
-id
-user_id
-favorite_cuisines
-disliked_ingredients
-dietary_preferences
-default_budget
-max_cooking_time
-created_at
-updated_at
-```
-
----
-
-## favorite_meals
-
-```text
-id
-user_id
-meal_id
-created_at
-```
-
----
-
-## disliked_meals
-
-```text
-id
-user_id
-meal_id
-created_at
-```
-
----
-
-## meal_history
-
-```text
-id
-household_id
-meal_id
-eaten_at
-meal_type
-cost
-```
-
----
-
-## pantry_items
-
-```text
-id
-household_id
-ingredient_id
-quantity
-unit
-expiration_date
-created_at
-updated_at
-```
-
----
-
-## grocery_lists
-
-```text
-id
-household_id
-name
-created_at
-```
-
----
-
-## grocery_items
-
-```text
-id
-grocery_list_id
-ingredient_id
-quantity
-unit
-is_completed
-created_at
-```
-
----
-
-## meal_plans
-
-```text
-id
-household_id
-meal_id
-planned_date
-meal_type
-created_at
-```
-
----
-
-# 🔐 Authentication
-
-Supabase Auth should support:
-
-* Email/password
-* Google
-* Apple
-* Magic link (optional)
-
-A guest mode can optionally allow users to try the roulette before creating an account.
-
----
-
-# 🔒 Security
-
-Supabase Row Level Security must be enabled.
-
-Users should only be able to access:
-
-* Their own profile
-* Their own preferences
-* Their private data
-* Households they belong to
-* Shared household information
-
-Users must never be able to access another household's private information.
-
----
-
-# 🔄 Realtime Features
-
-Supabase Realtime can power shared couple experiences.
-
-### Couple Mode
-
-If one partner adds:
-
-> ❤️ Chicken Katsu
-
-The other partner can immediately see it.
-
-### Grocery List
-
-If one person checks:
-
-> ☑ Chicken
-
-The other person's list updates automatically.
-
-### Meal Planning
-
-Both partners see changes to the shared weekly plan.
-
----
-
-# 🤖 AI Architecture
-
-AI functionality should be handled through a secure backend layer.
-
-Never expose private AI API keys inside the Flutter application.
-
-Recommended flow:
-
-```text
-Flutter App
-     ↓
-Supabase Edge Function
-     ↓
-AI Provider
-     ↓
-Supabase
-     ↓
-Flutter App
-```
-
----
-
-# 🎰 Recommendation Engine
-
-The meal randomizer should eventually become a weighted recommendation engine.
-
-Possible scoring model:
-
-```text
-Preference Match       +30
-Budget Match           +20
-Ingredient Match       +20
-Partner Compatibility  +25
-Favorite Meal          +15
-Cuisine Variety        +10
-Cooking Time Match     +10
-Recent Meal Penalty    -15
-Disliked Meal          -100
-```
-
-The system then selects from the highest-scoring meals while maintaining some randomness.
-
-This creates a key product characteristic:
-
-> **It should feel random, but never feel stupid.**
-
----
-
-# 💸 Monetization
-
-What's Cooking? can use a freemium model.
-
-## Free
-
-* Basic roulette
-* Personal meal library
-* Favorites
-* Basic meal history
-* Basic filters
-* Basic couple features
-
-## Premium
-
-Potential premium features:
-
-* Unlimited AI recommendations
-* AI fridge scanner
-* Advanced meal planning
-* Advanced budget tracking
-* Unlimited households
-* Advanced statistics
-* Personalized AI recommendations
-* AI recipe generation
-* Smart grocery planning
-
-The basic roulette should remain free because it is the primary hook of the application.
-
----
-
-# 🔮 Future Features
-
-## 🍴 Restaurant Mode
-
-Instead of deciding what to cook:
-
-> **“Where should we eat?”**
-
-The app can recommend restaurants based on:
-
-* Budget
-* Cuisine
-* Distance
-* Rating
-* Preferences
-
----
-
-## 🛵 Delivery Mode
-
-Where integrations are available, users could eventually go from:
-
-> “What's Cooking?”
-
-directly to:
-
-> “Order this.”
-
----
-
-## 📸 Meal Recognition
-
-Users take a photo of their food.
-
-AI identifies the meal and lets the user add it to their meal history.
-
----
-
-## 🌎 Location-Based Recommendations
-
-The application can recommend nearby restaurants that match:
-
-* Budget
-* Cuisine
-* Distance
-* Preferences
-
----
-
-## 🧑‍🤝‍🧑 Group Mode
-
-Expand beyond couples.
-
-Example:
-
-> **Family Dinner — 5 people**
-
-Everyone votes.
-
-What's Cooking? finds the meal with the highest group compatibility.
-
----
-
-# 🧭 MVP Scope
-
-The first release should focus on validating the core idea rather than building every feature.
-
-## MVP Features
-
-### Authentication
-
-* Sign up
-* Login
-* Profile
-
-### Meal System
-
-* Browse meals
-* Search meals
-* Meal details
-* Add custom meal
-* Favorites
-* Dislikes
-
-### Roulette
-
-* Random meal
-* Filters
-* Budget
-* Cooking time
-* Meal category
-* Try again
-* Accept meal
-
-### History
-
-* Record selected meals
-* Recently eaten
-* Repetition prevention
-
-### Couple Mode
-
-* Create household
-* Invite partner
-* Shared meals
-* Shared history
-* Basic voting
-
-### Pantry
-
-* Add ingredients
-* Remove ingredients
-* Find meals based on ingredients
-
-### Grocery
-
-* Add missing ingredients
-* Check off items
-
-This is enough to validate whether people actually enjoy using the application.
-
----
-
-# 🗺️ Development Roadmap
-
-## Version 1.0 — Core Experience
-
-* Authentication
-* Home screen
-* Meal database
-* Meal details
-* Roulette
-* Filters
-* Favorites
-* Meal history
-
----
-
-## Version 1.1 — Couples
-
-* Household creation
-* Partner invitations
-* Shared favorites
-* Voting
-* Couple recommendations
-
----
-
-## Version 1.2 — Food Management
-
-* Pantry
-* Grocery list
-* Ingredient matching
-* Budget system
-
----
-
-## Version 1.3 — Planning
-
-* Weekly meal planner
-* Ingredient reuse
-* Automatic grocery generation
-* Meal variety optimization
-
----
-
-## Version 2.0 — AI
-
-* AI Meal Assistant
-* AI fridge scanner
-* Personalized recommendations
-* AI-generated recipes
+`meal_plans` is **dropped**. There is no planner.
 
 ---
 
 # 🎨 Design Direction
 
-What's Cooking? should feel:
+Fun. Modern. Fast. Minimal. Premium. Food-focused.
 
-* Fun
-* Modern
-* Playful
-* Fast
-* Minimal
-* Premium
-* Food-focused
+Not a calorie tracker. Not a nutrition app. Not a complicated
+food-management system.
 
-It should **not** feel like a complicated calorie tracker or nutrition application.
-
-The main experience should remain:
-
-> **Open → Spin → Decide → Eat**
+* **Ink on warm white, with one terracotta accent.** No green anywhere.
+* **Monochrome icons.** No coloured glyphs, no emoji in the interface.
+* **Typography and spacing for hierarchy**, not borders.
+* **One full-colour thing in the whole app**: the logo.
+* Reduced motion honoured everywhere. **Haptics are never suppressed** — they
+  carry the satisfaction when animation cannot.
 
 ---
 
 # 🎰 The Signature Interaction
-
-The roulette interaction should be one of the application's most memorable experiences.
-
-A user taps:
-
-# WHAT'S COOKING?
-
-Then:
 
 ```text
 🍕 Pizza
@@ -1476,37 +537,28 @@ Then:
 🍗 Chicken Katsu
 ```
 
-The animation slows down.
+A reel of real candidates rolls through a window — three cards visible, the
+middle one being considered. It pulls back before it starts, runs fast, then
+visibly slows. The card it lands on **is** the meal: the winner is planted at the
+landing slot before the reel starts, because a reel that stops somewhere and then
+shows something else is the version that feels rigged.
 
-The final meal is revealed.
+Tapping anywhere runs the remaining travel out fast. Suspense is a gift, not a
+toll.
 
-A small celebration animation plays.
-
-Then:
+Light haptic on starting. A click per card as it slows. Medium on the reveal.
+**Heavy when dinner is decided** — the loudest thing the app does, once.
 
 > ❤️ **Tonight's dinner is decided.**
-
-The user can:
-
-**[ ACCEPT ]**
-
-or:
-
-**[ TRY AGAIN ]**
-
-Haptic feedback should be used where supported to make the interaction feel satisfying.
 
 ---
 
 # 🧠 Product Philosophy
 
-What's Cooking? should never feel like a complicated food-management system.
-
-Everything should support one simple goal:
-
 > ## **Less thinking. More eating.**
 
-The application should help users spend less time deciding and more time actually enjoying their food.
+Every feature has to survive one question: *does this get us to dinner faster?*
+The six do. The things in the cut list did not.
 
 ---
 
@@ -1516,11 +568,11 @@ The application should help users spend less time deciding and more time actuall
 
 # What's Cooking?
 
-## Primary Tagline
+## Tagline
 
-> **No more “ikaw bahala.”**
+> **No more "ikaw bahala."**
 
-## Alternative Taglines
+## Alternatives
 
 > **Spin. Decide. Eat.**
 
@@ -1528,101 +580,40 @@ The application should help users spend less time deciding and more time actuall
 
 > **Let us pick tonight.**
 
-> **Stop asking. Start eating.**
-
-> **Your next meal, decided for you.**
-
 ---
 
-# 📊 Success Metrics
+# 📊 The One Metric
 
-The most important metrics should measure whether What's Cooking? actually solves the problem.
-
-### Key Metrics
-
-* Meals decided per user
-* Roulette spins per day
-* Recommendation acceptance rate
-* Repeat usage
-* Couple households created
-* Meals cooked
-* Grocery lists created
-* Weekly meal plans created
-* AI recommendation acceptance rate
-
-### Most Important Metric
+There are no users to measure, no funnel, no retention curve. One number still
+matters, because it is the whole promise:
 
 ## ⏱️ Time to Decision
 
-How long does it take from opening the app to deciding what to eat?
+From opening the app to knowing what we are eating.
 
 ### Goal:
 
 > **Under 60 seconds.**
 
+It is recorded on every accepted meal, measured from app open rather than from the
+spin — the browsing and the filter-fiddling before the first tap are part of the
+cost, and a measurement starting at the spin would flatter it.
+
+Everything else the app records is diagnostic: how many spins it took, what
+emptied the pool, how long the pick took against the animation.
+
 ---
 
 # 🏁 Final Product Vision
 
-What's Cooking? starts with a very simple question:
+Two roulettes, two libraries we wrote ourselves, a kitchen the app knows the
+contents of, a grocery list that updates in the other person's hand, and an
+assistant that can be asked in words.
 
-> **“What should we eat?”**
+Turning:
 
-But it evolves into a personalized food decision assistant that understands:
-
-* What you like
-* What your partner likes
-* What you already have
-* What you've eaten recently
-* How much you want to spend
-* How much time you have
-* What you're craving
-* What you should probably eat next
-
-And turns all of that into one simple answer:
-
-# 🍽️ “This. We're eating this tonight.”
-
-No endless discussions.
-
-No “ikaw bahala.”
-
-No scrolling through food delivery apps for 30 minutes.
-
-Just:
-
-# **What's Cooking? 🎰**
-
----
-
-# 🛠️ Technology Stack
-
-| Layer            | Technology                         |
-| ---------------- | ---------------------------------- |
-| Mobile           | Flutter                            |
-| Language         | Dart                               |
-| Backend          | Supabase                           |
-| Database         | PostgreSQL                         |
-| Authentication   | Supabase Auth                      |
-| File Storage     | Supabase Storage                   |
-| Realtime         | Supabase Realtime                  |
-| Server Logic     | Supabase Edge Functions            |
-| AI               | External AI API via Edge Functions |
-| State Management | Riverpod                           |
-| Navigation       | GoRouter                           |
-| UI               | Material 3                         |
-| Architecture     | Feature-based / Clean Architecture |
-
----
-
-# 🎯 Project Goal
-
-Build a fun, fast, and genuinely useful meal decision-making application for couples and households.
-
-What's Cooking? should turn the everyday problem of:
-
-> **“We don't know what to eat.”**
+> **"We don't know what to eat."**
 
 into:
 
-> # **“What's Cooking? already decided.” 🍽️🎰**
+> # **"What's Cooking? already decided." 🍽️🎰**

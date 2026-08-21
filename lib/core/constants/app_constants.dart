@@ -19,7 +19,7 @@ abstract final class AppConstants {
   static const String localAuthorId = 'local-author';
 
   // ---------------------------------------------------------------------------
-  // Budget (docs/app_feature.md §8)
+  // Budget (docs/app_feature.md, "Budget")
   // ---------------------------------------------------------------------------
 
   /// The presets offered before a custom amount.
