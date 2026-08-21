@@ -155,9 +155,22 @@ class _MealsScreenState extends ConsumerState<MealsScreen> {
                                 }
                               },
                             ),
-                            // Everything else lives in the panel's action row.
-                            // Circles in a header are a row of guesses; a
-                            // labelled tile says where it goes.
+                            // The one exception to "everything else lives in the
+                            // panel's action row": the assistant.
+                            //
+                            // It belongs here because this is the screen where
+                            // somebody runs out of ideas — scrolling a catalogue
+                            // and not finding it is exactly when asking in words
+                            // beats another filter. And it gives Ask a second way
+                            // in: Home is the only other one, which for a feature
+                            // this new is one route too few.
+                            _CircleAction(
+                              icon: AppIcons.assistant,
+                              label: 'Ask about dinner',
+                              onPressed: () => context.pushNamed(
+                                AppRoute.assistant.routeName,
+                              ),
+                            ),
                           ],
                         ),
                         if (_isSearching) ...<Widget>[

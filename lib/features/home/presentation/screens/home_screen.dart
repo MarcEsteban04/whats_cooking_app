@@ -8,7 +8,9 @@ import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/utils/formatters.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_button.dart';
 import 'package:whats_cooking/core/widgets/dashboard/dashboard.dart';
+import 'package:whats_cooking/features/grocery/presentation/providers/grocery_controller.dart';
 import 'package:whats_cooking/features/history/presentation/providers/meal_history_controller.dart';
+import 'package:whats_cooking/features/home/presentation/providers/week_summary.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/disliked_ingredients_controller.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/dislikes_controller.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/favorites_controller.dart';
@@ -61,6 +63,14 @@ class HomeScreen extends ConsumerWidget {
     ref.watch(mealHistoryProvider);
     ref.watch(mealsBlockedByDislikesProvider);
     ref.watch(pantryMatchesProvider);
+    // The one extra query this screen's second panel costs. Warmed with the rest
+    // rather than fetched when the panel builds, so the numbers are there on the
+    // first frame instead of appearing a beat later.
+    ref.watch(groceryControllerProvider);
+
+    // Where things stand. Best effort by construction — a summary that failed is
+    // a panel that does not appear, never a reason Home does not load.
+    final WeekSummary? summary = ref.watch(weekSummaryProvider).value;
 
     // Read, not just warmed: Home says what needs using tonight (Sprint 40), and
     // from Sprint 41 the spin weights meals by what is already in.
@@ -106,6 +116,21 @@ class HomeScreen extends ConsumerWidget {
                       AppConstants.defaultPartySize,
                   needsUsing: needsUsing,
                 ),
+
+                // Where things stand (Sprint 47b).
+                //
+                // **Below the button, never above it.** Home has one job and it is
+                // the question at the top; a dashboard that pushes SPIN down the
+                // screen has decided that looking at numbers matters more than
+                // deciding what to eat, which is the opposite of the product.
+                //
+                // Absent entirely until one number is real. Four zeros on a fresh
+                // install is a panel that says the app has nothing for you.
+                if (summary != null && summary.hasAnything) ...<Widget>[
+                  const SizedBox(height: AppSpacing.space4),
+                  _WhereThingsStand(summary: summary),
+                ],
+
                 const SizedBox(height: AppSpacing.space4),
                 const _Elsewhere(),
               ],
@@ -125,6 +150,88 @@ class HomeScreen extends ConsumerWidget {
       return household;
     }
     return '${profile.displayName}, cooking';
+  }
+}
+
+/// Where things stand (Sprint 47b).
+///
+/// **Numbers that are destinations, not a chart.** docs/project_dev.md cut "food
+/// statistics" as "an interesting dashboard nobody opens twice", and that judgement
+/// holds — a cuisine pie chart is a thing you look at once. What survives the cut
+/// is a count somebody can act on tonight, which is a different kind of number: all
+/// three columns here are tappable, and each goes to the screen where the number
+/// can be changed.
+///
+/// The figure above them is the week, and it is deliberately the one number in the
+/// app that is *not* actionable — it is the app reporting on itself. Time to
+/// Decision is the metric this product lives on (docs/ARCHITECTURE.md §10), and
+/// "three dinners decided" is the household-facing half of it.
+class _WhereThingsStand extends StatelessWidget {
+  const _WhereThingsStand({required this.summary});
+
+  final WeekSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppColorScheme colors = context.colors;
+
+    return DashboardPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          BigFigure(
+            label: 'Decided this week',
+            value: '${summary.decisions}',
+            unit: summary.decisions == 1 ? 'dinner' : 'dinners',
+          ),
+
+          // How the week split, and what it cost. One line rather than a chart:
+          // "four cooked, one out" is the whole story, and a bar of two segments
+          // would be a graphic of a sentence.
+          if (summary.decisions > 0) ...<Widget>[
+            const SizedBox(height: AppSpacing.space2),
+            Text(
+              <String>[
+                '${summary.mealsCooked} cooked',
+                if (summary.nightsOut > 0) '${summary.nightsOut} out',
+                if (summary.averageCostPerHead case final double cost)
+                  'about ${AppFormat.peso(cost.round())} a head',
+              ].join(' · '),
+              style: context.text.metadata,
+            ),
+          ],
+
+          const SizedBox(height: AppSpacing.space5),
+          StatTrio(
+            columns: <StatColumnData>[
+              StatColumnData(
+                label: 'Can cook now',
+                value: '${summary.cookableNow}',
+                color: colors.series1,
+                onTap: () => context.goNamed(AppRoute.meals.routeName),
+              ),
+              StatColumnData(
+                label: 'To use up',
+                value: '${summary.needsUsing}',
+                // The one column that changes colour, because it is the one with
+                // a deadline. Warning only when there is something to warn about—
+                // an amber zero is a warning somebody learns to stop seeing.
+                color: summary.needsUsing > 0
+                    ? colors.warning.color
+                    : colors.series2,
+                onTap: () => context.goNamed(AppRoute.pantry.routeName),
+              ),
+              StatColumnData(
+                label: 'To buy',
+                value: '${summary.stillToBuy}',
+                color: colors.primary,
+                onTap: () => context.goNamed(AppRoute.grocery.routeName),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -288,44 +395,34 @@ class _Elsewhere extends StatelessWidget {
     return DashboardPanel(
       child: DashboardActionRow(
         actions: <DashboardAction>[
-          DashboardAction(
-            label: 'Browse',
-            icon: AppIcons.meals,
-            onTap: () => context.goNamed(AppRoute.meals.routeName),
-          ),
-          // On Home rather than buried in the Meals tab, because what the
-          // household ate this week is the thing somebody checks *before*
-          // spinning — "not chicken again" is a decision made here.
-          DashboardAction(
-            label: 'Recent',
-            icon: AppIcons.plannerActive,
-            onTap: () => context.pushNamed(AppRoute.mealHistory.routeName),
-          ),
-          DashboardAction(
-            label: 'Saved',
-            icon: AppIcons.favoriteActive,
-            onTap: () => context.pushNamed(AppRoute.favorites.routeName),
-          ),
-          DashboardAction(
-            label: 'Yours',
-            icon: AppIcons.add,
-            onTap: () => context.pushNamed(AppRoute.myMeals.routeName),
-          ),
-          // The other answer to the same question (Sprint 45). Here rather than
-          // in the navigation bar because "where should we eat" is a different
-          // answer to *this* screen's question, not a different place to be.
+          // Three tiles, and the count is the point.
+          //
+          // This row held six and the labels truncated — "Brows e", "Recen t" —
+          // which is what happens when a row is used as a drawer. Four of those
+          // six were **Meals-tab destinations that the Meals tab already lists in
+          // its own action row**: Saved, Hidden, Yours, and browsing itself, which
+          // is the tab. Duplicating them here bought nothing and cost the room
+          // that the two things with no tab actually needed.
+          //
+          // So this row now holds exactly what is unreachable elsewhere.
           DashboardAction(
             label: 'Eat out',
-            icon: AppIcons.grocery,
+            icon: AppIcons.cuisine,
             onTap: () => context.pushNamed(AppRoute.restaurants.routeName),
           ),
-          // Asking in words (Sprint 47). The fifth and last tile — past this the
-          // row's labels start truncating, and a row of abbreviations is a row
-          // nobody reads.
           DashboardAction(
             label: 'Ask',
             icon: AppIcons.assistant,
             onTap: () => context.pushNamed(AppRoute.assistant.routeName),
+          ),
+          // Recent stays, unlike the other Meals destinations, because what the
+          // household ate this week is the thing somebody checks *before*
+          // spinning — "not chicken again" is a decision made on this screen, not
+          // in a catalogue.
+          DashboardAction(
+            label: 'Recent',
+            icon: AppIcons.plannerActive,
+            onTap: () => context.pushNamed(AppRoute.mealHistory.routeName),
           ),
         ],
       ),
