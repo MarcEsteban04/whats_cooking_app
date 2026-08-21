@@ -71,6 +71,15 @@ class InMemoryGroceryRepository implements GroceryRepository {
   }
 
   @override
+  Future<int> addMissingForMeal(String mealId) async {
+    // Always zero. The real answer joins the meal's recipe against the pantry,
+    // neither of which exists here. Zero rather than unimplemented, because this
+    // repository exists so the app runs without credentials — and "nothing was
+    // added" is a true and harmless thing to report.
+    return 0;
+  }
+
+  @override
   Future<GroceryItem> setCompleted(
     String id, {
     required bool isCompleted,

@@ -13,6 +13,7 @@ import 'package:whats_cooking/core/widgets/buttons/app_button.dart';
 import 'package:whats_cooking/core/widgets/chips/metadata_pill.dart';
 import 'package:whats_cooking/core/widgets/feedback/app_skeleton.dart';
 import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
+import 'package:whats_cooking/features/grocery/presentation/providers/grocery_controller.dart';
 import 'package:whats_cooking/features/history/domain/entities/meal_history_entry.dart';
 import 'package:whats_cooking/features/history/presentation/providers/meal_history_controller.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal.dart';
@@ -216,6 +217,17 @@ class _ResultState extends ConsumerState<_Result> {
         spinCount: ref.read(spinControllerProvider.notifier).spinsThisSession,
       );
 
+      // Whatever the kitchen is short of goes on the shopping list
+      // (Sprint 43). **After the history write and not awaited before it**: the
+      // decision is the thing that must succeed, and a shopping list that failed
+      // to fill in is a minor annoyance where a dinner that failed to record is
+      // the product not working. A failure here is swallowed on purpose — the
+      // list is one tap away and visibly short, which is a better error message
+      // than a banner on a celebration.
+      final (int added, _) = await ref
+          .read(groceryControllerProvider.notifier)
+          .addMissingForMeal(widget.meal.id);
+
       ref.read(spinControllerProvider.notifier).accept();
 
       // The list is now wrong, and the screen that shows it is one tap away.
@@ -228,6 +240,11 @@ class _ResultState extends ConsumerState<_Result> {
       context.goNamed(
         AppRoute.decided.routeName,
         pathParameters: <String, String>{'historyId': entry.id},
+        // How many things went on the shopping list, so the decided screen can
+        // say so without asking again. Passed rather than re-derived: the count
+        // is the difference between two states the list itself cannot tell apart
+        // — "nothing was needed" and "nothing was added".
+        extra: added,
       );
     } on Object catch (error, stackTrace) {
       if (!mounted) {

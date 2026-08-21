@@ -140,6 +140,27 @@ class SupabaseGroceryRepository implements GroceryRepository {
   }
 
   @override
+  Future<int> addMissingForMeal(String mealId) {
+    return RemoteCall.guard(
+      () async {
+        final dynamic touched = await _client.rpc<dynamic>(
+          _addMissingFunction,
+          params: <String, Object?>{'p_meal_id': mealId},
+        );
+
+        return touched is int ? touched : 0;
+      },
+      label: 'grocery.addMissingForMeal',
+      // No retry. The function merges rather than duplicating, so a second run
+      // is not catastrophic — but it *does* add the quantities again, and a
+      // shopping list that quietly doubled the chicken is worse than one that
+      // missed it. The caller treats a failure as "nothing added" and says so.
+      policy: RetryPolicy.none,
+      timeout: AppConstants.requestTimeout,
+    );
+  }
+
+  @override
   Future<GroceryItem> setCompleted(String id, {required bool isCompleted}) {
     return RemoteCall.guard(
       () async {
@@ -314,7 +335,16 @@ class SupabaseGroceryRepository implements GroceryRepository {
   /// The join PostgREST nests under `ingredients`, null for a free-text line.
   static const String _columns =
       'id, ingredient_id, custom_name, quantity, unit, is_completed, '
-      'added_from_meal_id, created_at, ingredients(name, category)';
+      'added_from_meal_id, created_at, ingredients(name, category), '
+      // The meal that put this here, by name. One extra nested select on a list
+      // of a dozen rows, and it turns "bay leaves" into "bay leaves — for
+      // Chicken Adobo", which is the difference between a line you trust and a
+      // line you delete because you cannot remember adding it.
+      'meals!grocery_items_added_from_meal_id_fkey(name)';
+
+  /// Migration 0023. Adds a meal's missing ingredients, merging with what is
+  /// already on the list, and returns how many lines it touched.
+  static const String _addMissingFunction = 'add_missing_to_grocery';
 
   static const String _lists = 'grocery_lists';
   static const String _items = 'grocery_items';

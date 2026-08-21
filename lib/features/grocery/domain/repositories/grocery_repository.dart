@@ -43,6 +43,22 @@ abstract interface class GroceryRepository {
     String unit = '',
   });
 
+  /// Puts a meal's missing ingredients on the list (Sprint 43).
+  ///
+  ///     accepted meal → required ingredients → compare pantry → missing only
+  ///
+  /// One call, server-side, and not only for the payload: the client does not
+  /// *have* the meal's ingredient list. The spin fetches `meals`-only columns, so
+  /// the result screen holds a meal with no recipe attached — fetching one in
+  /// order to write another table would be two round trips and a race.
+  ///
+  /// Staples and optional ingredients are skipped, matching the pantry match.
+  /// Nobody wants "salt" on the list every time they accept a meal.
+  ///
+  /// Returns how many lines it touched, so the app can say so. Zero is a normal
+  /// answer and a good one: it means the kitchen already had everything.
+  Future<int> addMissingForMeal(String mealId);
+
   /// Ticks a line off, or un-ticks it.
   Future<GroceryItem> setCompleted(String id, {required bool isCompleted});
 

@@ -23,6 +23,7 @@ class GroceryItem {
     this.unit = '',
     this.isCompleted = false,
     this.fromMealId,
+    this.fromMealName,
   });
 
   /// Decodes a `grocery_items` row with its `ingredients` join nested under its
@@ -43,6 +44,10 @@ class GroceryItem {
       unit: row['unit'] as String? ?? '',
       isCompleted: row['is_completed'] as bool? ?? false,
       fromMealId: row['added_from_meal_id'] as String?,
+      // PostgREST nests the joined table under its own name, and this join is
+      // disambiguated by constraint because `grocery_items` reaches `meals`
+      // only through this one column.
+      fromMealName: (row['meals'] as Map<String, dynamic>?)?['name'] as String?,
     );
   }
 
@@ -70,10 +75,14 @@ class GroceryItem {
   final bool isCompleted;
 
   /// Which meal put this here, when something did (Sprint 43).
-  ///
-  /// Read now, written later. The column exists, so decoding it costs nothing and
-  /// means Sprint 43 adds a reason to the row rather than a migration.
   final String? fromMealId;
+
+  /// That meal's name, for the line to explain itself.
+  ///
+  /// "Bay leaves — for Chicken Adobo" is a line somebody trusts; "bay leaves"
+  /// on its own is a line they delete in three days because they cannot remember
+  /// adding it.
+  final String? fromMealName;
 
   /// Whichever of the two names this line has.
   String get name => ingredientName ?? customName ?? '';
@@ -124,6 +133,7 @@ class GroceryItem {
       unit: unit ?? this.unit,
       isCompleted: isCompleted ?? this.isCompleted,
       fromMealId: fromMealId,
+      fromMealName: fromMealName,
     );
   }
 

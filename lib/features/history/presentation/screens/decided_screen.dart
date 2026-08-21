@@ -26,9 +26,21 @@ import 'package:whats_cooking/features/meals/domain/entities/meal.dart';
 /// page of pale surfaces the loudest thing left to say is "black" — which is
 /// what §14's "celebratory confirmation" needs to be.
 class DecidedScreen extends ConsumerWidget {
-  const DecidedScreen({required this.historyId, super.key});
+  const DecidedScreen({
+    required this.historyId,
+    this.addedToList,
+    super.key,
+  });
 
   final String historyId;
+
+  /// How many lines the accepted meal put on the shopping list (Sprint 43).
+  ///
+  /// Null when this screen was reached any way other than accepting — a deep
+  /// link, a restart, the history list. That is a third state, not a zero: "we
+  /// do not know" has to read differently from "nothing was needed", and the
+  /// screen says nothing at all rather than claiming either.
+  final int? addedToList;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -48,7 +60,7 @@ class DecidedScreen extends ConsumerWidget {
               padding: const EdgeInsets.all(AppLayout.screenMargin),
               child: switch (entry) {
                 AsyncData<MealHistoryEntry>(:final MealHistoryEntry value) =>
-                  _Decided(entry: value),
+                  _Decided(entry: value, addedToList: addedToList),
                 AsyncError<MealHistoryEntry>(:final Object error) => ErrorState(
                   kind: error is AppException
                       ? error.errorStateKind
@@ -68,9 +80,10 @@ class DecidedScreen extends ConsumerWidget {
 }
 
 class _Decided extends StatelessWidget {
-  const _Decided({required this.entry});
+  const _Decided({required this.entry, this.addedToList});
 
   final MealHistoryEntry entry;
+  final int? addedToList;
 
   @override
   Widget build(BuildContext context) {
@@ -156,6 +169,26 @@ class _Decided extends StatelessWidget {
             ),
           ),
         ),
+        // What accepting this just did to the shopping list (Sprint 43).
+        //
+        // Inside the celebration rather than as a banner over it, and phrased as
+        // a fact: "4 things added" is useful, and a screen that interrupts a
+        // decision to talk about errands is not. Silent when the count is zero,
+        // because "nothing was added" on a night the kitchen already had
+        // everything is the app congratulating itself for doing nothing.
+        if (addedToList case final int added when added > 0) ...<Widget>[
+          const SizedBox(height: AppSpacing.space4),
+          Center(
+            child: AppButton.tertiary(
+              label:
+                  '$added ${added == 1 ? 'thing' : 'things'} added to the list',
+              size: AppButtonSize.small,
+              leadingIcon: AppIcons.grocery,
+              onPressed: () => context.goNamed(AppRoute.grocery.routeName),
+            ),
+          ),
+        ],
+
         const SizedBox(height: AppSpacing.space6),
         if (meal != null)
           AppButton.primary(

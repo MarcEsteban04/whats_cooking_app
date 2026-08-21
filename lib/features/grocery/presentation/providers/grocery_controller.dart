@@ -65,6 +65,31 @@ class GroceryController extends _$GroceryController {
     );
   }
 
+  /// Puts a meal's missing ingredients on the list (Sprint 43).
+  ///
+  /// Returns how many lines it touched. **Zero is a good answer** — it means the
+  /// kitchen already had everything — so the caller has to be able to tell that
+  /// apart from a failure, which is why this returns a pair rather than a count.
+  ///
+  /// Not optimistic, and it re-reads rather than merging a response. The function
+  /// may have updated three lines and inserted two, and reconstructing that from
+  /// a single integer is guesswork — this is also the one grocery write nobody is
+  /// standing in a shop waiting for.
+  Future<(int, AppException?)> addMissingForMeal(String mealId) async {
+    try {
+      final int touched = await ref
+          .read(groceryRepositoryProvider)
+          .addMissingForMeal(mealId);
+
+      if (touched > 0) {
+        await refresh();
+      }
+      return (touched, null);
+    } on Object catch (error, stackTrace) {
+      return (0, ErrorMapper.map(error, stackTrace));
+    }
+  }
+
   /// Ticks a line, or un-ticks it.
   Future<AppException?> setCompleted(
     GroceryItem item, {

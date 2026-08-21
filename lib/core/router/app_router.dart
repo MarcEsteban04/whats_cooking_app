@@ -478,7 +478,14 @@ final List<RouteBase> _fullScreenRoutes = <RouteBase>[
     parentNavigatorKey: rootNavigatorKey,
     pageBuilder: (BuildContext context, GoRouterState state) =>
         AppScaleFadePage<void>(
-          child: DecidedScreen(historyId: state.pathParameters['historyId']!),
+          child: DecidedScreen(
+            historyId: state.pathParameters['historyId']!,
+            // How many things the accepted meal put on the shopping list
+            // (Sprint 43). Null on a deep link or a restart, which is the
+            // difference between "we do not know" and "nothing was needed" —
+            // and the screen says nothing rather than guessing.
+            addedToList: state.extra is int ? state.extra as int : null,
+          ),
         ),
   ),
   GoRoute(

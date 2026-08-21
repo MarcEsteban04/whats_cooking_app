@@ -354,14 +354,33 @@ class _GroceryRow extends ConsumerWidget {
                 _Tick(isDone: done),
                 const SizedBox(width: AppSpacing.space4),
                 Expanded(
-                  child: Text(
-                    AppFormat.sentenceCase(item.name),
-                    style: context.text.bodyLarge.copyWith(
-                      decoration: done ? TextDecoration.lineThrough : null,
-                      decorationColor: colors.textTertiary,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Text(
+                        AppFormat.sentenceCase(item.name),
+                        style: context.text.bodyLarge.copyWith(
+                          decoration:
+                              done ? TextDecoration.lineThrough : null,
+                          decorationColor: colors.textTertiary,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      // Why this line is here, when a meal put it here
+                      // (Sprint 43). "Bay leaves — for Chicken Adobo" is a line
+                      // somebody trusts; "bay leaves" on its own is a line they
+                      // delete in three days because they cannot remember adding
+                      // it.
+                      if (item.fromMealName case final String meal)
+                        Text(
+                          'for $meal',
+                          style: context.text.metadata,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                    ],
                   ),
                 ),
                 if (item.hasAmount) ...<Widget>[
