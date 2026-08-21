@@ -113,25 +113,61 @@ class _PantryItemSheetState extends ConsumerState<PantryItemSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          Text(
-            _isEditing ? 'How much is left?' : 'What do you have?',
-            style: context.text.titleLarge,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Text(
+                      _isEditing
+                          ? AppFormat.sentenceCase(widget.existing!.name)
+                          : 'What do you have?',
+                      style: context.text.titleLarge,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: AppSpacing.space1),
+                    Text(
+                      // The subtitle carries the instruction, so the heading can
+                      // carry the *subject*. On an edit that subject is the
+                      // ingredient's own name, which is the one thing the sheet
+                      // previously never said.
+                      _isEditing
+                          ? 'Change how much, or when it goes off.'
+                          : 'Anything in the kitchen. The amount is optional.',
+                      style: context.text.metadata,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.space3),
+              // A named way out, because a sheet dismissed only by dragging is a
+              // sheet somebody has to discover how to leave.
+              AppButton.tertiary(
+                label: 'Close',
+                size: AppButtonSize.small,
+                onPressed: _isSaving ? null : () => context.pop(),
+              ),
+            ],
           ),
           const SizedBox(height: AppSpacing.space5),
 
-          AppTextField(
-            controller: _name,
-            label: 'Ingredient',
-            hint: 'Chicken, soy sauce, kangkong',
-            autofocus: !_isEditing,
-            // Locked while editing rather than hidden, so the sheet still says
-            // what is being changed.
-            isReadOnly: _isEditing,
-            textCapitalization: TextCapitalization.none,
-            onChanged: (String value) => setState(() => _term = value),
-          ),
-
+          // Hidden while editing rather than shown disabled. The heading now
+          // carries the name, so a greyed-out copy of it underneath was a second
+          // statement of the same fact taking up the most valuable row in the
+          // sheet.
           if (!_isEditing) ...<Widget>[
+            AppTextField(
+              controller: _name,
+              label: 'Ingredient',
+              hint: 'Chicken, soy sauce, kangkong',
+              autofocus: true,
+              textCapitalization: TextCapitalization.none,
+              onChanged: (String value) => setState(() => _term = value),
+            ),
             const SizedBox(height: AppSpacing.space3),
             _Suggestions(
               suggestions: suggestions,
@@ -158,7 +194,10 @@ class _PantryItemSheetState extends ConsumerState<PantryItemSheet> {
                 child: AppTextField(
                   controller: _quantity,
                   label: 'How much',
-                  hint: 'Leave blank for "some"',
+                  // Two words. The old hint read `Leave blank for "..."` on a
+                  // real device — a hint that needs more room than the field it
+                  // is in tells the reader nothing at all.
+                  hint: 'Optional',
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
@@ -175,12 +214,15 @@ class _PantryItemSheetState extends ConsumerState<PantryItemSheet> {
                   controller: _unit,
                   label: 'Unit',
                   hint: 'g, pc, bottle',
+                  textCapitalization: TextCapitalization.none,
                 ),
               ),
             ],
           ),
 
           const SizedBox(height: AppSpacing.space4),
+          Text('Goes off', style: context.text.label),
+          const SizedBox(height: AppSpacing.space2),
           _ExpiryField(
             value: _expiresOn,
             isStaple: widget.existing?.isStaple ?? false,
@@ -326,8 +368,8 @@ class _ExpiryField extends StatelessWidget {
         Expanded(
           child: AppButton.secondary(
             label: value == null
-                ? 'No date'
-                : 'Goes off ${AppFormat.calendarDate(value!)}',
+                ? 'Not tracked'
+                : AppFormat.calendarDate(value!),
             leadingIcon: AppIcons.expiring,
             size: AppButtonSize.small,
             onPressed: () => _pick(context),

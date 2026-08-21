@@ -6,16 +6,17 @@ import 'package:whats_cooking/core/errors/app_exception.dart';
 import 'package:whats_cooking/core/errors/error_presenter.dart';
 import 'package:whats_cooking/core/router/app_routes.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
+import 'package:whats_cooking/core/utils/formatters.dart';
 import 'package:whats_cooking/core/widgets/dashboard/dashboard.dart';
 import 'package:whats_cooking/core/widgets/feedback/app_skeleton.dart';
 import 'package:whats_cooking/core/widgets/feedback/empty_state.dart';
 import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
+import 'package:whats_cooking/core/widgets/inputs/app_text_field.dart';
 import 'package:whats_cooking/core/widgets/press_feedback.dart';
-import 'package:whats_cooking/core/widgets/section_header.dart';
 import 'package:whats_cooking/features/pantry/domain/entities/pantry_item.dart';
 import 'package:whats_cooking/features/pantry/presentation/providers/pantry_controller.dart';
 
-/// What is in the kitchen (Sprint 39, docs/USER_FLOWS.md §12).
+/// What is in the kitchen (Sprint 39–40, docs/USER_FLOWS.md §12).
 ///
 /// The dashboard language, like Home and Meals: one figure set huge, tiny caps
 /// labels, hairline rules instead of nested boxes.
@@ -23,22 +24,54 @@ import 'package:whats_cooking/features/pantry/presentation/providers/pantry_cont
 /// **Grouped by aisle, not alphabetically.** `protein, vegetables, dairy` is a
 /// list you can walk; A-to-Z sends the eye between the fridge and the spice rack
 /// four times. That ordering is the whole reason `ingredients.category` is read
-/// here at all.
+/// here at all, and it is why each aisle carries a glyph — at a glance, the shape
+/// of the list says what kind of kitchen this is.
 ///
-/// **Tap an item to change the amount, swipe to remove.** Removing is the
+/// **Both filters come out of the panel.** The aisle figures are tappable and the
+/// "needs using" callout is a toggle, so the numbers a reader would want to act on
+/// *are* the controls. That is what the reference means by stat columns doubling
+/// as filters, and it is why this screen has no filter bar.
+///
+/// **Tap a row to change the amount, swipe to remove.** Removing is the
 /// destructive one and gets the gesture that cannot be triggered by a mis-tap
 /// while scrolling a list at the fridge door.
-class PantryScreen extends ConsumerWidget {
+class PantryScreen extends ConsumerStatefulWidget {
   const PantryScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PantryScreen> createState() => _PantryScreenState();
+}
+
+class _PantryScreenState extends ConsumerState<PantryScreen> {
+  final TextEditingController _search = TextEditingController();
+
+  bool _isSearching = false;
+
+  /// Narrowed to what wants eating soon.
+  bool _onlyUrgent = false;
+
+  /// Narrowed to one aisle, or null for all of them.
+  IngredientCategory? _aisle;
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final AsyncValue<List<PantryItem>> pantry = ref.watch(
       pantryControllerProvider,
     );
     final PantryController controller = ref.read(
       pantryControllerProvider.notifier,
     );
+
+    // One clock for the whole build. Reading `DateTime.now()` per row would let a
+    // list rendered across midnight disagree with itself about what day it is.
+    final DateTime now = DateTime.now();
+    final List<PantryItem> all = pantry.value ?? const <PantryItem>[];
 
     return Scaffold(
       backgroundColor: context.colors.background,
@@ -65,9 +98,42 @@ class PantryScreen extends ConsumerWidget {
                       children: <Widget>[
                         DashboardHeader(
                           title: 'Kitchen',
-                          subtitle: _countLine(pantry.value),
+                          subtitle: _subtitle(all, now),
+                          onSubtitleTap: _hasFilter ? _clearFilters : null,
+                          actions: <Widget>[
+                            _CircleAction(
+                              icon: _isSearching
+                                  ? AppIcons.clear
+                                  : AppIcons.search,
+                              label: _isSearching
+                                  ? 'Close search'
+                                  : 'Search the kitchen',
+                              onTap: _toggleSearch,
+                            ),
+                            _CircleAction(
+                              icon: AppIcons.add,
+                              label: 'Add an ingredient',
+                              onTap: () => context.pushNamed(
+                                AppRoute.pantryAdd.routeName,
+                              ),
+                            ),
+                          ],
                         ),
+
+                        if (_isSearching) ...<Widget>[
+                          const SizedBox(height: AppSpacing.space4),
+                          AppTextField(
+                            controller: _search,
+                            hint: 'Search the kitchen',
+                            autofocus: true,
+                            prefixIcon: AppIcons.search,
+                            textCapitalization: TextCapitalization.none,
+                            onChanged: (_) => setState(() {}),
+                          ),
+                        ],
+
                         const SizedBox(height: AppSpacing.space5),
+
                         switch (pantry) {
                           AsyncError<List<PantryItem>>(:final Object error) =>
                             ErrorState(
@@ -84,13 +150,27 @@ class PantryScreen extends ConsumerWidget {
                           ) =>
                             value.isEmpty
                                 ? const _Empty()
-                                : _Loaded(items: value),
-                          // Loading with nothing cached yet.
+                                : _Loaded(
+                                    all: value,
+                                    visible: _visible(value, now),
+                                    now: now,
+                                    onlyUrgent: _onlyUrgent,
+                                    aisle: _aisle,
+                                    hasQuery: _query.isNotEmpty,
+                                    onToggleUrgent: () => setState(
+                                      () => _onlyUrgent = !_onlyUrgent,
+                                    ),
+                                    onAisle: (IngredientCategory picked) =>
+                                        setState(
+                                          () => _aisle = _aisle == picked
+                                              ? null
+                                              : picked,
+                                        ),
+                                    onClearFilters: _clearFilters,
+                                  ),
                           _ => const _Loading(),
                         },
-                        // Clears the floating bottom navigation. Without it the
-                        // last aisle sits under the bar and reads as a list that
-                        // has stopped early.
+
                         const SizedBox(
                           height: AppLayout.scrollBottomPadding,
                         ),
@@ -106,10 +186,53 @@ class PantryScreen extends ConsumerWidget {
     );
   }
 
+  String get _query => _search.text.trim().toLowerCase();
+
+  bool get _hasFilter => _onlyUrgent || _aisle != null || _query.isNotEmpty;
+
+  /// Everything that survives the search and the two filters.
+  ///
+  /// Applied here rather than in the query. The whole pantry arrives in one
+  /// request and is a few dozen rows at the outside, so filtering in Dart buys the
+  /// same thing the spin's filters buy: exact counts for every filter at once,
+  /// out of one fetch.
+  List<PantryItem> _visible(List<PantryItem> items, DateTime now) {
+    final String query = _query;
+
+    return <PantryItem>[
+      for (final PantryItem item in items)
+        if (query.isEmpty || item.name.contains(query))
+          if (_aisle == null || item.category == _aisle)
+            if (!_onlyUrgent || item.statusAsOf(now).needsAttention) item,
+    ];
+  }
+
+  void _toggleSearch() {
+    setState(() {
+      _isSearching = !_isSearching;
+      if (!_isSearching) {
+        _search.clear();
+      }
+    });
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _onlyUrgent = false;
+      _aisle = null;
+      _search.clear();
+      _isSearching = false;
+    });
+  }
+
   /// The context line under the title.
-  static String _countLine(List<PantryItem>? items) {
-    if (items == null) {
-      return 'what we have in';
+  ///
+  /// Says what is being *looked at* while something is filtering, and what is in
+  /// the kitchen otherwise — the same rule the Meals header follows, so a narrowed
+  /// list never reads as a shrunken one.
+  String _subtitle(List<PantryItem> items, DateTime now) {
+    if (_hasFilter) {
+      return '${_visible(items, now).length} of ${items.length} · tap to clear';
     }
     if (items.isEmpty) {
       return 'nothing in yet';
@@ -125,29 +248,68 @@ class PantryScreen extends ConsumerWidget {
 
 /// The pantry, with something in it.
 class _Loaded extends ConsumerWidget {
-  const _Loaded({required this.items});
+  const _Loaded({
+    required this.all,
+    required this.visible,
+    required this.now,
+    required this.onlyUrgent,
+    required this.aisle,
+    required this.hasQuery,
+    required this.onToggleUrgent,
+    required this.onAisle,
+    required this.onClearFilters,
+  });
 
-  final List<PantryItem> items;
+  /// Everything in the kitchen.
+  ///
+  /// The panel's figures count this rather than [visible]: a filter narrows the
+  /// list, and a headline that shrank with it would make filtering look like
+  /// losing stock.
+  final List<PantryItem> all;
+
+  /// What survives the search and the filters.
+  final List<PantryItem> visible;
+
+  final DateTime now;
+  final bool onlyUrgent;
+  final IngredientCategory? aisle;
+  final bool hasQuery;
+  final VoidCallback onToggleUrgent;
+  final ValueChanged<IngredientCategory> onAisle;
+  final VoidCallback onClearFilters;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Grouped in one pass. The list arrives already sorted by category then name
-    // (both the repository and the controller sort it), so this only has to
-    // notice where one group ends.
-    final Map<IngredientCategory, List<PantryItem>> byAisle =
-        <IngredientCategory, List<PantryItem>>{};
-    for (final PantryItem item in items) {
-      byAisle.putIfAbsent(item.category, () => <PantryItem>[]).add(item);
+    final AppColorScheme colors = context.colors;
+
+    final int urgent = all
+        .where((PantryItem item) => item.statusAsOf(now).needsAttention)
+        .length;
+
+    // The aisles that actually have something in them, biggest first. This is the
+    // reference's `Top Performing Countries` block: three real figures with real
+    // bars, rather than a fixed trio whose third column reads "0" most of the
+    // time — which is what "Staples 0" was doing.
+    final Map<IngredientCategory, int> counts = <IngredientCategory, int>{};
+    for (final PantryItem item in all) {
+      counts[item.category] = (counts[item.category] ?? 0) + 1;
     }
 
-    final int withAmounts = items.where((PantryItem i) => i.hasAmount).length;
+    final List<IngredientCategory> top = counts.keys.toList()
+      ..sort((IngredientCategory a, IngredientCategory b) {
+        final int byCount = counts[b]!.compareTo(counts[a]!);
+        // Ties broken by aisle order rather than by map order, so the panel does
+        // not reshuffle itself between two refreshes that changed nothing.
+        return byCount != 0 ? byCount : a.index.compareTo(b.index);
+      });
 
-    // One clock for the whole build. Reading `DateTime.now()` per row would let a
-    // list rendered across midnight disagree with itself about what day it is.
-    final DateTime now = DateTime.now();
-    final int urgent = items
-        .where((PantryItem i) => i.statusAsOf(now).needsAttention)
-        .length;
+    // Grouped in one pass. The list arrives already sorted by category then name,
+    // so this only has to notice where one group ends.
+    final Map<IngredientCategory, List<PantryItem>> byAisle =
+        <IngredientCategory, List<PantryItem>>{};
+    for (final PantryItem item in visible) {
+      byAisle.putIfAbsent(item.category, () => <PantryItem>[]).add(item);
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -158,52 +320,43 @@ class _Loaded extends ConsumerWidget {
             children: <Widget>[
               BigFigure(
                 label: 'In the kitchen',
-                value: '${items.length}',
-                unit: items.length == 1 ? 'thing' : 'things',
+                value: '${all.length}',
+                unit: all.length == 1 ? 'thing' : 'things',
               ),
+
+              // The one thing on this screen worth acting on tonight, and a
+              // control rather than a read-out. Absent entirely at zero: a
+              // permanent row reading "0 to use up" is a warning somebody learns
+              // to stop seeing.
+              if (urgent > 0) ...<Widget>[
+                const SizedBox(height: AppSpacing.space4),
+                _UrgentCallout(
+                  count: urgent,
+                  isActive: onlyUrgent,
+                  onTap: onToggleUrgent,
+                ),
+              ],
+
               const SizedBox(height: AppSpacing.space5),
               StatTrio(
                 columns: <StatColumnData>[
-                  StatColumnData(
-                    label: 'Aisles',
-                    value: '${byAisle.length}',
-                    fraction:
-                        byAisle.length / IngredientCategory.values.length,
-                    color: context.colors.series1,
-                  ),
-                  // Urgency displaces detail (Sprint 40). "With amounts" is a
-                  // curiosity; "3 to use up" is a thing to do tonight, and while
-                  // there is one of those it has the better claim on the middle
-                  // column. It goes back to the curiosity when the fridge is calm,
-                  // rather than sitting there reading "0" — a zero on a warning is
-                  // a warning somebody learns to stop reading.
-                  if (urgent > 0)
+                  for (final (int index, IngredientCategory group)
+                      in top.take(3).indexed)
                     StatColumnData(
-                      label: 'To use up',
-                      value: '$urgent',
-                      fraction: items.isEmpty ? 0 : urgent / items.length,
-                      color: context.colors.warning.color,
-                    )
-                  else
-                    StatColumnData(
-                      // The number the pantry does *not* need in order to be
-                      // useful — Sprint 41 asks "do we have any", not "how much".
-                      label: 'With amounts',
-                      value: '$withAmounts',
-                      fraction: items.isEmpty ? 0 : withAmounts / items.length,
-                      color: context.colors.series2,
+                      label: group.label,
+                      value: '${counts[group]}',
+                      fraction: counts[group]! / all.length,
+                      color: switch (index) {
+                        0 => colors.series1,
+                        1 => colors.series2,
+                        _ => colors.primary,
+                      },
+                      // Tapping a figure filters to it; tapping it again clears.
+                      onTap: () => onAisle(group),
                     ),
-                  StatColumnData(
-                    label: 'Staples',
-                    value: '${items.where((PantryItem i) => i.isStaple).length}',
-                    fraction: items.isEmpty
-                        ? 0
-                        : items.where((PantryItem i) => i.isStaple).length /
-                              items.length,
-                    color: context.colors.primary,
-                  ),
                 ],
               ),
+
               const SizedBox(height: AppSpacing.space5),
               const DashboardRule(),
               const SizedBox(height: AppSpacing.space4),
@@ -230,18 +383,146 @@ class _Loaded extends ConsumerWidget {
             ],
           ),
         ),
-        for (final IngredientCategory aisle in IngredientCategory.values)
-          if (byAisle[aisle] case final List<PantryItem> group)
-            ...<Widget>[
-              SectionHeader(title: aisle.label),
-              for (final PantryItem item in group)
+
+        if (visible.isEmpty)
+          _NothingMatched(
+            onlyUrgent: onlyUrgent,
+            hasQuery: hasQuery,
+            onClear: onClearFilters,
+          )
+        else
+          for (final IngredientCategory group in IngredientCategory.values)
+            if (byAisle[group] case final List<PantryItem> rows) ...<Widget>[
+              _AisleHeader(
+                aisle: group,
+                count: rows.length,
+                isActive: aisle == group,
+                onTap: () => onAisle(group),
+              ),
+              for (final (int index, PantryItem item) in rows.indexed) ...[
+                // A hairline between rows, not a box around each. The reference
+                // divides with one pixel rather than nesting cards — and without
+                // any division a column of two-line rows reads as a wall of
+                // unrelated text, which is what the first version looked like.
+                if (index > 0) const DashboardRule(),
                 _PantryRow(
                   item: item,
                   now: now,
                   key: ValueKey<String>(item.id),
                 ),
+              ],
             ],
       ],
+    );
+  }
+}
+
+/// "3 things need using" — a warning that is also a filter.
+class _UrgentCallout extends StatelessWidget {
+  const _UrgentCallout({
+    required this.count,
+    required this.isActive,
+    required this.onTap,
+  });
+
+  final int count;
+  final bool isActive;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppSemanticColor warning = context.colors.warning;
+    final Color ink = isActive ? warning.onColor : warning.onSurface;
+
+    return PressFeedback(
+      onTap: onTap,
+      semanticLabel: '$count things need using',
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          // The tinted container until it is switched on, not the full-strength
+          // colour: this is a nudge sitting inside a white panel, and a solid
+          // amber block would outshout the figure above it.
+          color: isActive ? warning.color : warning.surface,
+          borderRadius: AppRadius.borderMd,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.space4,
+            vertical: AppSpacing.space3,
+          ),
+          child: Row(
+            children: <Widget>[
+              Icon(AppIcons.expiring, size: AppIconSize.xs, color: ink),
+              const SizedBox(width: AppSpacing.space3),
+              Expanded(
+                child: Text(
+                  count == 1
+                      ? '1 thing needs using'
+                      : '$count things need using',
+                  style: context.text.labelSmall.copyWith(color: ink),
+                ),
+              ),
+              Text(
+                // Says what the tap does. A coloured row that filters is not
+                // obviously a control, and a control nobody presses is decoration.
+                isActive ? 'Show all' : 'Show these',
+                style: context.text.metadata.copyWith(color: ink),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One aisle's heading: its glyph, its name, and how many are in it.
+class _AisleHeader extends StatelessWidget {
+  const _AisleHeader({
+    required this.aisle,
+    required this.count,
+    required this.isActive,
+    required this.onTap,
+  });
+
+  final IngredientCategory aisle;
+  final int count;
+  final bool isActive;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppColorScheme colors = context.colors;
+
+    return PressFeedback(
+      onTap: onTap,
+      semanticLabel: aisle.label,
+      expandTouchTarget: false,
+      child: Padding(
+        padding: const EdgeInsets.only(
+          top: AppSpacing.space6,
+          bottom: AppSpacing.space3,
+        ),
+        child: Row(
+          children: <Widget>[
+            Icon(
+              _aisleIcon(aisle),
+              size: AppIconSize.xs,
+              color: isActive ? colors.primary : colors.textTertiary,
+            ),
+            const SizedBox(width: AppSpacing.space2),
+            Expanded(
+              child: Text(
+                aisle.label.toUpperCase(),
+                style: context.text.overline.copyWith(
+                  color: isActive ? colors.primary : null,
+                ),
+              ),
+            ),
+            Text('$count', style: context.text.metadata),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -261,6 +542,9 @@ class _PantryRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final ExpiryStatus status = item.statusAsOf(now);
+    final String? warning = item.expiryLabel(now);
+
     return Dismissible(
       key: ValueKey<String>('dismiss-${item.id}'),
       // One direction only. A list you can flick either way is a list where a
@@ -277,7 +561,7 @@ class _PantryRow extends ConsumerWidget {
             padding: const EdgeInsets.only(right: AppSpacing.space4),
             child: Icon(
               AppIcons.delete,
-              color: context.colors.surface,
+              color: context.colors.error.onColor,
               size: AppIconSize.sm,
             ),
           ),
@@ -298,19 +582,26 @@ class _PantryRow extends ConsumerWidget {
           SnackBar(
             content: Text(
               failure == null
-                  ? '${_sentenceCase(item.name)} is out of the kitchen.'
+                  ? '${AppFormat.sentenceCase(item.name)} is out of the kitchen.'
                   : failure.displayMessage ?? failure.message,
             ),
           ),
         );
       },
       child: PressFeedback(
-        onTap: () => _edit(context, ref),
+        onTap: () =>
+            context.pushNamed(AppRoute.pantryAdd.routeName, extra: item),
         semanticLabel: item.name,
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.space3),
           child: Row(
             children: <Widget>[
+              // A pip, not the aisle glyph. The heading above already carries
+              // that, so repeating it per row would state the same fact twelve
+              // times — but the eye needs something to run down the left edge,
+              // and urgency is the one thing worth putting there.
+              _StatusDot(status: status),
+              const SizedBox(width: AppSpacing.space3),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -320,20 +611,19 @@ class _PantryRow extends ConsumerWidget {
                       // Stored lower case, shown with a capital. The vocabulary
                       // is normalised for matching; a reader should not have to
                       // look at the consequences of that.
-                      _sentenceCase(item.name),
+                      AppFormat.sentenceCase(item.name),
                       style: context.text.bodyLarge,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    if (item.expiryLabel(now) case final String warning)
+                    if (warning case final String line)
                       Text(
-                        warning,
+                        line,
                         style: context.text.metadata.copyWith(
                           // Past its date is an error; nearly is a warning. The
-                          // two want different colours because they want different
-                          // actions — throw it out, or cook it.
-                          color:
-                              item.statusAsOf(now) == ExpiryStatus.gone
+                          // two want different colours because they want
+                          // different actions — throw it out, or cook it.
+                          color: status == ExpiryStatus.gone
                               ? context.colors.error.color
                               : context.colors.warning.color,
                         ),
@@ -342,6 +632,12 @@ class _PantryRow extends ConsumerWidget {
                     else if (item.isStaple)
                       Text(
                         'Always assumed in',
+                        style: context.text.metadata,
+                        maxLines: 1,
+                      )
+                    else if (item.expiresOn case final DateTime date)
+                      Text(
+                        'Good until ${AppFormat.calendarDate(date, now: now)}',
                         style: context.text.metadata,
                         maxLines: 1,
                       ),
@@ -364,14 +660,73 @@ class _PantryRow extends ConsumerWidget {
       ),
     );
   }
+}
 
-  /// The amount sheet, reusing the add sheet with this item pre-filled.
-  void _edit(BuildContext context, WidgetRef ref) {
-    context.pushNamed(AppRoute.pantryAdd.routeName, extra: item);
+/// A pip carrying the row's urgency, and almost nothing when there is none.
+class _StatusDot extends StatelessWidget {
+  const _StatusDot({required this.status});
+
+  final ExpiryStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppColorScheme colors = context.colors;
+
+    return Container(
+      width: _size,
+      height: _size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: switch (status) {
+          ExpiryStatus.gone => colors.error.color,
+          ExpiryStatus.today || ExpiryStatus.soon => colors.warning.color,
+          // Deliberately faint. Most rows are fine, and a column of confident
+          // green ticks would spend the reader's whole attention saying nothing.
+          ExpiryStatus.fine || ExpiryStatus.none => colors.outline,
+        },
+      ),
+    );
   }
 
-  static String _sentenceCase(String value) =>
-      value.isEmpty ? value : value[0].toUpperCase() + value.substring(1);
+  static const double _size = 8;
+}
+
+/// Filtered down to nothing.
+class _NothingMatched extends StatelessWidget {
+  const _NothingMatched({
+    required this.onlyUrgent,
+    required this.hasQuery,
+    required this.onClear,
+  });
+
+  final bool onlyUrgent;
+  final bool hasQuery;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.space7),
+      child: EmptyState(
+        icon: AppIcons.search,
+        // Three filters, three sentences, because they have three different fixes
+        // and a generic "no results" leaves the reader to work out which one they
+        // are looking at.
+        title: switch ((onlyUrgent, hasQuery)) {
+          (true, _) => 'Nothing needs using',
+          (_, true) => 'Not in the kitchen',
+          _ => 'Nothing in this aisle',
+        },
+        body: switch ((onlyUrgent, hasQuery)) {
+          (true, _) => 'Everything with a date on it is still fine.',
+          (_, true) => 'Add it, and the roulette can start counting on it.',
+          _ => 'Nothing filed here yet.',
+        },
+        actionLabel: 'Show everything',
+        onAction: onClear,
+      ),
+    );
+  }
 }
 
 /// Nothing in yet.
@@ -386,8 +741,7 @@ class _Empty extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(top: AppSpacing.space7),
       child: EmptyState.pantry(
-        onAddIngredient: () =>
-            context.pushNamed(AppRoute.pantryAdd.routeName),
+        onAddIngredient: () => context.pushNamed(AppRoute.pantryAdd.routeName),
       ),
     );
   }
@@ -414,12 +768,11 @@ class _Loading extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: AppSpacing.space5),
+        const SizedBox(height: AppSpacing.space6),
         for (int index = 0; index < _rows; index++) ...<Widget>[
           const AppSkeleton.textLine(widthFactor: 0.55),
           const SizedBox(height: AppSpacing.space4),
         ],
-
       ],
     );
   }
@@ -428,3 +781,57 @@ class _Loading extends StatelessWidget {
   static const double _trioHeight = 54;
   static const int _rows = 6;
 }
+
+/// A circular header action, matching the Meals screen's.
+class _CircleAction extends StatelessWidget {
+  const _CircleAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppColorScheme colors = context.colors;
+
+    return PressFeedback(
+      onTap: onTap,
+      semanticLabel: label,
+      expandTouchTarget: false,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colors.surface,
+          shape: BoxShape.circle,
+          boxShadow: context.shadows.sm,
+        ),
+        child: SizedBox.square(
+          dimension: _size,
+          child: Center(
+            child: Icon(icon, size: AppIconSize.sm, color: colors.textPrimary),
+          ),
+        ),
+      ),
+    );
+  }
+
+  static const double _size = 40;
+}
+
+/// The glyph for each aisle.
+///
+/// Here rather than on the enum because `core/domain` imports nothing but Dart,
+/// and outline glyphs because this app has no coloured icons anywhere.
+IconData _aisleIcon(IngredientCategory aisle) => switch (aisle) {
+  IngredientCategory.protein => Icons.set_meal_outlined,
+  IngredientCategory.vegetable => Icons.grass_outlined,
+  IngredientCategory.fruit => Icons.local_florist_outlined,
+  IngredientCategory.grain => Icons.rice_bowl_outlined,
+  IngredientCategory.dairy => Icons.local_drink_outlined,
+  IngredientCategory.spice => Icons.scatter_plot_outlined,
+  IngredientCategory.condiment => Icons.water_drop_outlined,
+  IngredientCategory.other => Icons.inventory_2_outlined,
+};

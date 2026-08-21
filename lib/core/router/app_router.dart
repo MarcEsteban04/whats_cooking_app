@@ -279,6 +279,13 @@ final StatefulShellRoute _shellRoute = StatefulShellRoute.indexedStack(
             GoRoute(
               path: _relative(AppRoute.pantryAdd, AppRoute.pantry),
               name: AppRoute.pantryAdd.routeName,
+              // On the **root** navigator, for the same reason the roulette's
+              // filter sheet is: pushed on the branch navigator it drew *under*
+              // the floating bottom navigation, and the nav capsule covered its
+              // "Add to the kitchen" button. Twice now, so it is worth saying
+              // plainly — **every modal sheet in this app belongs on the root
+              // navigator**.
+              parentNavigatorKey: rootNavigatorKey,
               // One sheet for adding and for editing an amount (Sprint 39).
               // `extra` carries the item when it is an edit — the pantry row is
               // already in hand, so making the sheet re-fetch it would be a round
