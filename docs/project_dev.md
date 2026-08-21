@@ -1,13 +1,17 @@
 # What's Cooking? — Development Roadmap
 
-> **A private app for one household of two. Rescoped at Sprint 37.**
+> **A private app for two people on one phone. Rescoped at Sprint 37.**
 
 This document was a 70-sprint plan for a product with users, a store listing, a
 freemium tier and a couple-mode feature set. It is not that any more.
 
-**What's Cooking? is for Marc and his girlfriend.** Two accounts, one shared
-kitchen, two phones. Nothing to launch, nobody to acquire, no retention to
-engineer. Six features are wanted; everything else has been cut.
+**What's Cooking? is for Marc and his girlfriend, on one phone.** One account, one
+device, handed back and forth. Nothing to launch, nobody to acquire, no retention to
+engineer, and — clarified before Sprint 37 started — **nothing to share**, because
+they live in the same house and use the same phone.
+
+Six features are wanted. Everything else is cut, including two sprints that existed
+only to serve a second device.
 
 ---
 
@@ -19,8 +23,12 @@ references and commit messages cite them by number — `Sprint 33`'s scoring eng
 history to make the new plan tidy would silently invalidate every one of those.
 
 So the history stays where it is, compressed into one table, and the new plan
-continues from **Sprint 37**. The roadmap is now **52 sprints**, not 70 — sixteen
-remain.
+continues from **Sprint 37**. Sprints **38** and **44** are cut notices in place —
+both existed only to serve a second device — for the same reason: forward references
+in code comments and in the sibling documents already point at 39 through 52, and
+closing the gaps would redirect every one of them.
+
+The roadmap is now **52 sprints**, not 70. **Fourteen** carry work.
 
 ---
 
@@ -48,21 +56,23 @@ something that quietly never happened.
 
 | Cut | Was | Why |
 | --- | --- | --- |
-| **Couple Mode** | Phase 8, Sprints 41–47 | No partner to invite twice, no compatibility score worth computing, no "can't agree" voting round — two people in a kitchen can talk. What survives is **Sprint 38**: one shared household so both phones see the same pantry, grocery list and history. |
+| **Couple Mode** | Phase 8, Sprints 41–47 | No partner to invite, no second account, no compatibility score, no "can't agree" voting round. **There is one phone** — two people who live together, handing it to each other. Nothing survives as a feature; the `households` tables stay as an invisible scoping key. See Sprint 38. |
+| **Realtime sync** | Sprint 44 | Existed so one of us could tick off chicken in the shop while the other watched from home. One device, nothing to sync to. |
+| **Private-per-person data** | Was Sprint 38 | Favourites, dislikes and dietary needs kept private from a partner is theatre on a shared phone. One set of preferences, agreed out loud. |
 | **Meal Planning** | Phase 10, Sprints 54–58 | We decide at seven in the evening. A weekly planner is the opposite of a roulette, and the roulette is the product. |
 | **Personalization phase** | Sprints 37–40 as written | Budget intelligence, variety engine and preference learning were designed for a large catalogue and an unknown user. Over a library we curated ourselves, "learn what you like" is largely answered by the fact that we added it. Variety and repetition already ship (Sprints 32–33). |
 | **Beta Release** | Phase 13, Sprints 67–68 | No alpha group, no closed beta, no bug backlog triage across testers. Two people find the bugs by using it. |
-| **Store deployment** | Phase 14, Sprints 69–70 | No Play listing, no App Store review, no screenshots, no privacy policy, no store description. Replaced by **Sprint 52**: release builds installed on two phones. |
+| **Store deployment** | Phase 14, Sprints 69–70 | No Play listing, no App Store review, no screenshots, no privacy policy, no store description. Replaced by **Sprint 52**: a release build installed on the phone. |
 | **Gamification, statistics, notifications, monetization** | app_feature §16–18 | Retention and revenue mechanics for a product that has neither problem. |
 | **Cooking mode** | app_feature §10 | Step-by-step recipe walkthrough. Genuinely nice, genuinely not one of the six. Listed so it is on the record. |
 | **Restaurant discovery** | Future Features | No maps, no ratings API, no location search. Sprint 45 is a list we write. |
 
 **Not cut: security.** Row Level Security, the service-role assertion, the AI-key
-assertion and the query-side exclusions all stay. Supabase is on the public
-internet whether it has two users or two million.
+assertion and the query-side exclusions all stay. Supabase is on the public internet
+whether it has one user or two million, and "only we use it" is not a security model.
 
-**Also not cut: Sprint 66.** Performance, RLS verification and the stale test
-suite become Sprint 51. Two users is a reason to skip a beta programme, not a
+**Also not cut: Sprint 66.** Performance, RLS verification and the stale test suite
+become Sprint 51. Being your own only user is a reason to skip a beta programme, not a
 reason to ship something broken to the two people who have to live with it.
 
 ---
@@ -77,12 +87,12 @@ reason to ship something broken to the two people who have to live with it.
 | 4 | 16–20 | Authentication & Onboarding | ✅ Done |
 | 5 | 21–27 | Meal System | ✅ Done |
 | 6 | 28–36 | Roulette, Recommendations & Mood | ✅ Done |
-| 7 | 37–38 | Our Library, Our Kitchen | ▶ Next |
+| 7 | 37 | Our Library | ▶ Next |
 | 8 | 39–41 | Pantry | |
-| 9 | 42–44 | Grocery | |
+| 9 | 42–43 | Grocery | |
 | 10 | 45–46 | Restaurant Roulette | |
 | 11 | 47–50 | AI | |
-| 12 | 51–52 | Hardening & Two Phones | |
+| 12 | 51–52 | Hardening & Shipping | |
 
 ---
 
@@ -131,7 +141,7 @@ Kept as the record. Code and commits reference these numbers.
 
 ---
 
-# PHASE 7 — Our Library, Our Kitchen
+# PHASE 7 — Our Library
 
 ## Sprint 37 — Our Meals First
 
@@ -140,8 +150,8 @@ this app is that it spins over ours.
 
 Implement:
 
-* A **"ours only"** switch on the spin, so the pool can be restricted to meals
-  this household wrote.
+* An **"ours only"** switch on the spin, so the pool can be restricted to meals we
+  wrote ourselves.
 * A **weighting** for our own meals when the switch is off, so a meal we bothered
   to type in outranks a catalogue entry we have never cooked.
 * **Add a meal from the spin screen** — the no-match state's best answer is often
@@ -153,22 +163,26 @@ fills up, and it is what "Surprise me" needs in order to surprise.
 
 ---
 
-## Sprint 38 — Two Phones, One Kitchen
+## Sprint 38 — *Cut — Two Phones, One Kitchen*
 
-Everything shared, nothing ceremonial. This is what remains of Couple Mode.
+Removed before it started. Was: create a household, join it from a second phone
+with a code, share history, pantry, grocery, restaurants and custom meals, keep
+favourites and dislikes private.
 
-Implement:
+**There is one phone.** Clarified before Sprint 37 began — Marc and his girlfriend
+live in the same house and use the same device, so there is no second account to
+join, nothing to synchronise, and nothing to keep private from somebody holding the
+same screen. Preferences are joint because the people are in the same room agreeing
+on them.
 
-* **One household**, created on first run.
-* **Join by code**, once — the second account joins the first's household.
-* Shared: **meal history, pantry, grocery, restaurants, custom meals**.
-* Private: **favourites, hidden meals, dietary needs, avoided foods**. A partner
-  seeing what you dislike is a social cost with no product benefit; the engine
-  reads both server-side regardless.
-* Household name and members on the profile screen.
+What survives is not a sprint. The `households` tables already exist and already
+work: a trigger creates one personal household per user on signup, and every scoped
+table carries a non-null `household_id`. That is a **scoping key**, and
+docs/ARCHITECTURE.md §6.2 already argued for it on grounds that hold better now
+than when it was written — one set of RLS policies, no `household or not` branch in
+any query, provider or policy. It stays exactly as it is, invisible.
 
-Explicitly **not** built: invitation management, roles beyond owner/member,
-compatibility scores, voting rounds, per-partner preference merging.
+*Section number retained so 39 onward and every forward reference still resolve.*
 
 ---
 
@@ -182,7 +196,6 @@ Implement:
 * Quantity and unit.
 * Search against the shared ingredient vocabulary.
 * Categories.
-* Shared across both phones.
 
 ---
 
@@ -258,18 +271,24 @@ two lines to puzzle over in an aisle.
 
 ---
 
-## Sprint 44 — Live Sync
+## Sprint 44 — *Cut — Live Sync*
 
-Supabase Realtime on the grocery list, and **only** the grocery list.
+Removed before it started. Was Supabase Realtime on the grocery list, and only the
+grocery list.
 
-This is the one place realtime is worth its complexity: one of us is standing in
-the shop and the other is at home remembering something.
+Its entire justification was two devices: one of us standing in the shop, the other
+at home remembering something. **With one phone there is nothing to sync to**, and
+an open socket is battery spend for no benefit.
 
-> Partner A checks ☑ Chicken → Partner B sees ☑ Chicken
+docs/ARCHITECTURE.md §6.3 already said subscriptions open "only when the active
+household has more than one member". That condition is now permanently false, so
+the rule did not need changing — it simply never fires. Decision record 13 in the
+same document resolves the same way.
 
-Everything else stays on refresh-and-invalidate. Realtime subscriptions on
-favourites and history would be plumbing for a problem two people who live
-together do not have.
+Everything stays on refresh-and-invalidate, which is what the rest of the app
+already does.
+
+*Section number retained so 45 onward and every forward reference still resolve.*
 
 ---
 
@@ -376,7 +395,7 @@ chosen rather than dumped.
 
 ---
 
-# PHASE 12 — Hardening & Two Phones
+# PHASE 12 — Hardening & Shipping
 
 ## Sprint 51 — Make It Solid
 
@@ -390,12 +409,12 @@ The sprint that used to be a beta programme.
 * Verify every RLS policy, including the negative cases.
 * Query performance and index review.
 * Slow-network and offline behaviour.
-* Memory and animation performance on the two real devices.
+* Memory and animation performance on the real device.
 * Confirm no service-role key and no AI provider key reach the client.
 
 ---
 
-## Sprint 52 — Two Phones
+## Sprint 52 — Onto The Phone
 
 Not a launch. An install.
 
@@ -406,8 +425,8 @@ Not a launch. An install.
 * Real release signing config, replacing the debug keys.
 * Production Supabase project, migrations applied, backups on.
 * Edge Function secrets set in production.
-* `flutter build apk --release`, installed on both phones.
-* iOS via a development profile if wanted.
+* `flutter build apk --release`, installed on the phone.
+* iOS via a development profile if it ever moves platforms.
 
 No store listing. No screenshots. No privacy policy. No review process.
 
@@ -473,7 +492,7 @@ Unchanged by the rescope. Two users is not a security model.
 
 # 📱 Quality Checklist
 
-* [ ] Both real phones tested.
+* [ ] The real phone tested.
 * [ ] Small and large screens.
 * [ ] Dark mode.
 * [ ] Slow network.
@@ -481,7 +500,6 @@ Unchanged by the rescope. Two users is not a security model.
 * [ ] Loading, empty and error states.
 * [ ] Reduced motion.
 * [ ] Text scaling at both clamp bounds.
-* [ ] Realtime grocery sync between the two phones.
 * [ ] Deep links, after the application-id change.
 
 ---
@@ -490,14 +508,14 @@ Unchanged by the rescope. Two users is not a security model.
 
 The app is finished when the two of us can:
 
-1. Sign in on both phones and share one kitchen.
+1. Sign in once, and stay signed in.
 2. Write our own meals, and spin over only those if we want.
 3. Get a recommendation that knows our budget, our time, our mood and what we ate
    yesterday.
 4. Accept it, and have it recorded.
 5. See what is in the pantry, and what is about to go off.
 6. Be offered meals we can cook right now.
-7. Get a grocery list that updates in the other person's hand.
+7. Get a grocery list built from the meal we just accepted.
 8. Ask the app in words, and get an answer from our own library.
 9. Photograph the fridge and have the pantry mostly fill itself in.
 10. Spin for a restaurant on the nights nobody is cooking.

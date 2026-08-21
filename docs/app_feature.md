@@ -4,10 +4,15 @@
 
 **What's Cooking?** decides what two people are eating tonight.
 
-It is a **private app for one household of two** — Marc and his girlfriend. Not a
-product, not a launch, no users to acquire. That single fact is the most important
-thing in this document, because it changes what is worth building and what is
-worth deleting.
+It is a **private app for two people on one phone** — Marc and his girlfriend, who
+live together and hand the phone to each other. One account, one device. Not a
+product, not a launch, no users to acquire.
+
+That single fact is the most important thing in this document, because it deletes
+more than it adds. There is no second device to synchronise with, no second account
+to reconcile preferences between, and no data that is private from the other person —
+they are both holding the same phone. Every feature below is one person's worth of
+software used by two people who agree.
 
 ---
 
@@ -41,7 +46,7 @@ Every day.
 
 ## 🎰 Let the app decide.
 
-Two roulettes, over two libraries the household writes itself:
+Two roulettes, over two libraries we write ourselves:
 
 * **Cook something** — spin over the meals we know how to cook.
 * **Eat out** — spin over the restaurants we actually go to.
@@ -81,7 +86,7 @@ Six features. Everything in this document serves one of them.
 | 1 | **Meal roulette** | Spin over our own meals. Weighted, not random. |
 | 2 | **Meals** | The library we write. Add, edit, favourite, hide. |
 | 3 | **Pantry** | What is in the kitchen right now. |
-| 4 | **Grocery** | What we need to buy, shared while one of us is at the shop. |
+| 4 | **Grocery** | What we need to buy, and what the pantry already has. |
 | 5 | **AI** | Ask in words. Generate a recipe. Read a fridge from a photo. |
 | 6 | **Restaurant roulette** | Spin over our own list of places. |
 
@@ -95,24 +100,33 @@ the product.
 
 ## What this app is not
 
-Cut, deliberately, because two people do not need them:
+Cut, deliberately, because two people sharing one phone do not need them:
 
 | Cut | Why |
 | --- | --- |
-| **Couple mode as a feature** | There is no partner to invite twice, no compatibility score to compute, no "can't agree" voting round. Two people in a kitchen can talk. What remains is the *plumbing*: one shared household so both phones see the same pantry, grocery list and history. |
+| **Couple mode, entirely** | No partner to invite, no second account, no household to join, no compatibility score, no voting round. There is one phone. Preferences are joint because the people are in the same room agreeing on them. |
+| **Realtime sync** | It existed so one of us could tick off chicken in the shop while the other watched from home. With one device there is nothing to sync to, and an open socket is battery spend for nothing. |
+| **Private-per-person data** | Favourites, dislikes and dietary needs were going to stay private from a partner. On a shared phone that is theatre. One set of preferences, agreed. |
 | **Weekly meal planner** | We do not plan a week. We decide at seven in the evening — which is the entire premise of the roulette, and a planner is the opposite of it. |
 | **Gamification** | Streaks and achievements are retention mechanics. There is no retention problem when the users are the developers. |
 | **Food statistics** | An interesting dashboard nobody opens twice. Meal history already answers "what have we been eating". |
 | **Smart notifications** | Two people who live together do not need to be pushed a reminder that it is nearly dinner. |
 | **Monetization** | No. |
-| **App Store / Play listing** | It installs on two phones. No store listing, no privacy policy, no screenshots, no review process. |
+| **App Store / Play listing** | It installs on one phone. No store listing, no privacy policy, no screenshots, no review process. |
 | **Restaurant *discovery*** | No maps, no ratings API, no location search. We know where we like to eat; the app spins over that list. |
 | **Cooking mode** | Step-by-step recipe walkthrough. Genuinely nice, genuinely not one of the six. Recorded here so it is a decision rather than an omission. |
-| **Guest mode / social login** | Two accounts, created once. |
+| **Guest mode / social login** | One account, created once. |
 
 **Row Level Security is not cut.** Supabase sits on the public internet whether
-the app has two users or two million, and "only we use it" is not a security
+the app has one user or two million, and "only we use it" is not a security
 model. Every policy stays.
+
+**The `households` tables are not cut either**, though nothing shares anything. They
+are a scoping key: every scoped table has a non-null `household_id`, and that is what
+lets one set of RLS policies cover the app with no conditional anywhere. There is one
+household with one member, created automatically, and no screen ever names it. Ripping
+it out would mean migrating five tables and rewriting every policy to achieve nothing
+a user could see.
 
 ---
 
@@ -185,7 +199,7 @@ record is what stops the roulette repeating itself, and it is the honest answer 
 
 # 3. 🏠 Pantry
 
-What is in the kitchen, right now, shared between both phones.
+What is in the kitchen, right now.
 
 ```text
 Chicken        1 kg
@@ -224,10 +238,6 @@ the pantry does not have lands on the list.
 ☐ Bay leaves
 ☐ Black pepper
 ```
-
-**Synchronised live between the two phones**, which is the one place realtime is
-genuinely worth its complexity: one of us is standing in the shop and the other
-is at home remembering something.
 
 Duplicates combine. Two meals wanting chicken produce one line for 1.5 kg, not
 two lines to puzzle over in an aisle.
@@ -449,12 +459,18 @@ lib/
 
 Tables the six features need.
 
-## Identity and sharing
+## Identity
+
+The `households` tables stay, and they hold exactly one household with one member.
+They are a **scoping key, not a feature**: every scoped table has a non-null
+`household_id`, which is what lets one set of RLS policies cover everything without a
+branch. Removing them would mean migrating five tables and rewriting every policy to
+achieve nothing a user could see. No screen ever says the word "household".
 
 ```text
 profiles            id · display_name · avatar_url
-households          id · name · created_by
-household_members   household_id · user_id · role
+households          id · name · created_by      -- one row, auto-created
+household_members   household_id · user_id · role  -- one row
 user_preferences    user_id · favorite_cuisines · dietary_tags
                     disliked_ingredient_names · disliked_ingredients
                     default_budget · max_cooking_time · max_difficulty

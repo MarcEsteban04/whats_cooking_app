@@ -10,12 +10,13 @@ Every flow below is traced to the user stories it satisfies. Diagrams render nat
 GitHub. Where a flow has failure paths, they are drawn — an unhandled path in a diagram is
 an unhandled path in the app.
 
-> **Rescoped at Sprint 37.** This app is for one household of two, not a product with
-> users (docs/app_feature.md, "Scope"). Couple Mode, the meal planner, gamification,
-> statistics, notifications, monetization and the store launch are cut; a restaurant
-> roulette is added. Sections describing cut work are **kept and marked** rather than
-> deleted — their numbers are cited from code, and a section that vanishes reads as an
-> oversight instead of a decision. See docs/project_dev.md, "Cut".
+> **Rescoped at Sprint 37.** This app is for **two people sharing one phone**, not a
+> product with users (docs/app_feature.md, "Scope"). One account, one device. Couple
+> Mode, realtime sync, the meal planner, gamification, statistics, notifications,
+> monetization and the store launch are all cut; a restaurant roulette is added.
+> Sections describing cut work are **kept and marked** rather than deleted — their
+> numbers are cited from code, and a section that vanishes reads as an oversight
+> instead of a decision. See docs/project_dev.md, "Cut".
 
 ---
 
@@ -415,61 +416,41 @@ flowchart TD
     E -->|Edit quantity| H([Edit sheet]) --> D
     E -->|Delete| I[Swipe] --> D
     E -->|Clear completed| J[Confirm] --> D
-    F --> K{Household?}
-    K -->|Yes| L[Broadcast to partner]
-    K -->|No| D
 ```
 
 Completed items fade in place rather than vanishing (`design_ui.md` §23) — items disappearing
 under your thumb in a supermarket is disorienting. Duplicate additions merge quantities
 rather than creating a second row.
 
+**No broadcast.** The diagram used to branch here and push a checked item to a partner's
+device. There is one device (§14), so the branch is gone rather than left as a condition
+that can never be true.
+
 ---
 
-## 14. Sharing one kitchen
+## 14. *Cut — Couple mode and sharing*
 
-*Rescoped at Sprint 37. Was "Couple mode — create, invite, join".*
+Removed at Sprint 37, in two steps. First the elaborate half went: invitations,
+compatibility scores, per-partner preference merging. Then the rest went, because
+**there is one phone.**
 
-This app has exactly two users and they live together (docs/app_feature.md,
-"Scope"). What used to be a seven-sprint Couple Mode is now a single flow whose
-only job is making both phones look at the same kitchen.
+Marc and his girlfriend live in the same house and use the same device. There is no
+second account to invite, nothing to synchronise, and nothing to keep private from
+somebody holding the same screen. Preferences are joint because the two people are
+in the same room agreeing on them out loud — which is faster than any interface,
+and is the thing this app is supposed to be optimising.
 
-```mermaid
-flowchart TD
-    A([First run]) --> B{Has household?}
-    B -->|No| C[Create it, named after the pair] --> D([Our kitchen])
-    B -->|Yes| D
+What remains is invisible. `households` and `household_members` hold one row each,
+created by a trigger on signup, and every scoped table carries a non-null
+`household_id`. That is a **scoping key**, not a feature:
+docs/ARCHITECTURE.md §6.2 argued for it on the grounds that one set of RLS policies
+with no `household or not` branch is worth an extra row per user — and that argument
+is stronger now than when it was written. No screen ever says the word.
 
-    C --> E([Show the join code, once])
-    E --> F([Second phone enters it]) --> G[Join as member] --> D
+**Nothing in the app has a sharing flow.** No join code, no member list, no
+"waiting for your partner", no per-person privacy toggle.
 
-    D --> H{Shared}
-    H --> I([Meal history])
-    H --> J([Pantry])
-    H --> K([Grocery])
-    H --> L([Restaurants])
-    H --> M([Custom meals])
-
-    D --> N{Private, per person}
-    N --> O([Favourites])
-    N --> P([Hidden meals])
-    N --> Q([Dietary needs and avoided foods])
-```
-
-**Rules**
-
-* One household. There is no second one to join, and no flow for leaving.
-* The join code is entered once, on the second phone, and then never again.
-* **Favourites and dislikes stay private.** A partner seeing what you dislike is a
-  social cost with no product benefit; the engine reads both server-side
-  regardless (docs/ARCHITECTURE.md §8.3).
-* **Dietary needs stay personal and are applied to every spin.** A shared household
-  does not merge them into an average — the strictest set wins, because producing a
-  meal somebody cannot eat is worse than producing none.
-
-**Not built**, deliberately: invitation management, expiring or reissued codes,
-roles beyond owner and member, compatibility scores, per-partner preference
-merging.
+*Section number retained so §15 onward and every code citation still resolve.*
 
 ---
 
@@ -614,13 +595,13 @@ performance risks for the life of the project.
 | Meal history | US-C-08, US-B-06 |
 | Pantry | US-E-01, US-E-02 |
 | Grocery | US-E-03, US-E-04, US-E-05 |
-| Sharing one kitchen | US-D-01 … US-D-05, **narrowed** — see §14 |
+| ~~Couple mode~~ | US-D-01 … US-D-05, **cut** at Sprint 37 — see §14 |
 | ~~Can't Agree~~ | US-D-06, **cut** at Sprint 37 |
 | ~~Planner~~ | US-F-01 … US-F-04, **cut** at Sprint 37 |
 | Restaurant roulette | *new at Sprint 45 — stories to be written* |
 | Profile | US-G-01 … US-G-05 |
 
 Every P0 story appears in at least one flow, **except the ones cut at Sprint 37**
-(US-D-06, US-F-01 … US-F-04). Those are struck through above rather than deleted,
+(US-D-01 … US-D-06, US-F-01 … US-F-04). Those are struck through above rather than deleted,
 because a story that silently disappears from a traceability table reads as an
 oversight, and these were a decision — see docs/project_dev.md, "Cut".

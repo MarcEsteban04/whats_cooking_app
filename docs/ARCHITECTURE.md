@@ -10,12 +10,13 @@ This document fixes the technical decisions for the life of the project. Where a
 had a credible alternative, the alternative and the reason for rejecting it are recorded —
 so a future reader can tell a *choice* from an *accident*.
 
-> **Rescoped at Sprint 37.** This app is for one household of two, not a product with
-> users (docs/app_feature.md, "Scope"). Couple Mode, the meal planner, gamification,
-> statistics, notifications, monetization and the store launch are cut; a restaurant
-> roulette is added. Sections describing cut work are **kept and marked** rather than
-> deleted — their numbers are cited from code, and a section that vanishes reads as an
-> oversight instead of a decision. See docs/project_dev.md, "Cut".
+> **Rescoped at Sprint 37.** This app is for **two people sharing one phone**, not a
+> product with users (docs/app_feature.md, "Scope"). One account, one device. Couple
+> Mode, realtime sync, the meal planner, gamification, statistics, notifications,
+> monetization and the store launch are all cut; a restaurant roulette is added.
+> Sections describing cut work are **kept and marked** rather than deleted — their
+> numbers are cited from code, and a section that vanishes reads as an oversight
+> instead of a decision. See docs/project_dev.md, "Cut".
 
 
 ---
@@ -369,7 +370,7 @@ personalization phase; they belong to Sprint 51's hardening pass now.*
 | Auth | Email/password, Google, Apple. Sessions, refresh, recovery |
 | PostgreSQL | All application data, RLS-enforced |
 | Storage | Meal images, avatars |
-| Realtime | Grocery list, household changes, voting (v1.1) |
+| Realtime | ~~Grocery list, household changes, voting~~ — **never opened**, see §6.3 |
 | Edge Functions | AI proxy, household invite redemption, account deletion |
 
 ### 6.2 The personal-household decision
@@ -393,18 +394,35 @@ With a personal household:
 Cost: one extra row per user, and joining a partner means switching context rather than
 merging. That is a fair price for deleting a conditional from every layer of the stack.
 
+**Sprint 37 update: the household is now always personal and always of one, and this
+decision holds anyway.** Couple mode is cut — one phone, one account
+(docs/USER_FLOWS.md §14) — so the "couple mode becomes an invite" line above is moot.
+Everything else is not. Every scoped table still has a non-null `household_id`, one set
+of policies still covers the app, and there is still no branch anywhere. Removing the
+tables now would mean migrating five of them and rewriting every policy in order to
+save one row — a real cost for an invisible gain. It stays, and no screen names it.
+
 ### 6.3 Realtime
 
 Subscriptions are opened **only** on screens that need them, and only when the active
 household has more than one member — a solo user has nobody to sync with, and an open
 socket is battery spend for nothing.
 
+**That condition is now permanently false.** One phone, one account, one member
+(docs/USER_FLOWS.md §14), so **no subscription is ever opened** and Sprint 44 is a cut
+notice. The rule did not need changing to make that true, which is the nicest thing that
+can be said about a rule: it was written as a condition rather than as an assumption, so
+the assumption changing cost nothing.
+
+The table below is what *would* subscribe if a second device ever existed. Kept as a
+record; `StreamProvider` stays in §3.2's list for the same reason.
+
 | Table | Event | Consumer |
 | ----- | ----- | -------- |
-| `grocery_items` | INSERT, UPDATE, DELETE | Grocery screen |
-| `household_members` | INSERT, DELETE | Couple screen |
-| `meal_votes` | INSERT | Can't Agree |
-| `meal_history` | INSERT | Home decided state |
+| ~~`grocery_items`~~ | INSERT, UPDATE, DELETE | Grocery screen |
+| ~~`household_members`~~ | INSERT, DELETE | *Screen cut* |
+| ~~`meal_votes`~~ | INSERT | *Feature cut* |
+| ~~`meal_history`~~ | INSERT | Home decided state |
 
 ### 6.4 Edge Functions
 
@@ -653,5 +671,5 @@ providers scoped so a rebuild never cascades past its subtree.
 | 10 | `SECURITY DEFINER` helper | Recursive policy | Avoids infinite recursion on `household_members` |
 | 11 | Freezed for models | Manual | Immutability, equality and `copyWith` for free |
 | 12 | Read-through cache | Offline-first sync | Shared data makes conflict resolution disproportionate |
-| 13 | Realtime only when household > 1 | Always on | Battery cost with no benefit for solo users |
+| 13 | Realtime only when household > 1 | Always on | Battery cost with no benefit for solo users. **Sprint 37: the condition is now permanently false — no socket ever opens.** |
 | 14 | Analytics from build one | Add before beta | Time to Decision cannot be measured retroactively |

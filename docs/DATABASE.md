@@ -7,12 +7,13 @@
 | **Engine** | PostgreSQL 15 via Supabase |
 | **Related** | [ARCHITECTURE.md](ARCHITECTURE.md) · [PRD.md](PRD.md) · [app_feature.md](app_feature.md) |
 
-> **Rescoped at Sprint 37.** This app is for one household of two, not a product with
-> users (docs/app_feature.md, "Scope"). Couple Mode, the meal planner, gamification,
-> statistics, notifications, monetization and the store launch are cut; a restaurant
-> roulette is added. Sections describing cut work are **kept and marked** rather than
-> deleted — their numbers are cited from code, and a section that vanishes reads as an
-> oversight instead of a decision. See docs/project_dev.md, "Cut".
+> **Rescoped at Sprint 37.** This app is for **two people sharing one phone**, not a
+> product with users (docs/app_feature.md, "Scope"). One account, one device. Couple
+> Mode, realtime sync, the meal planner, gamification, statistics, notifications,
+> monetization and the store launch are all cut; a restaurant roulette is added.
+> Sections describing cut work are **kept and marked** rather than deleted — their
+> numbers are cited from code, and a section that vanishes reads as an oversight
+> instead of a decision. See docs/project_dev.md, "Cut".
 
 
 ---
@@ -156,11 +157,14 @@ Codes exclude `0`, `O`, `1`, `I` — they will be read aloud and typed by hand. 
 in the `redeem-invite` Edge Function so validation, membership insert and status update are
 atomic.
 
-**Narrowed at Sprint 37.** This table is now used **once, ever** — the second phone joins
-the first phone's household and that is the end of it (docs/USER_FLOWS.md §14). It is kept
-rather than replaced by a hard-coded pair because the join still has to be authenticated
-and atomic, and a code is the simplest thing that is both. What is *not* built on top of it:
-invitation management, reissuing, revoking, or more than one outstanding invite.
+**Dead as of Sprint 37.** There is one phone and one account
+(docs/USER_FLOWS.md §14), so nobody is ever invited and no code is ever redeemed. The
+table was never created, the `redeem-invite` Edge Function was never written, and the
+`invite_status` enum in §3 is unused — it should come out with the next enum migration,
+alongside `vote_choice`.
+
+Described here rather than deleted because the section number is cited, and because a
+schema that quietly loses a table reads as an accident.
 
 ### 4.5 `meals`
 
