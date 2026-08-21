@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
@@ -7,6 +8,9 @@ import 'package:whats_cooking/core/domain/food_preferences.dart';
 import 'package:whats_cooking/core/domain/food_taxonomy.dart';
 import 'package:whats_cooking/core/errors/app_exception.dart';
 import 'package:whats_cooking/core/errors/error_mapper.dart';
+import 'package:whats_cooking/core/utils/logger.dart';
+import 'package:whats_cooking/features/ai/domain/entities/assistant_choice.dart';
+import 'package:whats_cooking/features/ai/presentation/providers/assistant_controller.dart';
 import 'package:whats_cooking/features/history/domain/entities/meal_history_entry.dart';
 import 'package:whats_cooking/features/history/presentation/providers/meal_history_controller.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal.dart';
@@ -50,7 +54,26 @@ class SpinRunning extends SpinState {
 
 /// A meal was chosen.
 class SpinSettled extends SpinState {
-  const SpinSettled({required this.meal, required this.pool, this.reason});
+  const SpinSettled({
+    required this.meal,
+    required this.pool,
+    this.reason,
+    this.isAwaitingAssistant = false,
+    this.chosenByAssistant = false,
+  });
+
+  /// True while the assistant is still deciding whether to improve on this pick
+  /// (Sprint 47c).
+  ///
+  /// **The state is settled anyway**, and that is the design: the engine's pick is
+  /// emitted immediately so the reel can start rolling with a real winner planted
+  /// at its landing slot. The assistant is an *upgrade* that may or may not
+  /// arrive, not a thing the spin waits on. This flag exists only so the screen
+  /// knows it may hold the reveal for a moment longer.
+  final bool isAwaitingAssistant;
+
+  /// Whether the meal here came from the assistant rather than the weighted draw.
+  final bool chosenByAssistant;
 
   final Meal meal;
 
@@ -73,6 +96,21 @@ class SpinSettled extends SpinState {
   /// Only ever a *positive* reason. "We picked this despite you eating it on
   /// Tuesday" is true and is not what a result screen is for.
   final String? reason;
+
+  SpinSettled copyWith({
+    Meal? meal,
+    String? reason,
+    bool? isAwaitingAssistant,
+    bool? chosenByAssistant,
+  }) {
+    return SpinSettled(
+      meal: meal ?? this.meal,
+      pool: pool,
+      reason: reason ?? this.reason,
+      isAwaitingAssistant: isAwaitingAssistant ?? this.isAwaitingAssistant,
+      chosenByAssistant: chosenByAssistant ?? this.chosenByAssistant,
+    );
+  }
 }
 
 /// Nothing could be offered, and this says which of the two reasons it was.
@@ -233,6 +271,15 @@ class SpinController extends _$SpinController {
   /// fiction.
   int _spinsThisSession = 0;
 
+  /// Set once the assistant has been rate-limited, so the rest of the session
+  /// stops asking.
+  ///
+  /// Better than skipping the assistant on Try Again, which was the other way to
+  /// keep the hourly budget from being burnt: that would have made the *second*
+  /// spin worse than the first on every evening, to solve a problem that only
+  /// happens on a heavy one.
+  bool _assistantRestedForSession = false;
+
   @override
   SpinState build() => const SpinIdle();
 
@@ -371,6 +418,8 @@ class SpinController extends _$SpinController {
         ),
       );
 
+      final bool willAsk = _shouldAskAssistant(scoring.candidates);
+
       state = SpinSettled(
         meal: scored.meal,
         // The reel flicks through the scored pool, not the raw one, so what
@@ -380,10 +429,143 @@ class SpinController extends _$SpinController {
             .map((ScoredMeal candidate) => candidate.meal)
             .toList(growable: false),
         reason: scored.highlight?.label,
+        isAwaitingAssistant: willAsk,
       );
+
+      if (willAsk) {
+        // Not awaited. The spin is already settled and the reel is already
+        // rolling; this either improves the answer before the reveal or it does
+        // not, and either way nothing waited on it.
+        unawaited(_askAssistant(scoring.candidates, scored));
+      }
     } on Object catch (error, stackTrace) {
       state = SpinFailed(ErrorMapper.map(error, stackTrace));
     }
+  }
+
+  /// Whether to ask the assistant to improve on the draw (Sprint 47c).
+  ///
+  /// Not with one candidate: choosing between one option is a round trip and a
+  /// bill to be told the only answer. And not at all once the hour's rate limit
+  /// has been hit — see [_assistantRestedForSession].
+  bool _shouldAskAssistant(List<ScoredMeal> candidates) =>
+      candidates.length > 1 && !_assistantRestedForSession;
+
+  /// Asks the assistant to pick from the shortlist, and takes its answer if it
+  /// arrives in time (Sprint 47c).
+  ///
+  /// **The engine's pick is already on screen and already planted in the reel**, so
+  /// this is strictly an upgrade path. Three things can happen:
+  ///
+  /// * it answers with a different meal, and the state changes before the reel
+  ///   stops — the screen re-plants, which is invisible because the landing slot
+  ///   is twenty cards away;
+  /// * it agrees, and only the reason changes to the better sentence;
+  /// * it fails, times out, or is rate-limited, and the flag simply clears.
+  ///
+  /// In none of them does the spin get slower than the reel plus the screen's own
+  /// short grace. That is the whole reason the deterministic pick goes first.
+  Future<void> _askAssistant(
+    List<ScoredMeal> candidates,
+    ScoredMeal drawn,
+  ) async {
+    final List<ScoredMeal> shortlist = candidates
+        .take(_shortlistSize)
+        .toList(growable: false);
+
+    AssistantChoice? choice;
+    try {
+      choice = await ref.read(assistantRepositoryProvider).choose(
+        options: <ChoiceOption>[
+          for (final ScoredMeal candidate in shortlist)
+            ChoiceOption(
+              id: candidate.meal.id,
+              name: candidate.meal.name,
+              detail: _describe(candidate.meal),
+            ),
+        ],
+        context: _assistantContext(),
+        timeout: _assistantBudget,
+      );
+    } on RateLimitException {
+      // The rest of the hour would fail the same way, so stop asking rather than
+      // spending a round trip per spin to be told again.
+      _assistantRestedForSession = true;
+      AppLog.info(
+        'Assistant rate-limited — the engine is choosing for the rest of the '
+        'session.',
+        name: 'spin',
+      );
+    }
+
+    // The spin may have been left, restarted, or accepted while this was in
+    // flight. Anything other than the state this call was started for is a state
+    // this answer is no longer about.
+    if (state case final SpinSettled current
+        when current.meal.id == drawn.meal.id &&
+            current.isAwaitingAssistant) {
+      // Promoted to a local so the closure below sees a non-nullable value.
+      // `choice` is a mutable local that the analyzer cannot prove stays
+      // assigned across a lambda, which is a fair thing for it to refuse.
+      final AssistantChoice? answered = choice;
+      if (answered == null) {
+        state = current.copyWith(isAwaitingAssistant: false);
+        return;
+      }
+
+      final ScoredMeal? chosen = shortlist
+          .where((ScoredMeal candidate) => candidate.meal.id == answered.id)
+          .firstOrNull;
+
+      if (chosen == null) {
+        state = current.copyWith(isAwaitingAssistant: false);
+        return;
+      }
+
+      // The session's exclusions follow the meal that is actually offered, or
+      // Try Again could bring it straight back round.
+      _seenThisSession
+        ..remove(drawn.meal.id)
+        ..add(chosen.meal.id);
+
+      state = current.copyWith(
+        meal: chosen.meal,
+        reason: answered.reason,
+        isAwaitingAssistant: false,
+        chosenByAssistant: true,
+      );
+    }
+  }
+
+  /// One line the model can reason over.
+  String _describe(Meal meal) => <String>[
+    meal.cuisine.label,
+    '₱${meal.costPerServing.round()} a head',
+    '${meal.cookingTimeMinutes} min',
+    if (meal.tags.isNotEmpty) meal.tags.take(3).join('/'),
+  ].join(', ');
+
+  /// What the assistant is told, for a choice rather than a conversation.
+  ///
+  /// Deliberately smaller than the chat screen's context. The shortlist already
+  /// encodes the budget, the time limit, the dietary needs and the repetition
+  /// window — every option in it passed all of them — so repeating them would be
+  /// tokens spent restating a filter that has already run. What the model cannot
+  /// see from the list is what the household has eaten lately and what is in the
+  /// kitchen, so that is what it gets.
+  Map<String, Object?> _assistantContext() {
+    final List<MealHistoryEntry> history =
+        ref.read(mealHistoryProvider).value ?? const <MealHistoryEntry>[];
+
+    final List<String> recent = <String>[
+      for (final MealHistoryEntry entry in history.take(5))
+        if (entry.meal?.name case final String name) name,
+    ];
+
+    return <String, Object?>{
+      if (recent.isNotEmpty) 'eaten_recently': recent.join(', '),
+      'deciding_for': 'tonight',
+    };
   }
 
   /// Records a no-match and hands the state straight back.
@@ -584,6 +766,22 @@ class SpinController extends _$SpinController {
 
   /// Drops back to idle, for leaving the spin without deciding.
   void reset() => state = const SpinIdle();
+
+  /// How many candidates the assistant is offered.
+  ///
+  /// Twelve. Enough that its judgement has room to differ from the draw's, few
+  /// enough that the prompt stays short and the model reliably answers with an
+  /// index rather than prose — and few enough that a stray number is almost always
+  /// out of range and therefore refused.
+  static const int _shortlistSize = 12;
+
+  /// How long the assistant gets.
+  ///
+  /// Four seconds. The reel runs 2.2 and the screen holds the reveal for a short
+  /// grace beyond it, so anything slower than this has already lost its chance to
+  /// matter — and holding the socket open past the moment its answer is useless is
+  /// a request nobody is waiting for.
+  static const Duration _assistantBudget = Duration(seconds: 4);
 }
 
 /// How many candidates a spin asks for.

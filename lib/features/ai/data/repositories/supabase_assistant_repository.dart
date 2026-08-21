@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 import 'package:whats_cooking/core/errors/app_exception.dart';
 import 'package:whats_cooking/core/utils/logger.dart';
+import 'package:whats_cooking/features/ai/domain/entities/assistant_choice.dart';
 import 'package:whats_cooking/features/ai/domain/entities/assistant_message.dart';
 
 /// Asking the assistant something (Sprint 47).
@@ -23,6 +24,29 @@ abstract interface class AssistantRepository {
   Future<AssistantReply> ask({
     required List<AssistantMessage> messages,
     Map<String, Object?> context,
+  });
+
+  /// Picks one of [options] and says why (Sprint 47c).
+  ///
+  /// **The shortlist is the safety mechanism.** The model never chooses from the
+  /// library — it chooses from a list the deterministic engine has already
+  /// filtered, so every possible answer is one that respects the dietary needs,
+  /// the avoided foods, the hidden meals and the repetition window. Those are
+  /// promises, and an LLM cannot be the thing that keeps them.
+  ///
+  /// Returns null on anything unexpected — a failure, a timeout, an unreadable
+  /// reply, an index out of range. The caller always has the engine's own pick in
+  /// hand, so null means "keep it" rather than "no answer".
+  ///
+  /// **Throws [RateLimitException], and only that.** A rate limit is the one
+  /// failure the caller has to act on rather than shrug at: the next spin will
+  /// fail the same way for the rest of the hour, so a caller that cannot tell it
+  /// apart from a slow model would keep paying for round trips it already knows
+  /// the answer to.
+  Future<AssistantChoice?> choose({
+    required List<ChoiceOption> options,
+    Map<String, Object?> context,
+    Duration? timeout,
   });
 }
 
@@ -75,6 +99,109 @@ class SupabaseAssistantRepository implements AssistantRepository {
     } on supabase.FunctionException catch (error) {
       throw _mapFunctionError(error);
     }
+  }
+
+  @override
+  Future<AssistantChoice?> choose({
+    required List<ChoiceOption> options,
+    Map<String, Object?> context = const <String, Object?>{},
+    Duration? timeout,
+  }) async {
+    if (options.isEmpty) {
+      return null;
+    }
+
+    // **Nothing here throws.** Every caller already holds a deterministic pick,
+    // so a failure means "keep yours" — and a spin that surfaced an error banner
+    // because a model was slow would be the tail wagging the dog.
+    try {
+      final Future<supabase.FunctionResponse> call = _client.functions.invoke(
+        _function,
+        body: <String, Object?>{
+          'purpose': 'assistant',
+          'messages': <Map<String, Object?>>[
+            <String, Object?>{'role': 'user', 'content': _prompt(options)},
+          ],
+          'context': context,
+        },
+      );
+
+      final supabase.FunctionResponse response = timeout == null
+          ? await call
+          : await call.timeout(timeout);
+
+      if (response.data case final Map<String, dynamic> data) {
+        final String text = (data['text'] as String? ?? '').trim();
+        final ({int index, String reason})? parsed =
+            AssistantChoice.parse(text);
+
+        // **Bounds are the guarantee, not a nicety.** The index maps back into
+        // the caller's own shortlist, so an answer outside it cannot be acted on
+        // — which is exactly why the model is asked for a number rather than a
+        // meal name it could invent.
+        if (parsed == null ||
+            parsed.index < 1 ||
+            parsed.index > options.length ||
+            parsed.reason.isEmpty) {
+          AppLog.debug(
+            'Assistant choice unusable.',
+            name: _logName,
+            data: <String, Object?>{'reply': text},
+          );
+          return null;
+        }
+
+        return AssistantChoice(
+          id: options[parsed.index - 1].id,
+          reason: parsed.reason,
+        );
+      }
+      return null;
+    } on supabase.FunctionException catch (error) {
+      final AppException mapped = _mapFunctionError(error);
+      if (mapped is RateLimitException) {
+        // The one that propagates. See the interface.
+        throw mapped;
+      }
+      return null;
+    } on Object catch (error) {
+      AppLog.debug(
+        'Assistant did not choose.',
+        name: _logName,
+        data: <String, Object?>{'reason': error.toString()},
+      );
+      return null;
+    }
+  }
+
+  /// What the model is asked.
+  ///
+  /// Numbered, one per line, and the reply format stated twice — once as an
+  /// instruction and once as an example. The system prompt on the function is about
+  /// *being* the assistant; this message is about the one job, and a short strict
+  /// format is the difference between a parse that works and one that works most
+  /// evenings.
+  static String _prompt(List<ChoiceOption> options) {
+    final StringBuffer buffer = StringBuffer()
+      ..writeln(
+        'Pick one of these for dinner tonight, using what you know about this '
+        'household.',
+      )
+      ..writeln();
+
+    for (final (int index, ChoiceOption option) in options.indexed) {
+      buffer.writeln('${index + 1}. ${option.name} — ${option.detail}');
+    }
+
+    buffer
+      ..writeln()
+      ..writeln(
+        'Reply with the number, a pipe, and one short reason of at most twelve '
+        'words. No other text.',
+      )
+      ..writeln('Example: 3 | you have the chicken and have not had it in weeks');
+
+    return buffer.toString();
   }
 
   /// Turns the function's named error codes into something a person reads.
@@ -153,5 +280,17 @@ class UnavailableAssistantRepository implements AssistantRepository {
       message: 'The assistant needs a connection to answer.',
       detail: 'no Supabase backend configured',
     );
+  }
+
+  @override
+  Future<AssistantChoice?> choose({
+    required List<ChoiceOption> options,
+    Map<String, Object?> context = const <String, Object?>{},
+    Duration? timeout,
+  }) async {
+    // Null, not a throw, unlike [ask]. A conversation with no backend has to say
+    // so; a spin with no backend simply keeps the engine's pick, which is the
+    // right answer and needs no telling.
+    return null;
   }
 }

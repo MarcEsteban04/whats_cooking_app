@@ -64,6 +64,18 @@ class _SpinScreenState extends ConsumerState<SpinScreen>
   /// Set when the reel has come to rest.
   bool _isReelStopped = false;
 
+  /// Which meal is currently sitting in the reel's landing slot (Sprint 47c).
+  ///
+  /// Tracked because the winner can *change* now: the engine's pick is planted
+  /// immediately so the reel can roll, and the assistant may replace it before the
+  /// reel stops. Re-planting mid-roll is invisible — the landing slot is twenty
+  /// cards away and only five are on screen — but only if something notices the
+  /// swap is needed.
+  String? _plantedId;
+
+  /// Fires when the assistant has had long enough.
+  Timer? _graceTimer;
+
   /// Guards the navigation to the result, which two callbacks race toward.
   bool _hasRevealed = false;
 
@@ -159,6 +171,7 @@ class _SpinScreenState extends ConsumerState<SpinScreen>
   void dispose() {
     _revealTimer?.cancel();
     _poolTimer?.cancel();
+    _graceTimer?.cancel();
     _controller
       ..removeStatusListener(_onStatus)
       ..removeListener(_onTick)
@@ -220,6 +233,35 @@ class _SpinScreenState extends ConsumerState<SpinScreen>
       return;
     }
 
+    // **The grace window** (Sprint 47c). The engine's answer is already here and
+    // already planted, so nothing is waiting on a network call — but the reel
+    // takes 2.2 seconds and a model usually takes longer, so revealing the instant
+    // the reel stops would mean the assistant almost never got to matter.
+    //
+    // A second and a half. Long enough that most answers land, short enough that
+    // the worst case is under four seconds — and it only ever *delays* a reveal
+    // that is already correct, so a slow evening costs a moment rather than an
+    // answer.
+    if (ref.read(spinControllerProvider)
+        case SpinSettled(isAwaitingAssistant: true)) {
+      _graceTimer ??= Timer(_assistantGrace, () {
+        _graceTimer = null;
+        _reveal();
+      });
+      return;
+    }
+
+    _reveal();
+  }
+
+  /// Goes, without asking again whether to wait.
+  void _reveal() {
+    if (_hasRevealed || !_isReelStopped || !mounted) {
+      return;
+    }
+    _graceTimer?.cancel();
+    _graceTimer = null;
+
     if (ref.read(spinControllerProvider) case SpinSettled(:final Meal meal)) {
       _hasRevealed = true;
       AppHaptics.reveal();
@@ -265,7 +307,12 @@ class _SpinScreenState extends ConsumerState<SpinScreen>
     // navigating from a build is not allowed, and this fires after it.
     ref.listen(spinControllerProvider, (SpinState? _, SpinState next) {
       if (next case SpinSettled(:final Meal meal, :final List<Meal> pool)) {
-        if (_reelPool == null) {
+        // Planted, or **re-planted**: the assistant may have replaced the
+        // engine's pick while the reel was rolling (Sprint 47c). Safe until the
+        // reel stops, because the landing slot is the last card of twenty and only
+        // five are ever on screen.
+        if (_plantedId != meal.id && !_isReelStopped) {
+          _plantedId = meal.id;
           setState(() => _reelPool = _plant(pool, meal));
         }
         // Now there is something to roll.
@@ -314,6 +361,8 @@ class _SpinScreenState extends ConsumerState<SpinScreen>
                     animation: _controller,
                     pool: _reelPool ?? const <Meal>[],
                     isStopped: _isReelStopped,
+                    isAsking:
+                        state is SpinSettled && state.isAwaitingAssistant,
                   ),
                 },
               ),
@@ -331,6 +380,9 @@ class _SpinScreenState extends ConsumerState<SpinScreen>
   /// staring at a static card wondering whether they tapped it.
   static const Duration _maxPoolWait = Duration(seconds: 2);
 
+  /// How long the reveal waits for the assistant once the reel has stopped.
+  static const Duration _assistantGrace = Duration(milliseconds: 1500);
+
   /// Where the deceleration starts, as a fraction of the whole travel. Derived
   /// from [AppRouletteMotion] so changing a phase length moves this too.
   static final double _decelerationBegins =
@@ -347,11 +399,15 @@ class _Spinning extends StatelessWidget {
     required this.animation,
     required this.pool,
     required this.isStopped,
+    required this.isAsking,
   });
 
   final Animation<double> animation;
   final List<Meal> pool;
   final bool isStopped;
+
+  /// Whether the assistant is still deciding (Sprint 47c).
+  final bool isAsking;
 
   @override
   Widget build(BuildContext context) {
@@ -362,10 +418,14 @@ class _Spinning extends StatelessWidget {
         // Says what is happening rather than that something is. "Deciding" is
         // equally true of a spinner; a count is the reel explaining itself.
         Text(
-          switch ((pool.isEmpty, isStopped)) {
-            (true, _) => 'LOOKING AT WHAT YOU CAN COOK',
-            (false, true) => 'ALMOST',
-            (false, false) => '${pool.length} MEALS ON THE TABLE',
+          switch ((pool.isEmpty, isStopped, isAsking)) {
+            (true, _, _) => 'LOOKING AT WHAT YOU CAN COOK',
+            // Says what the pause is, on the one screen where a pause without a
+            // reason reads as a stall. It is also the truth: the answer exists and
+            // something is deciding whether to improve on it.
+            (false, true, true) => 'ASKING THE ASSISTANT',
+            (false, true, false) => 'ALMOST',
+            (false, false, _) => '${pool.length} MEALS ON THE TABLE',
           },
           style: context.text.overline,
           textAlign: TextAlign.center,
