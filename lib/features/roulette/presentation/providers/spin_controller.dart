@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:whats_cooking/core/analytics/analytics.dart';
 import 'package:whats_cooking/core/domain/food_preferences.dart';
 import 'package:whats_cooking/core/domain/food_taxonomy.dart';
 import 'package:whats_cooking/core/errors/app_exception.dart';
@@ -201,10 +202,22 @@ class SpinController extends _$SpinController {
   /// and a fixed seed would make every install spin the same sequence.
   final Random _random = Random();
 
+  /// How many spins it has taken to get here (Sprint 34).
+  ///
+  /// Counted separately from [_seenThisSession] rather than read off its length,
+  /// because the two answer different questions and diverge on purpose: "start
+  /// again" empties the exclusions but does not undo the spins it took to get
+  /// stuck, and a `spin_count` that walked backwards would make the funnel a
+  /// fiction.
+  int _spinsThisSession = 0;
+
   @override
   SpinState build() => const SpinIdle();
 
   int get seenThisSession => _seenThisSession.length;
+
+  /// Spins since the last accepted meal. Feeds `meal_accepted.spin_count`.
+  int get spinsThisSession => _spinsThisSession;
 
   /// Picks a meal.
   ///
@@ -214,6 +227,29 @@ class SpinController extends _$SpinController {
   /// for an exception to go.
   Future<void> spin() async {
     state = const SpinRunning();
+
+    _spinsThisSession++;
+
+    // Timed from here, so the measurement covers everything the reader is
+    // actually waiting through: the dislikes, the query, the history, the
+    // scoring and the draw. A stopwatch rather than two timestamps — it is
+    // monotonic, and a latency that can come out negative is worse than none.
+    final Stopwatch elapsed = Stopwatch()..start();
+    final Analytics analytics = ref.read(analyticsProvider);
+
+    analytics.record(
+      SpinStarted(
+        filtersApplied: ref.read(spinFiltersProvider).chosenCount,
+        householdSize:
+            ref
+                .read(profileControllerProvider)
+                .value
+                ?.preferences
+                .preferredServings ??
+            0,
+        spinCountThisSession: _spinsThisSession,
+      ),
+    );
 
     try {
       // Read rather than watched: a dislike toggled mid-spin should not restart
@@ -240,10 +276,13 @@ class SpinController extends _$SpinController {
           .toList(growable: false);
 
       if (matching.isEmpty) {
-        state = _noMatch(
-          filters: filters,
-          eligible: eligible,
-          hiddenCount: hidden.length,
+        state = _settleOnNothing(
+          analytics,
+          _noMatch(
+            filters: filters,
+            eligible: eligible,
+            hiddenCount: hidden.length,
+          ),
         );
         return;
       }
@@ -257,27 +296,42 @@ class SpinController extends _$SpinController {
       );
 
       if (scoring.candidates.isEmpty) {
-        state = _noMatch(
-          filters: filters,
-          eligible: eligible,
-          hiddenCount: hidden.length,
-          blockedByRepetition: scoring.blocked,
+        state = _settleOnNothing(
+          analytics,
+          _noMatch(
+            filters: filters,
+            eligible: eligible,
+            hiddenCount: hidden.length,
+            blockedByRepetition: scoring.blocked,
+          ),
         );
         return;
       }
 
       final ScoredMeal? scored = MealScorer.pick(scoring.candidates, _random);
       if (scored == null) {
-        state = _noMatch(
-          filters: filters,
-          eligible: eligible,
-          hiddenCount: hidden.length,
-          blockedByRepetition: scoring.blocked,
+        state = _settleOnNothing(
+          analytics,
+          _noMatch(
+            filters: filters,
+            eligible: eligible,
+            hiddenCount: hidden.length,
+            blockedByRepetition: scoring.blocked,
+          ),
         );
         return;
       }
 
       _seenThisSession.add(scored.meal.id);
+
+      analytics.record(
+        SpinCompleted(
+          mealId: scored.meal.id,
+          score: scored.score,
+          candidatePoolSize: scoring.candidates.length,
+          latency: elapsed.elapsed,
+        ),
+      );
 
       state = SpinSettled(
         meal: scored.meal,
@@ -292,6 +346,27 @@ class SpinController extends _$SpinController {
     } on Object catch (error, stackTrace) {
       state = SpinFailed(ErrorMapper.map(error, stackTrace));
     }
+  }
+
+  /// Records a no-match and hands the state straight back.
+  ///
+  /// Shaped as a pass-through so the three places that produce this state cannot
+  /// set it without recording it. They are three genuinely different failures —
+  /// the filters excluded everything, the repetition window did, or the weighted
+  /// draw came back empty — and `no_match` is the event that tells them apart,
+  /// which it cannot do if one of the three forgets to fire it.
+  SpinNoMatch _settleOnNothing(Analytics analytics, SpinNoMatch nothing) {
+    analytics.record(
+      NoMatchFound(
+        // The constraint's wire value rather than its label: `time` is a series
+        // name that survives the copy being rewritten, and "No longer than" is
+        // not.
+        blockingConstraint: nothing.blocking.firstOrNull?.name,
+        eligibleCount: nothing.eligibleCount,
+        blockedByRepetition: nothing.blockedByRepetition,
+      ),
+    );
+    return nothing;
   }
 
   /// Works out what to say when nothing matched.
@@ -430,6 +505,9 @@ class SpinController extends _$SpinController {
   /// recency penalty.
   void accept() {
     _seenThisSession.clear();
+    // Reset with the exclusions, because both are the session: the next spin is
+    // a new question, and it is spin one of it.
+    _spinsThisSession = 0;
     state = const SpinIdle();
   }
 

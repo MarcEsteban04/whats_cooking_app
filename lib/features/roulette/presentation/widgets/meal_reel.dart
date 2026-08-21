@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/utils/formatters.dart';
@@ -266,10 +268,10 @@ class _ReelPlaceholder extends StatelessWidget {
 ///   cards, so the travel visibly stretches out. This is the suspense; the rest
 ///   is setup.
 ///
-/// The result is deliberately *not* rounded to a whole card at the end. Landing
-/// mid-card would be wrong, so the spin screen snaps to the winner as a separate
-/// short animation — the reel's job is to arrive somewhere plausible, and the
-/// snap's job is to make it exact.
+/// The total lands on a whole card by construction — 15 fast plus 5 slow — which
+/// is what lets the spin screen plant the winner at [reelSettleIndex] and know
+/// the card the reel rests on *is* the pick. Nothing snaps at the end, because
+/// there is nothing left to snap to.
 double reelOffsetAt(double t) {
   const double windUpShare = 0.0909; //  200 / 2200
   const double fastShare = 0.5455; // 1200 / 2200
@@ -282,8 +284,17 @@ double reelOffsetAt(double t) {
   // of them easing out is a blur that stops rather than a reel slowing down.
   const double slowCards = 5;
 
+  // **Anticipation** (Sprint 34). The wind-up phase used to return a flat zero,
+  // which spent the first 200 ms of the product's signature moment showing a
+  // motionless card — the reader's tap landing on nothing. Now the reel draws
+  // *backwards* first, the way a hand pulls a wheel back before letting go, and
+  // arrives at the fast phase already moving forward.
+  //
+  // A half sine, so it is zero at both ends of the wind-up and continuous into
+  // what follows: a linear pull-back would hit the fast phase with a corner in
+  // the motion, and a corner reads as a dropped frame.
   if (t <= windUpShare) {
-    return 0;
+    return -_anticipation * sin(pi * (t / windUpShare));
   }
   if (t <= windUpShare + fastShare) {
     return ((t - windUpShare) / fastShare) * fastCards;
@@ -308,3 +319,10 @@ double get reelTotalTravel => reelOffsetAt(1);
 
 /// The nearest whole card to [offset] — where a stopped reel should settle.
 int reelSettleIndex(double offset) => offset.round();
+
+/// How far back the reel pulls before it starts, in cards.
+///
+/// A sixth of a card. Enough to be felt as a load rather than seen as a glitch —
+/// at this size the neighbouring card above only just begins to enter the window,
+/// which is the point: the eye registers the direction, not the distance.
+const double _anticipation = 0.17;

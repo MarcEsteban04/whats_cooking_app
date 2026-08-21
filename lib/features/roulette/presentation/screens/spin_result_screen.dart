@@ -1,17 +1,17 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:whats_cooking/core/analytics/analytics.dart';
 import 'package:whats_cooking/core/errors/app_exception.dart';
 import 'package:whats_cooking/core/errors/error_mapper.dart';
 import 'package:whats_cooking/core/errors/error_presenter.dart';
 import 'package:whats_cooking/core/router/app_routes.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
+import 'package:whats_cooking/core/utils/app_haptics.dart';
 import 'package:whats_cooking/core/utils/formatters.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_button.dart';
 import 'package:whats_cooking/core/widgets/chips/metadata_pill.dart';
+import 'package:whats_cooking/core/widgets/feedback/app_skeleton.dart';
 import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
 import 'package:whats_cooking/features/history/domain/entities/meal_history_entry.dart';
 import 'package:whats_cooking/features/history/presentation/providers/meal_history_controller.dart';
@@ -73,7 +73,7 @@ class SpinResultScreen extends ConsumerWidget {
                   body: error is AppException ? error.displayMessage : null,
                   onRetry: () => ref.invalidate(mealDetailProvider(mealId)),
                 ),
-                _ => const Center(child: CircularProgressIndicator()),
+                _ => const _ResultLoading(),
               },
             ),
           ),
@@ -81,6 +81,86 @@ class SpinResultScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// The result, before the meal has arrived.
+///
+/// Only ever seen on the paths where the pick was *not* handed over — a deep link
+/// into a result, or a restart on this screen — because the normal spin passes the
+/// meal through the route and has nothing to wait for.
+///
+/// A shape rather than a spinner, and the shape is [_PickCard]'s: docs/COMPONENTS
+/// on skeletons is blunt about why — "a skeleton that doesn't match its content is
+/// worse than none". A centred spinner on this screen was worse than none twice
+/// over, because it also threw away the one thing the reader already knows, which
+/// is that a result is coming.
+class _ResultLoading extends StatelessWidget {
+  const _ResultLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        // Real text, not a bar. The overline is the same on every result, so
+        // there is nothing to load and no reason to grey it out — and it keeps
+        // the reader oriented while the card fills in.
+        Text(
+          "TONIGHT'S PICK",
+          style: context.text.overline,
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: AppSpacing.space4),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: context.colors.surface,
+            borderRadius: AppRadius.borderXxxl,
+            boxShadow: context.shadows.xl,
+          ),
+          child: Padding(
+            // The card's own padding, so nothing moves when the meal lands.
+            padding: const EdgeInsets.all(AppSpacing.space6),
+            child: Column(
+              children: <Widget>[
+                const AppSkeleton.textLine(widthFactor: 0.3),
+                const SizedBox(height: AppSpacing.space4),
+                // Two lines at display height, matching the name's own two-line
+                // allowance.
+                const AppSkeleton(height: _titleLine),
+                const SizedBox(height: AppSpacing.space2),
+                const Align(
+                  child: FractionallySizedBox(
+                    widthFactor: 0.6,
+                    child: AppSkeleton(height: _titleLine),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.space5),
+                // The three metadata pills, as three pills.
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: AppSpacing.space2,
+                  runSpacing: AppSpacing.space2,
+                  children: <Widget>[
+                    for (int index = 0; index < 3; index++)
+                      const AppSkeleton(
+                        width: _pillWidth,
+                        height: _pillHeight,
+                        borderRadius: AppRadius.borderFull,
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  static const double _titleLine = 34;
+  static const double _pillWidth = 86;
+  static const double _pillHeight = 30;
 }
 
 class _Result extends ConsumerStatefulWidget {
@@ -124,6 +204,16 @@ class _ResultState extends ConsumerState<_Result> {
           .read(mealHistoryRepositoryProvider)
           .record(meal: widget.meal);
 
+      // **Time to Decision closes here** (docs/ARCHITECTURE.md §10), and it is
+      // recorded *after* the write and *before* the session is cleared. After,
+      // because a decision that failed to save is not a decision and would
+      // flatter the metric; before, because `accept()` resets the spin count the
+      // event carries.
+      ref.read(analyticsProvider).mealAccepted(
+        mealId: widget.meal.id,
+        spinCount: ref.read(spinControllerProvider.notifier).spinsThisSession,
+      );
+
       ref.read(spinControllerProvider.notifier).accept();
 
       // The list is now wrong, and the screen that shows it is one tap away.
@@ -132,7 +222,7 @@ class _ResultState extends ConsumerState<_Result> {
       if (!mounted) {
         return;
       }
-      unawaited(HapticFeedback.mediumImpact());
+      AppHaptics.decided();
       context.goNamed(
         AppRoute.decided.routeName,
         pathParameters: <String, String>{'historyId': entry.id},
@@ -146,6 +236,23 @@ class _ResultState extends ConsumerState<_Result> {
         _failure = ErrorMapper.map(error, stackTrace);
       });
     }
+  }
+
+  /// Turns this meal down and asks for another.
+  ///
+  /// The rejection is recorded here rather than on the next `spin_started`,
+  /// because they are not the same event: a reader can leave by "Not now" or by
+  /// the back gesture, and counting those as rejections would make the ratio the
+  /// engine is judged on quietly wrong. This button is the only place somebody
+  /// says *no, another one*.
+  void _rejectAndRespin() {
+    ref.read(analyticsProvider).record(
+      MealRejected(
+        mealId: widget.meal.id,
+        spinCount: ref.read(spinControllerProvider.notifier).spinsThisSession,
+      ),
+    );
+    context.goNamed(AppRoute.roulette.routeName);
   }
 
   /// Why the engine chose this, when it has something to say (Sprint 32).
@@ -227,9 +334,7 @@ class _ResultState extends ConsumerState<_Result> {
               // Straight back to the spin screen, which is the only thing that
               // starts a spin. This meal is already in the session's exclusions,
               // so it cannot come back round.
-              onPressed: _isSaving
-                  ? null
-                  : () => context.goNamed(AppRoute.roulette.routeName),
+              onPressed: _isSaving ? null : _rejectAndRespin,
             ),
           ),
           const SizedBox(width: AppSpacing.space3),

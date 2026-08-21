@@ -471,7 +471,7 @@ final List<RouteBase> _fullScreenRoutes = <RouteBase>[
     parentNavigatorKey: rootNavigatorKey,
     builder: (BuildContext context, GoRouterState state) => PlaceholderScreen(
       title: 'Cooking mode',
-      sprint: 'Sprint 34 (P1)',
+      sprint: 'unscheduled',
       detail: state.pathParameters['mealId'],
     ),
   ),

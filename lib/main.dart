@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:whats_cooking/core/analytics/analytics.dart';
 import 'package:whats_cooking/core/config/app_env.dart';
 import 'package:whats_cooking/core/errors/global_error_handler.dart';
 import 'package:whats_cooking/core/network/backend_health.dart';
@@ -50,6 +51,14 @@ Future<void> main() async {
     // (docs/ARCHITECTURE.md §12: 1.5 s cold start to interactive).
     unawaited(container.read(backendStatusProvider.future));
 
+    // The cold open, and the moment the Time to Decision clock starts
+    // (docs/ARCHITECTURE.md §10). Here rather than in the first screen's
+    // `initState`, because the metric is about opening the *app*: a household
+    // that lands on the welcome screen, signs in and then decides has spent all
+    // of that time deciding, and a clock started after the redirect would hide
+    // the slowest part of the journey.
+    container.read(analyticsProvider).appLaunched();
+
     runApp(
       UncontrolledProviderScope(
         container: container,
@@ -61,14 +70,49 @@ Future<void> main() async {
 
 /// Application root.
 ///
-/// A [ConsumerWidget] because the router is provided by Riverpod, which is also
-/// how the authentication redirect reaches the auth state without any screen
-/// performing its own check (docs/ARCHITECTURE.md §7).
-class WhatsCookingApp extends ConsumerWidget {
+/// A consumer because the router is provided by Riverpod, which is also how the
+/// authentication redirect reaches the auth state without any screen performing
+/// its own check (docs/ARCHITECTURE.md §7).
+///
+/// Stateful because the app's own lifecycle is the other half of the Time to
+/// Decision measurement: a resume can start a new session, and backgrounding is
+/// the last chance to flush buffered events before the OS is free to kill the
+/// process.
+class WhatsCookingApp extends ConsumerStatefulWidget {
   const WhatsCookingApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<WhatsCookingApp> createState() => _WhatsCookingAppState();
+}
+
+class _WhatsCookingAppState extends ConsumerState<WhatsCookingApp> {
+  late final AppLifecycleListener _lifecycle;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // [AppLifecycleListener] rather than [WidgetsBindingObserver]: it reports the
+    // transitions by name, so "hidden, then paused, then detached" on the way to
+    // the background does not have to be reconstructed from a state enum here.
+    _lifecycle = AppLifecycleListener(
+      onPause: () => ref.read(analyticsProvider).appBackgrounded(),
+      onResume: () => ref.read(analyticsProvider).appResumed(),
+      // The last call the framework makes. A flush here is best-effort — the
+      // process may not survive long enough for the request — which is why
+      // `onPause` above flushes too rather than relying on this.
+      onDetach: () => unawaited(ref.read(analyticsProvider).flush()),
+    );
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final GoRouter router = ref.watch(appRouterProvider);
     final ThemeMode themeMode = ref.watch(themeModeControllerProvider);
 

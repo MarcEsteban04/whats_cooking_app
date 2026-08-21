@@ -1,12 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:whats_cooking/core/errors/error_presenter.dart';
 import 'package:whats_cooking/core/router/app_routes.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
+import 'package:whats_cooking/core/utils/app_haptics.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_button.dart';
 import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal.dart';
@@ -104,7 +104,7 @@ class _SpinScreenState extends ConsumerState<SpinScreen>
       }
     });
 
-    HapticFeedback.lightImpact();
+    AppHaptics.spinBegun();
   }
 
   @override
@@ -179,7 +179,7 @@ class _SpinScreenState extends ConsumerState<SpinScreen>
     _lastTickedCard = card;
 
     if (_controller.value > _decelerationBegins) {
-      HapticFeedback.selectionClick();
+      AppHaptics.reelTick();
     }
   }
 
@@ -221,7 +221,7 @@ class _SpinScreenState extends ConsumerState<SpinScreen>
 
     if (ref.read(spinControllerProvider) case SpinSettled(:final Meal meal)) {
       _hasRevealed = true;
-      HapticFeedback.mediumImpact();
+      AppHaptics.reveal();
       context.goNamed(
         AppRoute.rouletteResult.routeName,
         pathParameters: <String, String>{'mealId': meal.id},
@@ -270,6 +270,18 @@ class _SpinScreenState extends ConsumerState<SpinScreen>
         // Now there is something to roll.
         _startReel();
         _maybeReveal();
+        return;
+      }
+
+      // The two endings that are not a meal. Both replace this screen outright,
+      // so the reel is stopped rather than left running behind them — and both
+      // get a haptic, because a screen that silently swaps itself for a wall of
+      // text reads as a stall the reader caused.
+      if (next is SpinNoMatch || next is SpinFailed) {
+        _controller.stop();
+        if (next is SpinNoMatch) {
+          AppHaptics.nothingFound();
+        }
       }
     });
 
