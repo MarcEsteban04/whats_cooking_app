@@ -338,24 +338,34 @@ class _Loaded extends ConsumerWidget {
               ],
 
               const SizedBox(height: AppSpacing.space5),
-              StatTrio(
-                columns: <StatColumnData>[
-                  for (final (int index, IngredientCategory group)
-                      in top.take(3).indexed)
-                    StatColumnData(
-                      label: group.label,
-                      value: '${counts[group]}',
-                      fraction: counts[group]! / all.length,
-                      color: switch (index) {
-                        0 => colors.series1,
-                        1 => colors.series2,
-                        _ => colors.primary,
-                      },
-                      // Tapping a figure filters to it; tapping it again clears.
-                      onTap: () => onAisle(group),
-                    ),
-                ],
-              ),
+
+              // **The breakdown only earns its place with something to break
+              // down.** With one aisle it printed "Everything else / 1" directly
+              // above a section heading reading "Everything else / 1" — the same
+              // fact twice, in the panel's most prominent row. So below two
+              // aisles the space goes to the thing a nearly-empty pantry actually
+              // needs, which is a reason to fill it in.
+              if (top.length >= 2)
+                StatTrio(
+                  columns: <StatColumnData>[
+                    for (final (int index, IngredientCategory group)
+                        in top.take(3).indexed)
+                      StatColumnData(
+                        label: group.label,
+                        value: '${counts[group]}',
+                        fraction: counts[group]! / all.length,
+                        color: switch (index) {
+                          0 => colors.series1,
+                          1 => colors.series2,
+                          _ => colors.primary,
+                        },
+                        // Tapping a figure filters to it; tapping again clears.
+                        onTap: () => onAisle(group),
+                      ),
+                  ],
+                )
+              else
+                const _GettingStarted(),
 
               const SizedBox(height: AppSpacing.space5),
               const DashboardRule(),
@@ -391,26 +401,40 @@ class _Loaded extends ConsumerWidget {
             onClear: onClearFilters,
           )
         else
+          // **One card per aisle.** The first version put bare rows straight onto
+          // the page background under a caps heading, and they read as loose text
+          // rather than as a list — nothing in this app sits on the background
+          // except the header. A panel per aisle gives the group edges, puts its
+          // name and count in a panel header the way every other panel in the app
+          // does, and turns the aisle into an object you can point at.
           for (final IngredientCategory group in IngredientCategory.values)
             if (byAisle[group] case final List<PantryItem> rows) ...<Widget>[
-              _AisleHeader(
-                aisle: group,
-                count: rows.length,
-                isActive: aisle == group,
-                onTap: () => onAisle(group),
-              ),
-              for (final (int index, PantryItem item) in rows.indexed) ...[
-                // A hairline between rows, not a box around each. The reference
-                // divides with one pixel rather than nesting cards — and without
-                // any division a column of two-line rows reads as a wall of
-                // unrelated text, which is what the first version looked like.
-                if (index > 0) const DashboardRule(),
-                _PantryRow(
-                  item: item,
-                  now: now,
-                  key: ValueKey<String>(item.id),
+              const SizedBox(height: AppSpacing.space4),
+              DashboardPanel(
+                title: group.label,
+                icon: _aisleIcon(group),
+                trailing: _AisleCount(
+                  count: rows.length,
+                  isActive: aisle == group,
+                  onTap: () => onAisle(group),
                 ),
-              ],
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    for (final (int index, PantryItem item) in rows.indexed)
+                      ...<Widget>[
+                        // A hairline between rows, not a box around each. Inside
+                        // one card the reference divides with a single pixel.
+                        if (index > 0) const DashboardRule(),
+                        _PantryRow(
+                          item: item,
+                          now: now,
+                          key: ValueKey<String>(item.id),
+                        ),
+                      ],
+                  ],
+                ),
+              ),
             ],
       ],
     );
@@ -476,16 +500,18 @@ class _UrgentCallout extends StatelessWidget {
   }
 }
 
-/// One aisle's heading: its glyph, its name, and how many are in it.
-class _AisleHeader extends StatelessWidget {
-  const _AisleHeader({
-    required this.aisle,
+/// How many are in one aisle, and the tap that filters to it.
+///
+/// Sits in the panel header's `trailing` slot, which is where every other panel
+/// in the app puts its one control. A count that is also the filter means an
+/// aisle needs no separate chip and no extra row.
+class _AisleCount extends StatelessWidget {
+  const _AisleCount({
     required this.count,
     required this.isActive,
     required this.onTap,
   });
 
-  final IngredientCategory aisle;
   final int count;
   final bool isActive;
   final VoidCallback onTap;
@@ -496,30 +522,66 @@ class _AisleHeader extends StatelessWidget {
 
     return PressFeedback(
       onTap: onTap,
-      semanticLabel: aisle.label,
+      semanticLabel: isActive ? 'Show every aisle' : 'Show only this aisle',
       expandTouchTarget: false,
-      child: Padding(
-        padding: const EdgeInsets.only(
-          top: AppSpacing.space6,
-          bottom: AppSpacing.space3,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: isActive ? colors.surfaceInverse : colors.surfaceMuted,
+          borderRadius: AppRadius.borderFull,
         ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.space3,
+            vertical: AppSpacing.space1,
+          ),
+          child: Text(
+            '$count',
+            style: context.text.labelSmall.copyWith(
+              color: isActive ? colors.textOnInverse : colors.textSecondary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// What a nearly-empty pantry gets instead of a breakdown.
+///
+/// Dead space on a screen with one thing on it is worse than a prompt, and this
+/// is the one prompt worth making: a pantry is not a list for its own sake, it is
+/// the input to "what can we cook right now". Nobody fills in a fridge inventory
+/// for fun, and until the app has said what it is *for*, an empty one looks like
+/// homework.
+class _GettingStarted extends StatelessWidget {
+  const _GettingStarted();
+
+  @override
+  Widget build(BuildContext context) {
+    final AppColorScheme colors = context.colors;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.surfaceMuted,
+        borderRadius: AppRadius.borderMd,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.space4),
         child: Row(
           children: <Widget>[
             Icon(
-              _aisleIcon(aisle),
-              size: AppIconSize.xs,
-              color: isActive ? colors.primary : colors.textTertiary,
+              AppIcons.spin,
+              size: AppIconSize.sm,
+              color: colors.textSecondary,
             ),
-            const SizedBox(width: AppSpacing.space2),
+            const SizedBox(width: AppSpacing.space3),
             Expanded(
               child: Text(
-                aisle.label.toUpperCase(),
-                style: context.text.overline.copyWith(
-                  color: isActive ? colors.primary : null,
-                ),
+                'Add a few more things and the roulette can start offering '
+                'meals you already have the ingredients for.',
+                style: context.text.metadata,
               ),
             ),
-            Text('$count', style: context.text.metadata),
           ],
         ),
       ),
@@ -527,6 +589,7 @@ class _AisleHeader extends StatelessWidget {
   }
 }
 
+/// One thing in the kitchen.
 /// One thing in the kitchen.
 ///
 /// A row rather than a card, per the dashboard language: hairline division, the
@@ -596,12 +659,14 @@ class _PantryRow extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.space3),
           child: Row(
             children: <Widget>[
-              // A pip, not the aisle glyph. The heading above already carries
-              // that, so repeating it per row would state the same fact twelve
-              // times — but the eye needs something to run down the left edge,
-              // and urgency is the one thing worth putting there.
-              _StatusDot(status: status),
-              const SizedBox(width: AppSpacing.space3),
+              // **The tile does two jobs and that is the point.** It carries the
+              // aisle's glyph, which gives the eye something to run down the left
+              // edge of a long list — and it changes colour when the item wants
+              // eating, so urgency needs no badge, no second row and no extra
+              // colour anywhere else. An 8-pixel pip was doing the second job on
+              // its own and doing it invisibly.
+              _RowTile(aisle: item.category, status: status),
+              const SizedBox(width: AppSpacing.space4),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -645,15 +710,7 @@ class _PantryRow extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: AppSpacing.space3),
-              Text(
-                // "Some" rather than a blank, because an empty right column reads
-                // as a row that failed to load. It is also the truth: the schema
-                // treats a null quantity as "we have some".
-                item.hasAmount ? item.amount : 'Some',
-                style: item.hasAmount
-                    ? context.text.bodyLarge
-                    : context.text.metadata,
-              ),
+              _AmountFigure(item: item),
             ],
           ),
         ),
@@ -662,35 +719,111 @@ class _PantryRow extends ConsumerWidget {
   }
 }
 
-/// A pip carrying the row's urgency, and almost nothing when there is none.
-class _StatusDot extends StatelessWidget {
-  const _StatusDot({required this.status});
+/// The row's leading tile: the aisle it belongs to, tinted by how urgent it is.
+///
+/// The same 30-pixel rounded square `DashboardActionRow` uses, because it is the
+/// app's existing vocabulary for "a small thing with a glyph in it" — a row that
+/// invented its own shape would read as a different kind of list.
+///
+/// Ink for the ordinary case, and **the semantic colour when the item wants
+/// eating**. That is deliberate reuse of one element for two facts: the aisle is
+/// what the glyph says, the urgency is what its background says, and neither needs
+/// a badge.
+class _RowTile extends StatelessWidget {
+  const _RowTile({required this.aisle, required this.status});
 
+  final IngredientCategory aisle;
   final ExpiryStatus status;
 
   @override
   Widget build(BuildContext context) {
     final AppColorScheme colors = context.colors;
 
-    return Container(
-      width: _size,
-      height: _size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: switch (status) {
-          ExpiryStatus.gone => colors.error.color,
-          ExpiryStatus.today || ExpiryStatus.soon => colors.warning.color,
-          // Deliberately faint. Most rows are fine, and a column of confident
-          // green ticks would spend the reader's whole attention saying nothing.
-          ExpiryStatus.fine || ExpiryStatus.none => colors.outline,
-        },
+    final Color fill = switch (status) {
+      ExpiryStatus.gone => colors.error.color,
+      ExpiryStatus.today || ExpiryStatus.soon => colors.warning.color,
+      // Ink, matching the action tiles. Most rows are fine, and a list of
+      // confident green squares would spend the reader's whole attention saying
+      // nothing.
+      ExpiryStatus.fine || ExpiryStatus.none => colors.series2,
+    };
+
+    return DecoratedBox(
+      decoration: BoxDecoration(color: fill, borderRadius: AppRadius.borderSm),
+      child: SizedBox.square(
+        dimension: _size,
+        child: Center(
+          child: Icon(
+            _aisleIcon(aisle),
+            size: AppIconSize.xs,
+            color: colors.surface,
+          ),
+        ),
       ),
     );
   }
 
-  static const double _size = 8;
+  static const double _size = 34;
 }
 
+/// How much there is, set as a figure with its unit beneath.
+///
+/// The reference's third move, applied to a list row: *"a unit word, small and
+/// separate"*, so `500 g` reads as one phrase in two weights rather than as a
+/// single run of text. It is also what stops a long unit — "half bottle" — from
+/// crowding the name, because the unit wraps under the number instead of
+/// competing with it on one line.
+class _AmountFigure extends StatelessWidget {
+  const _AmountFigure({required this.item});
+
+  final PantryItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    // No tracked amount. "Some" rather than a blank, because an empty right
+    // column reads as a row that failed to load — and it is the truth: the schema
+    // treats a null quantity as "we have some".
+    if (item.quantity == null) {
+      return ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: _maxWidth),
+        child: Text(
+          item.unit.isEmpty ? 'Some' : AppFormat.sentenceCase(item.unit),
+          style: context.text.metadata,
+          textAlign: TextAlign.right,
+          maxLines: 2,
+        ),
+      );
+    }
+
+    final double value = item.quantity!;
+    final String figure = value == value.roundToDouble()
+        ? value.toStringAsFixed(0)
+        : value.toStringAsFixed(1);
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: _maxWidth),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Text(figure, style: context.text.titleMedium),
+          if (item.unit.isNotEmpty)
+            Text(
+              item.unit,
+              style: context.text.metadata,
+              textAlign: TextAlign.right,
+              maxLines: 2,
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Enough for "half bottle" on two lines, and never enough to squeeze the name.
+  static const double _maxWidth = 88;
+}
+
+/// Filtered down to nothing.
 /// Filtered down to nothing.
 class _NothingMatched extends StatelessWidget {
   const _NothingMatched({
