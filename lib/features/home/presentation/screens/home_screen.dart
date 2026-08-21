@@ -319,6 +319,14 @@ class _Elsewhere extends StatelessWidget {
             icon: AppIcons.grocery,
             onTap: () => context.pushNamed(AppRoute.restaurants.routeName),
           ),
+          // Asking in words (Sprint 47). The fifth and last tile — past this the
+          // row's labels start truncating, and a row of abbreviations is a row
+          // nobody reads.
+          DashboardAction(
+            label: 'Ask',
+            icon: AppIcons.assistant,
+            onTap: () => context.pushNamed(AppRoute.assistant.routeName),
+          ),
         ],
       ),
     );

@@ -149,6 +149,16 @@ enum AppRoute {
   restaurantResult(path: '/eat-out/spin/:id'),
 
   // ---------------------------------------------------------------------------
+  // AI (Sprint 47)
+  //
+  // One route, not a tab. The assistant is a way of asking the question Home
+  // already asks, not a sixth place to be — and a chat given a permanent slot in
+  // the navigation bar is a chat the app is pretending is the main event.
+  // ---------------------------------------------------------------------------
+
+  assistant(path: '/ask'),
+
+  // ---------------------------------------------------------------------------
   // Profile tab
   // ---------------------------------------------------------------------------
 

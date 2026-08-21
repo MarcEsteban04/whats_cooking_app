@@ -9,6 +9,7 @@ import 'package:whats_cooking/core/router/app_shell.dart';
 import 'package:whats_cooking/core/router/router_guards.dart';
 import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
 import 'package:whats_cooking/core/widgets/placeholder_screen.dart';
+import 'package:whats_cooking/features/ai/presentation/screens/assistant_screen.dart';
 import 'package:whats_cooking/features/auth/domain/entities/app_session.dart';
 import 'package:whats_cooking/features/auth/presentation/providers/session_provider.dart';
 import 'package:whats_cooking/features/auth/presentation/screens/forgot_password_screen.dart';
@@ -454,6 +455,16 @@ final GoRoute _mealEditRoute = GoRoute(
 );
 
 final List<RouteBase> _fullScreenRoutes = <RouteBase>[
+  // Asking in words (Sprint 47). Slides up on the root navigator: it is a
+  // conversation that takes the screen, and its composer must not end up behind
+  // the floating bottom navigation.
+  GoRoute(
+    path: AppRoute.assistant.path,
+    name: AppRoute.assistant.routeName,
+    parentNavigatorKey: rootNavigatorKey,
+    pageBuilder: (BuildContext context, GoRouterState state) =>
+        const AppSlideUpPage<void>(child: AssistantScreen()),
+  ),
   // Eating out (Sprint 45). Full screen on the root navigator, beside the
   // roulette rather than in the navigation bar — see `AppRoute.restaurants`.
   GoRoute(
