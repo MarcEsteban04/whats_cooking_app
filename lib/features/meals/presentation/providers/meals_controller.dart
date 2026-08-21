@@ -198,6 +198,17 @@ class MealsController extends _$MealsController {
   Future<void> toggleCategory(MealCategory category) =>
       applyQuery(_query.toggleCategory(category));
 
+  /// Narrows the feed to meals the kitchen already covers, or opens it back up
+  /// (Sprint 41).
+  ///
+  /// Takes the id set rather than reading it, so the screen decides *when* to
+  /// consult the pantry and this stays a filter setter like the others.
+  Future<void> setCookableOnly(Set<String>? cookable) => applyQuery(
+    cookable == null
+        ? _query.copyWith(clearCookableOnly: true)
+        : _query.copyWith(onlyMealIds: cookable),
+  );
+
   Future<void> clearFilters() => applyQuery(_query.cleared());
 
   /// Appends the next page.

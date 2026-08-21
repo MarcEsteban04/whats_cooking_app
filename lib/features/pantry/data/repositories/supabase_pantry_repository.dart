@@ -4,6 +4,7 @@ import 'package:whats_cooking/core/errors/app_exception.dart';
 import 'package:whats_cooking/core/network/remote_call.dart';
 import 'package:whats_cooking/core/network/retry_policy.dart';
 import 'package:whats_cooking/features/pantry/domain/entities/pantry_item.dart';
+import 'package:whats_cooking/features/pantry/domain/entities/pantry_match.dart';
 import 'package:whats_cooking/features/pantry/domain/repositories/pantry_repository.dart';
 
 /// [PantryRepository] backed by PostgREST.
@@ -137,6 +138,30 @@ class SupabasePantryRepository implements PantryRepository {
   }
 
   @override
+  Future<Map<String, PantryMatch>> matches() {
+    return RemoteCall.guard(
+      () async {
+        final dynamic rows = await _client.rpc<dynamic>(_matchFunction);
+
+        return <String, PantryMatch>{
+          if (rows is List)
+            for (final dynamic row in rows)
+              if (row is Map<String, dynamic> && row['meal_id'] is String)
+                row['meal_id'] as String: PantryMatch.fromRow(row),
+        };
+      },
+      label: 'pantry.matches',
+      // **No retry.** Observed on device before migration 0022 landed: a missing
+      // function returns `PGRST202`, which three attempts cannot fix, so every
+      // load spent ≈700 ms backing off toward the same answer. A schema error is
+      // not a flaky connection, and this call is on the path Home warms before a
+      // spin — the cheapest possible failure is the right one.
+      policy: RetryPolicy.none,
+      timeout: AppConstants.requestTimeout,
+    );
+  }
+
+  @override
   Future<List<IngredientSuggestion>> suggest(String query) {
     final String term = query.trim().toLowerCase();
     if (term.isEmpty) {
@@ -256,6 +281,9 @@ class SupabasePantryRepository implements PantryRepository {
 
   /// Shorter than the app default, because this runs on a keystroke.
   static const Duration _suggestTimeout = Duration(seconds: 4);
+
+  /// Migration 0022. Per meal: needed, have, and up to three missing names.
+  static const String _matchFunction = 'pantry_match';
 
   static const String _table = 'pantry_items';
   static const String _ingredients = 'ingredients';

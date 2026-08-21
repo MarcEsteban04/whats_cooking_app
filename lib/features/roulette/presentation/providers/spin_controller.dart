@@ -16,6 +16,7 @@ import 'package:whats_cooking/features/meals/presentation/providers/disliked_ing
 import 'package:whats_cooking/features/meals/presentation/providers/dislikes_controller.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/favorites_controller.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/meal_repository_provider.dart';
+import 'package:whats_cooking/features/pantry/presentation/providers/pantry_controller.dart';
 import 'package:whats_cooking/features/profile/presentation/providers/profile_controller.dart';
 import 'package:whats_cooking/features/roulette/domain/entities/spin_filters.dart';
 import 'package:whats_cooking/features/roulette/domain/usecases/meal_scorer.dart';
@@ -496,6 +497,11 @@ class SpinController extends _$SpinController {
       // mood is a statement about this evening, and storing it would make it a
       // standing preference nobody asked for.
       mood: filters.mood,
+      // What is already in the kitchen (Sprint 41). Best effort, like the
+      // history above: an empty map means no information rather than no
+      // ingredients, and the scorer treats it that way — a fridge we could not
+      // read should cost a bonus, never a spin.
+      pantry: await ref.read(pantryMatchesProvider.future),
     );
   }
 

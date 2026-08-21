@@ -166,6 +166,20 @@ class SupabaseMealRepository implements MealRepository {
           filtered = filtered.lte('cost_per_serving', pesos);
         }
 
+        // The cookable-now filter (Sprint 41). Applied server-side like every
+        // other condition here, because the feed is paged: a page filtered in
+        // Dart leaves the server counting twenty rows where the reader sees
+        // nineteen, and the next page skips a meal.
+        if (query.onlyMealIds case final Set<String> allowed) {
+          if (allowed.isEmpty) {
+            // "On, and nothing qualifies" is a real state and has to show an
+            // empty feed. `in.()` with no values is a query PostgREST rejects, so
+            // the answer is given without asking.
+            return const MealPage(meals: <Meal>[], hasMore: false);
+          }
+          filtered = filtered.inFilter('id', allowed.toList());
+        }
+
         if (query.excludedMealIds.isNotEmpty) {
           // The dislikes, as a hard exclusion (Sprint 25). Server-side like
           // every other condition here, and for the sharpest version of the

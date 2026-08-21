@@ -50,6 +50,7 @@ class MealQuery {
     this.maxCostPerServing,
     this.sort = MealSort.alphabetical,
     this.excludedMealIds = const <String>{},
+    this.onlyMealIds,
   });
 
   /// Matched against the meal's name.
@@ -84,6 +85,21 @@ class MealQuery {
   /// food the user chose to hide.
   final Set<String> excludedMealIds;
 
+  /// When set, the *only* meals allowed through (Sprint 41).
+  ///
+  /// The inverse of [excludedMealIds], and it exists for one filter: "what can we
+  /// cook right now". That question is answered by a Postgres function over the
+  /// pantry, not by anything a PostgREST predicate can express — so the answer
+  /// comes back as a set of ids and is applied here.
+  ///
+  /// **Null and empty mean different things.** Null is "no such filter"; an empty
+  /// set is "the filter is on and nothing qualifies", which has to show an empty
+  /// feed rather than the whole catalogue.
+  final Set<String>? onlyMealIds;
+
+  /// Whether the cookable-now filter is on.
+  bool get isCookableOnly => onlyMealIds != null;
+
   /// Whether anything is narrowing the feed.
   ///
   /// Drives the clear-all affordance, which §7 requires whenever a filter is on.
@@ -92,7 +108,8 @@ class MealQuery {
       cuisines.isNotEmpty ||
       categories.isNotEmpty ||
       maxCookingTimeMinutes != null ||
-      maxCostPerServing != null;
+      maxCostPerServing != null ||
+      isCookableOnly;
 
   /// How many filters are on, for the badge on the filter button.
   int get filterCount =>
@@ -146,8 +163,10 @@ class MealQuery {
     int? maxCostPerServing,
     MealSort? sort,
     Set<String>? excludedMealIds,
+    Set<String>? onlyMealIds,
     bool clearMaxCookingTime = false,
     bool clearMaxCost = false,
+    bool clearCookableOnly = false,
   }) {
     return MealQuery(
       search: search ?? this.search,
@@ -164,6 +183,9 @@ class MealQuery {
           : maxCostPerServing ?? this.maxCostPerServing,
       sort: sort ?? this.sort,
       excludedMealIds: excludedMealIds ?? this.excludedMealIds,
+      onlyMealIds: clearCookableOnly
+          ? null
+          : (onlyMealIds ?? this.onlyMealIds),
     );
   }
 

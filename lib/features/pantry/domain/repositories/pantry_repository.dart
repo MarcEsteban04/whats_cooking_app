@@ -1,4 +1,5 @@
 import 'package:whats_cooking/features/pantry/domain/entities/pantry_item.dart';
+import 'package:whats_cooking/features/pantry/domain/entities/pantry_match.dart';
 
 /// What is in the kitchen (Sprint 39).
 ///
@@ -50,6 +51,18 @@ abstract interface class PantryRepository {
 
   /// Takes it out of the kitchen.
   Future<void> remove(String id);
+
+  /// How much of each meal the kitchen already covers (Sprint 41).
+  ///
+  /// Keyed by meal id. A meal absent from the map has no countable ingredients at
+  /// all — either none recorded, or all of them staples — which the caller treats
+  /// as nothing to be short of rather than as a zero.
+  ///
+  /// Resolved server-side by `pantry_match()`. The spin's pool runs to 200 meals
+  /// with six ingredients each, and pulling that join into the one interaction that
+  /// must not wait would cost more than the signal is worth. This returns two
+  /// integers and at most three names per meal.
+  Future<Map<String, PantryMatch>> matches();
 
   /// Names the vocabulary already knows, for the add field.
   ///

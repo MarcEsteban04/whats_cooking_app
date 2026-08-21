@@ -17,6 +17,8 @@ import 'package:whats_cooking/features/history/domain/entities/meal_history_entr
 import 'package:whats_cooking/features/history/presentation/providers/meal_history_controller.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/meal_detail_controller.dart';
+import 'package:whats_cooking/features/pantry/domain/entities/pantry_match.dart';
+import 'package:whats_cooking/features/pantry/presentation/providers/pantry_controller.dart';
 import 'package:whats_cooking/features/roulette/presentation/providers/spin_controller.dart';
 
 /// The payoff (docs/design_ui.md §13).
@@ -255,6 +257,35 @@ class _ResultState extends ConsumerState<_Result> {
     context.goNamed(AppRoute.roulette.routeName);
   }
 
+  /// What the kitchen already covers, in a sentence (Sprint 41).
+  ///
+  /// Says nothing at all rather than "0% available" when the pantry is empty or
+  /// the match could not be computed. A result screen that reports on a fridge
+  /// list nobody keeps is a result screen nagging about homework.
+  String? get _kitchenLine {
+    final PantryMatch? match =
+        ref.watch(pantryMatchesProvider).value?[widget.meal.id];
+
+    if (match == null || match.needed == 0) {
+      return null;
+    }
+    if (match.isComplete) {
+      return 'Everything for this is already in the kitchen.';
+    }
+    if (match.shortfallPhrase case final String phrase) {
+      // "You have everything but the bay leaves" — the one shape of this
+      // sentence that makes somebody more likely to cook rather than less.
+      return AppFormat.sentenceCase('you have $phrase.');
+    }
+    if (match.isMostlyIn) {
+      return 'Most of it is in the kitchen — ${match.shortBy} to pick up.';
+    }
+    // Deliberately silent below the threshold. "You are missing seven things" is
+    // true, unhelpful, and reads as an argument against the meal the app just
+    // chose.
+    return null;
+  }
+
   /// Why the engine chose this, when it has something to say (Sprint 32).
   ///
   /// Matched on the meal id, so a stale state from a previous spin cannot put
@@ -291,6 +322,22 @@ class _ResultState extends ConsumerState<_Result> {
           const SizedBox(height: AppSpacing.space3),
           Text(
             reason,
+            style: context.text.metadata,
+            textAlign: TextAlign.center,
+          ),
+        ],
+
+        // What the kitchen is short of (Sprint 41).
+        //
+        // Its own line rather than folded into the reason above, because the two
+        // say different things: the reason is why this meal was chosen, and this
+        // is what standing up and cooking it would take. Somebody deciding whether
+        // to accept wants both, and the second one is the difference between yes
+        // and a trip to the shop.
+        if (_kitchenLine case final String line) ...<Widget>[
+          const SizedBox(height: AppSpacing.space2),
+          Text(
+            line,
             style: context.text.metadata,
             textAlign: TextAlign.center,
           ),

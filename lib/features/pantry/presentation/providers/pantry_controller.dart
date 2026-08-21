@@ -7,6 +7,7 @@ import 'package:whats_cooking/core/utils/logger.dart';
 import 'package:whats_cooking/features/pantry/data/repositories/in_memory_pantry_repository.dart';
 import 'package:whats_cooking/features/pantry/data/repositories/supabase_pantry_repository.dart';
 import 'package:whats_cooking/features/pantry/domain/entities/pantry_item.dart';
+import 'package:whats_cooking/features/pantry/domain/entities/pantry_match.dart';
 import 'package:whats_cooking/features/pantry/domain/repositories/pantry_repository.dart';
 
 part 'pantry_controller.g.dart';
@@ -168,6 +169,48 @@ class PantryController extends _$PantryController {
     });
 
     return next;
+  }
+}
+
+/// How much of each meal the kitchen already covers (Sprint 41).
+///
+/// **Recomputed whenever the pantry changes**, which is the dependency that makes
+/// this worth having: adding chicken should change what the next spin leans
+/// toward, and it does, without any screen having to remember to invalidate
+/// anything.
+///
+/// `keepAlive`, because every spin reads it and the answer only moves when the
+/// pantry does.
+///
+/// **A failure is an empty map, not a failed spin.** The pantry bonus is a
+/// nice-to-have on top of a working roulette; refusing to pick a meal because the
+/// fridge could not be consulted would be the tail wagging the dog. It says so in
+/// the log — the realistic cause is a build that has landed ahead of migration
+/// 0022.
+@Riverpod(keepAlive: true)
+Future<Map<String, PantryMatch>> pantryMatches(Ref ref) async {
+  // Watched, not read. This is what recomputes the match after an item is added.
+  final List<PantryItem> pantry = await ref.watch(
+    pantryControllerProvider.future,
+  );
+
+  if (pantry.isEmpty) {
+    // Nothing to match against, and the function would return every meal at
+    // zero. Answered without a request, which is also the common case on a fresh
+    // install.
+    return const <String, PantryMatch>{};
+  }
+
+  try {
+    return await ref.read(pantryRepositoryProvider).matches();
+  } on Object catch (error) {
+    AppLog.warning(
+      'Could not work out what is cookable — the pantry bonus is off for this '
+      'spin. Apply the latest migration.',
+      name: 'pantryMatches',
+      data: <String, Object?>{'reason': error.toString()},
+    );
+    return const <String, PantryMatch>{};
   }
 }
 

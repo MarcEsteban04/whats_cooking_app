@@ -60,6 +60,7 @@ class HomeScreen extends ConsumerWidget {
     ref.watch(favoritesControllerProvider);
     ref.watch(mealHistoryProvider);
     ref.watch(mealsBlockedByDislikesProvider);
+    ref.watch(pantryMatchesProvider);
 
     // Read, not just warmed: Home says what needs using tonight (Sprint 40), and
     // from Sprint 41 the spin weights meals by what is already in.

@@ -1,6 +1,7 @@
 import 'package:whats_cooking/core/domain/food_taxonomy.dart';
 import 'package:whats_cooking/core/errors/app_exception.dart';
 import 'package:whats_cooking/features/pantry/domain/entities/pantry_item.dart';
+import 'package:whats_cooking/features/pantry/domain/entities/pantry_match.dart';
 import 'package:whats_cooking/features/pantry/domain/repositories/pantry_repository.dart';
 
 /// [PantryRepository] with no backend behind it.
@@ -115,6 +116,16 @@ class InMemoryPantryRepository implements PantryRepository {
   @override
   Future<void> remove(String id) async {
     _items.removeWhere((PantryItem item) => item.id == id);
+  }
+
+  @override
+  Future<Map<String, PantryMatch>> matches() async {
+    // Always empty. The real answer joins three tables this class cannot see, and
+    // a no-backend build has no meal catalogue to match against in the first
+    // place. Empty rather than unimplemented, because this repository exists so
+    // the app runs without credentials — and a spin that threw because it could
+    // not compute a bonus would defeat that entirely.
+    return const <String, PantryMatch>{};
   }
 
   @override

@@ -9,6 +9,7 @@ import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/utils/formatters.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_button.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_icon_button.dart';
+import 'package:whats_cooking/core/widgets/chips/app_filter_chip.dart';
 import 'package:whats_cooking/core/widgets/dashboard/dashboard.dart';
 import 'package:whats_cooking/core/widgets/feedback/app_skeleton.dart';
 import 'package:whats_cooking/core/widgets/feedback/empty_state.dart';
@@ -18,6 +19,8 @@ import 'package:whats_cooking/features/meals/domain/entities/meal.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal_query.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/meals_controller.dart';
 import 'package:whats_cooking/features/meals/presentation/widgets/meal_table_row.dart';
+import 'package:whats_cooking/features/pantry/domain/entities/pantry_match.dart';
+import 'package:whats_cooking/features/pantry/presentation/providers/pantry_controller.dart';
 
 /// The Meals tab, built in the dashboard language of
 /// `docs/reference_design/dashboards_ref.webp`.
@@ -202,6 +205,8 @@ class _MealsScreenState extends ConsumerState<MealsScreen> {
                             query: current.query,
                             onChanged: controller.applyQuery,
                           ),
+                          const SizedBox(height: AppSpacing.space3),
+                          _CookableToggle(query: current.query),
                           const SizedBox(height: AppSpacing.space4),
                         ],
                       ],
@@ -634,6 +639,54 @@ class _CuisineRow extends StatelessWidget {
 
 /// The meal category, as the reference's Daily / Weekly / Monthly control.
 ///
+/// "Can cook now" — the feed narrowed to what the kitchen already covers
+/// (Sprint 41).
+///
+/// **Absent until the pantry has something in it.** A filter that can only ever
+/// return nothing is a filter that teaches somebody the feature is broken, and on
+/// a fresh install that is exactly what this would be. Once there is a pantry it
+/// appears, and it says how many qualify before it is pressed — which is the
+/// difference between a filter and a gamble.
+///
+/// The ids come from `pantry_match()` and are handed to the *query*, so the feed
+/// stays paged and server-filtered. Sifting a page in Dart would leave the server
+/// counting twenty rows where the reader sees nineteen.
+class _CookableToggle extends ConsumerWidget {
+  const _CookableToggle({required this.query});
+
+  final MealQuery query;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final Map<String, PantryMatch> matches =
+        ref.watch(pantryMatchesProvider).value ?? const <String, PantryMatch>{};
+
+    final Set<String> cookable = <String>{
+      for (final MapEntry<String, PantryMatch> entry in matches.entries)
+        if (entry.value.isComplete) entry.key,
+    };
+
+    if (matches.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: AppFilterChip(
+        label: query.isCookableOnly
+            ? 'Everything'
+            : 'Can cook now',
+        icon: AppIcons.pantry,
+        count: query.isCookableOnly ? null : cookable.length,
+        isSelected: query.isCookableOnly,
+        onSelected: (_) => ref
+            .read(mealsControllerProvider.notifier)
+            .setCookableOnly(query.isCookableOnly ? null : cookable),
+      ),
+    );
+  }
+}
+
 /// Single-valued here, unlike the multi-select pill row it replaces. That is a
 /// deliberate narrowing: nobody browses "breakfast and desserts but nothing
 /// else", and a segmented control that can show two selections at once is not a

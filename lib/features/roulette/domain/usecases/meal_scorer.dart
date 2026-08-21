@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:whats_cooking/core/domain/food_taxonomy.dart';
 import 'package:whats_cooking/core/domain/mood.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal.dart';
+import 'package:whats_cooking/features/pantry/domain/entities/pantry_match.dart';
 
 /// One reason a meal's score moved.
 ///
@@ -87,11 +88,18 @@ class ScoreWeights {
   /// It comes in under the budget, per head.
   final double budgetMatch;
 
-  /// **Not yet applied.** Needs a pantry to match against, which is Sprint 41.
+  /// The ingredients are already in the kitchen (Sprint 41).
   ///
-  /// Present so the table is complete and the gap is explicit: a weight that is
-  /// simply missing reads as an oversight, and the next person to open this file
-  /// should be able to see what the engine does *not* know yet.
+  /// Declared since Sprint 33 and unapplied until the pantry existed. It is applied
+  /// now, and **only ever upward**: a full match earns the whole twenty, a partial
+  /// one earns a share of it, and a poor one earns nothing at all.
+  ///
+  /// **There is no penalty, and that is the important half.** A pantry is optional,
+  /// partial and always out of date — nobody logs the last two eggs. Marking a meal
+  /// down because we were not told about the chicken would punish the reader for
+  /// the app's ignorance, and the first thing they would notice is the roulette
+  /// getting worse the moment they started using the fridge. A bonus for what we
+  /// know is honest; a penalty for what we do not is not.
   final double ingredientMatch;
 
   /// `partnerCompatibility` (+25) is **gone**, not pending.
@@ -275,6 +283,7 @@ class ScoringContext {
     this.settings = const RepetitionSettings(),
     this.weights = const ScoreWeights(),
     this.mood,
+    this.pantry = const <String, PantryMatch>{},
   });
 
   /// Cuisines the household said it likes. A *preference*, weighted — never a
@@ -297,6 +306,14 @@ class ScoringContext {
 
   /// What was asked for tonight, or null (Sprint 36).
   final Mood? mood;
+
+  /// How much of each meal the kitchen already covers, by meal id (Sprint 41).
+  ///
+  /// Empty when the pantry is empty, when there is no backend, or when the match
+  /// could not be computed — all three of which mean the same thing to the scorer,
+  /// which is *no information*. Absent is not zero: a meal missing from this map is
+  /// scored as though the pantry had never been mentioned.
+  final Map<String, PantryMatch> pantry;
 
   /// The temperature this pass runs at.
   ///
@@ -501,6 +518,40 @@ abstract final class MealScorer {
             points: weights.recentMeal * staleness.clamp(0.0, 1.0),
           ),
         );
+      }
+
+      // --- Already in the kitchen ---------------------------------------------
+      //
+      // Upward only. See `ScoreWeights.ingredientMatch`: a pantry is partial and
+      // always a little out of date, so a bonus for what we know is honest and a
+      // penalty for what we do not would punish the reader for the app's
+      // ignorance — and would make the roulette visibly worse the moment they
+      // started keeping a fridge list.
+      if (context.pantry[meal.id] case final PantryMatch match) {
+        if (match.isComplete) {
+          reasons.add(
+            ScoreReason(
+              label: 'You have everything for this',
+              points: weights.ingredientMatch,
+            ),
+          );
+        } else if (match.isMostlyIn) {
+          reasons.add(
+            ScoreReason(
+              // Names what is short when it is one or two things, because
+              // "everything but the bay leaves" is a reason to cook and "67%
+              // available" is a spreadsheet.
+              label: match.shortfallPhrase == null
+                  ? 'Most of it is in the kitchen'
+                  : 'You have ${match.shortfallPhrase}',
+              // Scaled across the band above the threshold, so a meal missing one
+              // thing clearly outranks one missing three — see
+              // `PantryMatch.partialShare` for why the generic ramp was the wrong
+              // scale here.
+              points: weights.ingredientMatch * match.partialShare,
+            ),
+          );
+        }
       }
 
       // --- Ours ---------------------------------------------------------------
