@@ -218,23 +218,22 @@ class _MealsScreenState extends ConsumerState<MealsScreen> {
                                 AppRoute.assistant.routeName,
                               ),
                             ),
-                            // Inventing one (Sprint 48). A circle rather than a
-                            // sixth tile in the panel's action row below: that row
-                            // already carries four labels, and a fifth would put
-                            // this feature's name at the width that truncated
-                            // "Browse" into "Brows e".
+                            // **Two circles, not three.** Sprint 48 put an
+                            // "Invent a meal" circle here on the argument that
+                            // the row had room. It did not: the logo, three
+                            // 40-pixel circles and their gaps leave about 124dp
+                            // for the title and the context line on a normal
+                            // phone, and "the catalogue and yours" needs more —
+                            // so the subtitle ran under the buttons. Fixing the
+                            // constraint in `DashboardHeader` stops the overlap
+                            // and turns it into a truncation, which is correct
+                            // and still not worth reading.
                             //
-                            // Here for the same reason Ask is: this is the screen
-                            // where somebody scrolls a catalogue and does not find
-                            // it, which is exactly when a recipe written around
-                            // what is in the kitchen beats another filter.
-                            _CircleAction(
-                              icon: AppIcons.invent,
-                              label: 'Invent a meal',
-                              onPressed: () => context.pushNamed(
-                                AppRoute.inventMeal.routeName,
-                              ),
-                            ),
+                            // Inventing a meal keeps its labelled tile on the
+                            // Kitchen action row, which was always the stronger
+                            // entry point anyway — "what do I do with these three
+                            // things" is a question you ask in front of the three
+                            // things.
                           ],
                         ),
                         const SizedBox(height: AppSpacing.space4),

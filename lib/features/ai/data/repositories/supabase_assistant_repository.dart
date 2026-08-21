@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
@@ -8,6 +9,7 @@ import 'package:whats_cooking/features/ai/domain/entities/assistant_choice.dart'
 import 'package:whats_cooking/features/ai/domain/entities/assistant_message.dart';
 import 'package:whats_cooking/features/ai/domain/entities/fridge_reading.dart';
 import 'package:whats_cooking/features/ai/domain/entities/generated_recipe.dart';
+import 'package:whats_cooking/features/ai/domain/entities/imported_list.dart';
 
 /// Asking the assistant something (Sprint 47).
 ///
@@ -91,6 +93,27 @@ abstract interface class AssistantRepository {
   /// is watching, and the only honest outcomes are a list or a sentence.
   Future<List<String>> readFridge({
     required Uint8List image,
+    String mimeType = 'image/jpeg',
+  });
+
+  /// Reads a shopping list out of a file (Sprint 53).
+  ///
+  /// Exactly one of [bytes] or [text] is supplied. A photo or a PDF goes as
+  /// [bytes] with its [mimeType]; a `.txt` is decoded on the device and goes as
+  /// [text], because text does not need to be an attachment and sending it as one
+  /// would restrict which providers could answer.
+  ///
+  /// **The file is not stored**, on the same terms as [readFridge]: one request,
+  /// on to whichever provider answers, then nowhere.
+  ///
+  /// Returns what it read. **Never a write** — the confirmation screen is the only
+  /// thing that turns a line into something on the list, because an OCR mistake
+  /// here becomes an item somebody buys.
+  ///
+  /// Throws, like [readFridge]: somebody picked a file and is watching.
+  Future<List<ImportedItem>> readShoppingList({
+    Uint8List? bytes,
+    String? text,
     String mimeType = 'image/jpeg',
   });
 }
@@ -388,8 +411,8 @@ class SupabaseAssistantRepository implements AssistantRepository {
           ],
           // No context. See the interface — telling the model what is already in
           // the kitchen would hand it the answer it is being asked to find.
-          'image': base64Encode(image),
-          'imageMimeType': mimeType,
+          'file': base64Encode(image),
+          'fileMimeType': mimeType,
         },
       );
 
@@ -431,6 +454,92 @@ class SupabaseAssistantRepository implements AssistantRepository {
       'One ingredient per line. Two or three words at most per line, everyday '
       'names, no quantities, no brands, no headings, no other text.\n\n'
       'If there is no food in the picture, reply with the single word NONE.';
+
+  @override
+  Future<List<ImportedItem>> readShoppingList({
+    Uint8List? bytes,
+    String? text,
+    String mimeType = 'image/jpeg',
+  }) async {
+    final String? trimmed = text?.trim();
+
+    if (bytes == null && (trimmed == null || trimmed.isEmpty)) {
+      throw const ValidationException(
+        message: 'There was nothing in that file.',
+      );
+    }
+
+    try {
+      final supabase.FunctionResponse response = await _client.functions.invoke(
+        _function,
+        body: <String, Object?>{
+          'purpose': 'grocery_import',
+          'messages': <Map<String, Object?>>[
+            <String, Object?>{
+              'role': 'user',
+              'content': trimmed == null || trimmed.isEmpty
+                  ? _listPrompt
+                  : '$_listPrompt\n\nThe list:\n'
+                        '${trimmed.substring(0, min(trimmed.length, _maxTextChars))}',
+            },
+          ],
+          // No context, for the same reason the fridge scan sends none: a model
+          // told what is already on the list has been handed half the answer, and
+          // it will find those items whether or not they are in the file.
+          if (bytes != null) ...<String, Object?>{
+            'file': base64Encode(bytes),
+            'fileMimeType': mimeType,
+          },
+        },
+      );
+
+      if (response.data case final Map<String, dynamic> data) {
+        final List<ImportedItem> items = ImportedList.parse(
+          (data['text'] as String? ?? '').trim(),
+        );
+
+        AppLog.debug(
+          'Shopping list read.',
+          name: _logName,
+          // The count, never the contents and never the file.
+          data: <String, Object?>{'found': items.length, 'type': mimeType},
+        );
+
+        return items;
+      }
+
+      throw const ServerException(
+        message: 'The assistant sent something we could not read.',
+      );
+    } on supabase.FunctionException catch (error) {
+      throw _mapFunctionError(error);
+    }
+  }
+
+  /// What the model is asked about a shopping list.
+  ///
+  /// **Quantities are wanted here**, unlike the fridge scan. Somebody wrote "2 kg
+  /// rice" deliberately, and an import that drops the 2 is worse than the paper it
+  /// replaced.
+  ///
+  /// The instruction spends its words on the shape rather than the task, because
+  /// everything the parser has to defend against is a model being conversational —
+  /// "Here are the items from your list:" arriving as something to buy is the
+  /// failure mode.
+  static const String _listPrompt =
+      'This is a shopping list. Copy out the things to buy, one per line.\n\n'
+      'Keep any quantity and unit that is written, at the front of the line, '
+      'like "2 kg rice" or "3 pcs onion". Leave them out when the list does not '
+      'say. Only what is actually on the list — do not add anything you would '
+      'expect. No headings, no prices, no totals, no other text.\n\n'
+      'If there is no shopping list here, reply with the single word NONE.';
+
+  /// How much of a text file is sent.
+  ///
+  /// Generous for a shopping list and a hard stop for a file that is not one:
+  /// somebody picking the wrong `.txt` should cost one refused import, not a
+  /// novel's worth of tokens.
+  static const int _maxTextChars = 8000;
 
   /// Turns the function's named error codes into something a person reads.
   ///
@@ -476,9 +585,8 @@ class SupabaseAssistantRepository implements AssistantRepository {
       // The photo was bigger than the function will forward (Sprint 49). Its own
       // case because it is the one failure here somebody can act on themselves,
       // and the function's sentence says how.
-      'image_too_large' => ServerException(
-        message:
-            message ?? 'That photo is too big. Try taking it again.',
+      'file_too_large' => ServerException(
+        message: message ?? 'That file is too big. Try a smaller one.',
       ),
       'unavailable' => ServerException(
         message:
@@ -548,6 +656,18 @@ class UnavailableAssistantRepository implements AssistantRepository {
   }) async {
     throw const ServerException(
       message: 'Reading a photo needs a connection.',
+      detail: 'no Supabase backend configured',
+    );
+  }
+
+  @override
+  Future<List<ImportedItem>> readShoppingList({
+    Uint8List? bytes,
+    String? text,
+    String mimeType = 'image/jpeg',
+  }) async {
+    throw const ServerException(
+      message: 'Importing a list needs a connection.',
       detail: 'no Supabase backend configured',
     );
   }

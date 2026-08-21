@@ -175,6 +175,15 @@ class _Loaded extends ConsumerWidget {
                     onTap: () =>
                         context.pushNamed(AppRoute.groceryAdd.routeName),
                   ),
+                  // Importing one (Sprint 53). Beside Add, because it is the same
+                  // job done differently — a list somebody already wrote, in a
+                  // photo or a PDF, instead of twenty lines typed at a shelf.
+                  DashboardAction(
+                    label: 'Import',
+                    icon: AppIcons.invent,
+                    onTap: () =>
+                        context.pushNamed(AppRoute.groceryImport.routeName),
+                  ),
                   DashboardAction(
                     label: 'Kitchen',
                     icon: AppIcons.pantry,

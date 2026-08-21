@@ -850,11 +850,26 @@ class DashboardHeader extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
-                      Text(
-                        line,
-                        style: context.text.metadata,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      // **`Flexible`, and it is load-bearing.** A `Row` hands its
+                      // non-flex children an *unbounded* main-axis constraint, so
+                      // this `Text` measured at its full intrinsic width and the
+                      // `maxLines`/`ellipsis` above never came into play — the Row
+                      // simply reported a size wider than the `Expanded` that
+                      // contains it, and the subtitle ran underneath the action
+                      // circles to its right.
+                      //
+                      // Visible on a phone as "the catalogue and yours" printed
+                      // under a search button. The same unbounded-constraints
+                      // family as the `stretch`-inside-a-`ListView` bugs, and
+                      // invisible in a release build because Flutter's overflow
+                      // stripe is a debug-only paint.
+                      Flexible(
+                        child: Text(
+                          line,
+                          style: context.text.metadata,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                       if (onSubtitleTap != null)
                         Icon(

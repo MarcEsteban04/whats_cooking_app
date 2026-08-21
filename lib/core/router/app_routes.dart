@@ -141,6 +141,9 @@ enum AppRoute {
   grocery(path: '/grocery'),
   groceryAdd(path: '/grocery/add', isSheet: true),
 
+  /// Reading a shopping list out of a file (Sprint 53).
+  groceryImport(path: '/grocery/import'),
+
   // ---------------------------------------------------------------------------
   // Eating out (Sprint 45)
   //

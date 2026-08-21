@@ -13,15 +13,24 @@ export interface ChatRequest {
   /** Low, because this app wants correct food rather than creative food. */
   readonly temperature: number;
   /**
-   * One picture, attached to the last user message (Sprint 49).
+   * One file, attached to the last user message (Sprint 49, widened 53).
    *
    * **Its presence changes which providers can answer.** Most chat models cannot
    * see, and the default text model on at least one provider here cannot — so a
-   * request carrying an image is routed to that provider's vision model, and
+   * request carrying an attachment is routed to that provider's vision model, and
    * providers with none configured are skipped rather than sent a request they
-   * will reject. See [chat].
+   * will reject.
+   *
+   * **A PDF narrows it further.** Of the three, only Gemini takes a document
+   * inline; OpenAI wants its Files API and Groq does not take one at all. So a
+   * non-image attachment is offered to Gemini alone rather than being sent to a
+   * provider that will 400 — and a 400 does not fail over, so guessing wrong
+   * would end the request rather than move it along. See [chat].
+   *
+   * Called `attachment` rather than `image` because it is one: a field named for
+   * a picture that carries a PDF is the kind of lie that costs somebody an hour.
    */
-  readonly image?: {
+  readonly attachment?: {
     readonly mimeType: string;
     /** Raw base64, no `data:` prefix. Each adapter wraps it its own way. */
     readonly base64: string;
@@ -71,6 +80,16 @@ interface Provider {
    */
   readonly visionModelEnv: string | null;
   readonly defaultVisionModel: string | null;
+
+  /**
+   * Whether this provider takes a **document** inline, not just a picture
+   * (Sprint 53).
+   *
+   * Gemini does, through the same `inline_data` part an image uses. OpenAI has a
+   * separate Files API for it and Groq has nothing, so both are skipped for a PDF
+   * rather than sent one they will refuse.
+   */
+  readonly acceptsDocuments: boolean;
   call(
     key: string,
     model: string,
@@ -101,6 +120,7 @@ const PROVIDERS: readonly Provider[] = [
     // gets its own field rather than reusing `GROQ_MODEL`.
     visionModelEnv: "GROQ_VISION_MODEL",
     defaultVisionModel: "meta-llama/llama-4-scout-17b-16e-instruct",
+    acceptsDocuments: false,
     call: callOpenAiCompatible("https://api.groq.com/openai/v1/chat/completions", "groq"),
   },
   {
@@ -111,6 +131,8 @@ const PROVIDERS: readonly Provider[] = [
     // The same model. Flash reads pictures, so there is nothing to switch to.
     visionModelEnv: "GEMINI_VISION_MODEL",
     defaultVisionModel: "gemini-2.0-flash",
+    // The only one of the three that reads a PDF through `inline_data`.
+    acceptsDocuments: true,
     call: callGemini,
   },
   {
@@ -120,6 +142,8 @@ const PROVIDERS: readonly Provider[] = [
     defaultModel: "gpt-4o-mini",
     visionModelEnv: "OPENAI_VISION_MODEL",
     defaultVisionModel: "gpt-4o-mini",
+    // Reads pictures, but wants its Files API for a document.
+    acceptsDocuments: false,
     call: callOpenAiCompatible("https://api.openai.com/v1/chat/completions", "openai"),
   },
 ];
@@ -153,20 +177,30 @@ export interface ChainResult {
  * the next provider and giving up on the first.
  */
 export async function chat(request: ChatRequest): Promise<ChainResult> {
-  const seeing = request.image !== undefined;
+  const attachment = request.attachment;
+  const seeing = attachment !== undefined;
+  const isDocument = seeing && !attachment.mimeType.startsWith("image/");
 
   const available = PROVIDERS.filter((p) => {
     if ((Deno.env.get(p.keyEnv) ?? "") === "") {
       return false;
     }
-    return seeing ? visionModelFor(p) !== "" : true;
+    if (!seeing) {
+      return true;
+    }
+    if (visionModelFor(p) === "") {
+      return false;
+    }
+    return isDocument ? p.acceptsDocuments : true;
   });
 
   if (available.length === 0) {
     throw new ProviderError(
       "groq",
       seeing
-        ? "No AI provider on this function can read a picture."
+        ? isDocument
+          ? "No AI provider on this function can read a document."
+          : "No AI provider on this function can read a picture."
         : "No AI provider key is configured on this function.",
       false,
     );
@@ -289,7 +323,7 @@ function callOpenAiCompatible(endpoint: string, name: ProviderName) {
  */
 function withImageOpenAi(request: ChatRequest): unknown[] {
   const messages = [...request.messages];
-  const image = request.image;
+  const image = request.attachment;
 
   if (image === undefined || messages.length === 0) {
     return messages;
@@ -338,12 +372,15 @@ async function callGemini(
             { text: message.content },
             // Same rule as the OpenAI adapter: the picture rides on the last turn,
             // after its text.
-            ...(request.image !== undefined &&
+            // The same `inline_data` part carries a picture or a PDF — Gemini
+            // takes both this way, which is why it is the only provider offered a
+            // document (Sprint 53).
+            ...(request.attachment !== undefined &&
                 index === request.messages.length - 1
               ? [{
                 inline_data: {
-                  mime_type: request.image.mimeType,
-                  data: request.image.base64,
+                  mime_type: request.attachment.mimeType,
+                  data: request.attachment.base64,
                 },
               }]
               : []),

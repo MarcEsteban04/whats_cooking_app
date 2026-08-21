@@ -22,13 +22,24 @@ interface AssistantRequest {
   purpose?: string;
   messages?: unknown;
   context?: Record<string, unknown>;
-  /** A fridge photo, base64 with no `data:` prefix (Sprint 49). */
-  image?: unknown;
-  /** Its mime type. Only the two the camera and the gallery produce. */
-  imageMimeType?: unknown;
+  /**
+   * One file, base64 with no `data:` prefix (Sprint 49, widened 53).
+   *
+   * A fridge photo, or a shopping list as a picture or a PDF.
+   */
+  file?: unknown;
+  /** Its mime type, from [FILE_MIME_TYPES]. */
+  fileMimeType?: unknown;
 }
 
-const PURPOSES = new Set(["assistant", "recipe", "fridge_scan", "personalise"]);
+const PURPOSES = new Set([
+  "assistant",
+  "recipe",
+  "fridge_scan",
+  "personalise",
+  // Reading a shopping list off a photo, a text file or a PDF (Sprint 53).
+  "grocery_import",
+]);
 
 /** Guards against a client sending a whole conversation and a large bill. */
 const MAX_MESSAGES = 12;
@@ -43,10 +54,22 @@ const MAX_OUTPUT_TOKENS = 700;
  * only on the client because the client is not the thing to trust with the size of
  * a request somebody else pays for.
  */
-const MAX_IMAGE_CHARS = 1_500_000;
+const MAX_FILE_CHARS = 1_500_000;
 
-/** What a camera and a gallery produce, and nothing else. */
-const IMAGE_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+/**
+ * What a camera, a gallery and a shopping list arrive as, and nothing else.
+ *
+ * `application/pdf` is here from Sprint 53 and is **not** interchangeable with the
+ * images: only Gemini reads a document inline, so `chat()` narrows the provider
+ * chain when it sees one. Plain text is not in this list because text does not
+ * need to be an attachment — it goes into the message.
+ */
+const FILE_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "application/pdf",
+]);
 
 Deno.serve(async (request: Request): Promise<Response> => {
   if (request.method === "OPTIONS") {
@@ -97,26 +120,26 @@ Deno.serve(async (request: Request): Promise<Response> => {
   // no log line — it lives in this request and in the provider's, and after that
   // nowhere. A picture of somebody's kitchen is the most personal thing this app
   // will ever handle, and the cheapest way to keep it safe is not to keep it.
-  let image: { mimeType: string; base64: string } | undefined;
+  let attachment: { mimeType: string; base64: string } | undefined;
 
-  if (body.image !== undefined && body.image !== null) {
-    if (typeof body.image !== "string" || body.image === "") {
+  if (body.file !== undefined && body.file !== null) {
+    if (typeof body.file !== "string" || body.file === "") {
       return failure("bad_request", "Something went wrong.", 400);
     }
-    if (body.image.length > MAX_IMAGE_CHARS) {
+    if (body.file.length > MAX_FILE_CHARS) {
       return failure(
-        "image_too_large",
-        "That photo is too big. Try taking it again.",
+        "file_too_large",
+        "That file is too big. Try a smaller one.",
         413,
       );
     }
-    const mimeType = typeof body.imageMimeType === "string"
-      ? body.imageMimeType
+    const mimeType = typeof body.fileMimeType === "string"
+      ? body.fileMimeType
       : "image/jpeg";
-    if (!IMAGE_MIME_TYPES.has(mimeType)) {
+    if (!FILE_MIME_TYPES.has(mimeType)) {
       return failure("bad_request", "Something went wrong.", 400);
     }
-    image = { mimeType, base64: body.image };
+    attachment = { mimeType, base64: body.file };
   }
 
   const startedAt = Date.now();
@@ -133,7 +156,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
       // actually have, and a creative answer to "what is under ₱150" is a wrong
       // answer with confidence.
       temperature: 0.4,
-      image,
+      attachment,
     });
     reply = result.reply;
     attempts = result.attempts;

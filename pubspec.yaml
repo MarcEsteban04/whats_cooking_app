@@ -26,6 +26,11 @@ dependencies:
   go_router: ^17.5.0
   google_fonts: ^8.2.1
 
+  # Importing a shopping list (Sprint 53). Picks a photo, a .txt or a .pdf; the
+  # image picker below cannot open a document, and a list that arrives as a PDF
+  # from a delivery app is the case worth handling.
+  file_picker: ^12.0.0
+
   # Reading the fridge (Sprint 49). The camera and the gallery, and — the reason
   # this beats writing it by hand — a native downscale on the way out: `maxWidth`
   # and `imageQuality` are applied by the platform before the bytes reach Dart, so

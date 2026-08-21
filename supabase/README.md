@@ -256,6 +256,14 @@ does not fail over.
 | `GEMINI_VISION_MODEL` | `gemini-2.0-flash` |
 | `OPENAI_VISION_MODEL` | `gpt-4o-mini` |
 
+**A PDF narrows it further** (Sprint 53). Of the three, only Gemini takes a
+document inline through the same `inline_data` part an image uses; OpenAI wants
+its Files API and Groq takes none. So a non-image attachment is offered to Gemini
+alone — a provider that cannot read it answers `400`, and a `400` deliberately
+does not fail over, so guessing wrong would end the request rather than move it
+along. **Without a Gemini key, importing a grocery list from a PDF fails and
+photos and `.txt` still work.**
+
 The photo is forwarded and never stored — no bucket, no row, no log line. The
 function caps it at 1.5 MB of base64 (`413 image_too_large`); the app downscales
 to 1280 px before sending, so that ceiling is a guard against a bad client rather

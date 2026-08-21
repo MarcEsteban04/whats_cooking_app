@@ -662,6 +662,83 @@ checks that an emulator cannot answer.
 
 ---
 
+---
+
+# PHASE 13 — After the first install
+
+Not planned. What the first real phone turned up, and what it asked for.
+
+## Sprint 53 — Import A List
+
+> "Can we add an import on the grocery screen — image, txt or pdf — and the AI
+> extracts and imports the list?"
+
+`/grocery/import`, from an `Import` tile beside `Add` on the Kitchen list's action
+row. Pick a photo of a list, a `.txt` or a PDF; the assistant copies out what is
+on it; **nothing reaches the list until it has been read back.** Same rule as the
+fridge scanner and for a sharper reason: a misread line here is not a wrong row in
+a database, it is something somebody buys.
+
+**Quantities survive, unlike the fridge scan's.** A photo of a fridge cannot say
+how much rice is in the bag; a shopping list that says "2 kg rice" said it on
+purpose, and dropping the 2 would make the import worse than the paper. Units are
+*not* snapped to a vocabulary either — `grocery_items.unit` is free text by design,
+because the list is read in an aisle rather than computed with, so "sachet" and
+"bundle" pass through as written.
+
+**Three formats, three paths.** A `.txt` is decoded on the device and sent as
+text: text does not need to be an attachment, and sending it as one would narrow
+the provider chain for no benefit. A photo reuses Sprint 49's vision path
+unchanged. A PDF goes as an attachment too — and **only Gemini takes a document
+inline**, so the chain now filters on a per-provider `acceptsDocuments` rather
+than sending a PDF to a provider that answers `400`, which deliberately does not
+fail over.
+
+The wire field was renamed `image` → `file` while it was still undeployed. A field
+named for a picture that carries a PDF is the kind of lie that costs somebody an
+hour.
+
+Adds `file_picker`. The image picker cannot open a document, and a list arriving as
+a PDF from a delivery app is the case worth handling.
+
+## Fixes the first install turned up
+
+Each of these was invisible in every build type reachable from this desk.
+
+* **No `INTERNET` permission in release.** The Flutter template declares it in
+  `src/debug/` and `src/profile/` only, so debug and profile builds have network
+  access and the release build does not — and Android fails the *DNS lookup*
+  rather than refusing the connection, so it reads as a broken phone. An evening
+  went into Private DNS settings.
+* **A partial-ABI APK.** `--target-platform android-arm64` compiles the engine for
+  one architecture but plugin AARs ship every one, so the APK carried
+  `lib/x86_64/` and `lib/armeabi-v7a/` directories with no `libflutter.so` in
+  them. Android picks the app's ABI as the first entry of `Build.SUPPORTED_ABIS`
+  present in the APK, so an engine-less directory is one the installer may choose.
+  Fixed with `abiFilters`, which is the only thing that reaches plugin libraries.
+* **A DNS failure reported as a wrong password.** gotrue wraps a failed fetch in
+  `AuthRetryableFetchException`, which extends `AuthException`, so it arrived on
+  the auth branch of the mapper and fell through to "Those details did not
+  match" — the worst available wording, because it sends somebody to change a
+  password that was already correct.
+* **The reason was unreachable.** design_ui §31's "never show technical exception
+  text" was being applied to development builds too, which made a device-only
+  failure undiagnosable without a debugger. `InlineErrorBanner` now shows
+  `AppException.detail` in a verbose build. That one change is what found the two
+  above.
+* **A stale auth banner.** `AuthController` is shared by both forms and moving
+  between them never drops its listener count to zero, so a failure on one was
+  still on the other — over an empty field that was separately complaining.
+* **The dashboard header overlapped its own buttons.** A `Text` inside a `Row`
+  with no `Flexible` gets an *unbounded* width, so `maxLines`/`ellipsis` never
+  applied and the subtitle ran under the action circles. The same
+  unbounded-constraints family as the `ListView` bugs, and invisible in release
+  because Flutter's overflow stripe is a debug-only paint. Sprint 48's third
+  circle on Meals is also gone: three of them plus the logo leave about 124dp for
+  the title, and the row never fitted.
+
+---
+
 # 🚦 Definition of Done
 
 A sprint is complete when:

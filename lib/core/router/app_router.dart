@@ -20,6 +20,7 @@ import 'package:whats_cooking/features/auth/presentation/screens/register_screen
 import 'package:whats_cooking/features/auth/presentation/screens/reset_password_screen.dart';
 import 'package:whats_cooking/features/auth/presentation/screens/welcome_screen.dart';
 import 'package:whats_cooking/features/grocery/domain/entities/grocery_item.dart';
+import 'package:whats_cooking/features/grocery/presentation/screens/grocery_import_screen.dart';
 import 'package:whats_cooking/features/grocery/presentation/screens/grocery_item_sheet.dart';
 import 'package:whats_cooking/features/grocery/presentation/screens/grocery_screen.dart';
 import 'package:whats_cooking/features/history/presentation/screens/decided_screen.dart';
@@ -480,6 +481,16 @@ final GoRoute _mealEditRoute = GoRoute(
 );
 
 final List<RouteBase> _fullScreenRoutes = <RouteBase>[
+  // Importing a shopping list (Sprint 53). Root navigator, for the same reason
+  // every other full-screen form is: its primary button must not end up behind
+  // the floating bottom navigation.
+  GoRoute(
+    path: AppRoute.groceryImport.path,
+    name: AppRoute.groceryImport.routeName,
+    parentNavigatorKey: rootNavigatorKey,
+    pageBuilder: (BuildContext context, GoRouterState state) =>
+        const AppSlideUpPage<void>(child: GroceryImportScreen()),
+  ),
   // Reading the fridge (Sprint 49). Full screen on the root navigator, like every
   // other screen whose primary button must not end up behind the floating bottom
   // navigation — the rule this app has now learned twice.
