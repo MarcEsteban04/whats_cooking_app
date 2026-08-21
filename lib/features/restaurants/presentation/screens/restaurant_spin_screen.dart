@@ -46,8 +46,14 @@ class _RestaurantSpinScreenState extends ConsumerState<RestaurantSpinScreen>
   Timer? _revealTimer;
   Timer? _poolTimer;
 
-  /// Holds the reveal while the assistant is still deciding (Sprint 50).
+  /// Holds the roll while the assistant is still deciding.
   Timer? _graceTimer;
+
+  /// True while the assistant is choosing — `SpinScreen` carries the reasoning.
+  /// The engine shortlists, the model picks, and the weighted draw is the
+  /// fallback for a rate limit or an outage.
+  bool _isAwaitingAssistant = false;
+
   bool _isReducedMotion = false;
 
   @override
@@ -93,7 +99,12 @@ class _RestaurantSpinScreenState extends ConsumerState<RestaurantSpinScreen>
     _poolTimer ??= Timer(_maxPoolWait, _startReel);
   }
 
-  void _startReel() {
+  /// [force] is the assistant window closing — see `_isAwaitingAssistant`.
+  void _startReel({bool force = false}) {
+    if (!force && _isAwaitingAssistant) {
+      return;
+    }
+
     _poolTimer?.cancel();
     _poolTimer = null;
 
@@ -229,11 +240,16 @@ class _RestaurantSpinScreenState extends ConsumerState<RestaurantSpinScreen>
         // `SpinScreen` carries the reasoning. Held here so the reel rolls to the
         // final answer, and rolled anyway once the timer is up.
         if (next case RestaurantSpinSettled(isAwaitingAssistant: true)) {
-          _graceTimer ??= Timer(_assistantGrace, _startReel);
+          _isAwaitingAssistant = true;
+          _graceTimer ??= Timer(
+            _assistantGrace,
+            () => _startReel(force: true),
+          );
         } else {
+          _isAwaitingAssistant = false;
           _graceTimer?.cancel();
           _graceTimer = null;
-          _startReel();
+          _startReel(force: true);
         }
 
         _maybeReveal();
@@ -298,7 +314,18 @@ class _RestaurantSpinScreenState extends ConsumerState<RestaurantSpinScreen>
   ///
   /// The same second and a half the meal roulette holds. Long enough that most
   /// answers land, short enough that the worst case is under four seconds.
-  static const Duration _assistantGrace = Duration(milliseconds: 1500);
+  /// How long the roll waits for the assistant to choose.
+  ///
+  /// **The controller's own budget, plus a beat.** It was a second and a half,
+  /// which a model usually lost — so the weighted draw answered most spins and
+  /// the AI was decoration. Matching the request's timeout means the answer that
+  /// arrives is the one the wheel lands on, and the draw only stands when the
+  /// request genuinely failed.
+  ///
+  /// The cost is honest and it is real: a slow provider makes the spin about four
+  /// seconds longer, spent on a screen that says "ASKING THE ASSISTANT". Groq
+  /// usually answers in well under one.
+  static const Duration _assistantGrace = Duration(milliseconds: 4200);
 
   static final double _decelerationBegins =
       (AppRouletteMotion.windUp + AppRouletteMotion.fastCycle).inMilliseconds /

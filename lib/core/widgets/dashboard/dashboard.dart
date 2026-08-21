@@ -365,32 +365,71 @@ class AppSegmentedControl<T> extends StatelessWidget {
       ),
       child: Padding(
         padding: const EdgeInsets.all(_trackPadding),
-        // **Equal shares, filling the track.** This used to wrap its Row in a
-        // `SingleChildScrollView`, which sized every segment to its own label and
-        // parked them at the left — so a two-option control drew a small "Cook"
-        // pill, "Eat out" beside it, and a third of the track left empty on the
-        // right. It read as a broken row rather than as a switch.
+        // **Equal shares when they fit, scrolling when they do not.**
         //
-        // No scroll view either. A segmented control that scrolls is a control
-        // whose options you cannot all see, which is the one thing this shape
-        // promises — past four options the answer is chips or a sheet, not this.
-        child: Row(
-          children: <Widget>[
-            for (final (T value, String label) in options)
-              Expanded(
-                child: _Segment<T>(
-                  label: label,
-                  isSelected: value == selected,
-                  onTap: () => onSelected(value),
-                ),
+        // Neither alone works, because this control has two very different uses.
+        // Cook / Eat out is two words and has to fill the track — sized to their
+        // own labels they drew a small pill, a word beside it, and a third of the
+        // track left empty, which read as a broken row rather than a switch. The
+        // meal-type row is six labels on the same track, and forcing equal shares
+        // there gave every one of them a sixth of the width: "Br…", "L…", "Di…".
+        //
+        // So the width decides. Each segment needs enough room for its label; if
+        // an equal share is not enough, the row keeps intrinsic widths and
+        // scrolls. Measured against the *scaled* text size, so the same control
+        // makes the same decision at 1.3x that it makes at 1x.
+        child: LayoutBuilder(
+          builder: (BuildContext context, BoxConstraints constraints) {
+            final double share = options.isEmpty
+                ? 0
+                : constraints.maxWidth / options.length;
+
+            final double needed = MediaQuery.textScalerOf(
+              context,
+            ).scale(_minSegmentWidth);
+
+            if (share >= needed) {
+              return Row(
+                children: <Widget>[
+                  for (final (T value, String label) in options)
+                    Expanded(
+                      child: _Segment<T>(
+                        label: label,
+                        isSelected: value == selected,
+                        onTap: () => onSelected(value),
+                      ),
+                    ),
+                ],
+              );
+            }
+
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: <Widget>[
+                  for (final (T value, String label) in options)
+                    _Segment<T>(
+                      label: label,
+                      isSelected: value == selected,
+                      onTap: () => onSelected(value),
+                    ),
+                ],
               ),
-          ],
+            );
+          },
         ),
       ),
     );
   }
 
   static const double _trackPadding = 4;
+
+  /// The narrowest a segment can be and still read.
+  ///
+  /// Roughly the width of "Breakfast" in `labelSmall` plus the segment's own
+  /// horizontal padding. Below this a label is an abbreviation, and a row of
+  /// abbreviations is worse than a row you have to scroll.
+  static const double _minSegmentWidth = 92;
 }
 
 class _Segment<T> extends StatelessWidget {

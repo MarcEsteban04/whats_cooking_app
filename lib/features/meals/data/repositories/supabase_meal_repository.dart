@@ -261,10 +261,17 @@ class SupabaseMealRepository implements MealRepository {
               'estimated_cost': draft.estimatedCost,
               'servings': draft.servings,
               'instructions': draft.filledInstructions,
-              // Both are required by the visibility constraint and by the
-              // insert policy, and neither is the caller's choice.
-              'is_public': false,
-              'household_id': householdId,
+              // **Shared or ours, and the draft decides** (Sprint 53c).
+              //
+              // These used to be hardcoded private, because the insert policy
+              // refused a public row outright. Migration 0027 widened it: a
+              // catalogue meal is public and belongs to *no* household, a
+              // household meal is private and belongs to this one. Both still
+              // record their author, and the two shapes are the two branches of
+              // the policy — sending the wrong pair is a rejected insert rather
+              // than a wrong row.
+              'is_public': draft.isShared,
+              'household_id': draft.isShared ? null : householdId,
               'created_by': userId,
             })
             .select(_columns)

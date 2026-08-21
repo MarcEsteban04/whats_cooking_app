@@ -84,6 +84,7 @@ class MealDraft {
     this.servings = 2,
     this.instructions = const <String>[],
     this.ingredients = const <DraftIngredient>[],
+    this.isShared = true,
   });
 
   /// A draft holding what a meal currently says, for editing it (Sprint 26).
@@ -124,6 +125,10 @@ class MealDraft {
             isOptional: ingredient.isOptional,
           ),
       ],
+      // What the stored meal already is. An edit does not move a meal between
+      // the catalogue and a household — the update policy would refuse it, and
+      // silently changing where a meal lives is not what "edit" means.
+      isShared: meal.isPublic,
     );
   }
 
@@ -141,6 +146,21 @@ class MealDraft {
   final int? estimatedCost;
 
   final int servings;
+
+  /// Whether this goes in the shared catalogue rather than being one household's
+  /// own (Sprint 53c).
+  ///
+  /// **Defaults to shared**, which is the opposite of what the app did before.
+  /// Every meal added by hand used to be filed as private and then hidden behind
+  /// its own "Yours" filter — and in a house with two people and one phone, that
+  /// distinction protects nobody and files sinigang somewhere sinigang should not
+  /// be. Somebody typing a meal in wants it *in the list*.
+  ///
+  /// The choice remains, because the two are genuinely different things: the
+  /// catalogue is food anybody would recognise, and "Tita Baby adobo" is a
+  /// household's own. See `migration 0027` for what each shape means in the
+  /// database.
+  final bool isShared;
   final List<String> instructions;
   final List<DraftIngredient> ingredients;
 
@@ -209,6 +229,7 @@ class MealDraft {
     int? servings,
     List<String>? instructions,
     List<DraftIngredient>? ingredients,
+    bool? isShared,
   }) {
     return MealDraft(
       name: name ?? this.name,
@@ -221,6 +242,7 @@ class MealDraft {
       servings: servings ?? this.servings,
       instructions: instructions ?? this.instructions,
       ingredients: ingredients ?? this.ingredients,
+      isShared: isShared ?? this.isShared,
     );
   }
 
@@ -236,7 +258,8 @@ class MealDraft {
       other.estimatedCost == estimatedCost &&
       other.servings == servings &&
       listEquals(other.instructions, instructions) &&
-      listEquals(other.ingredients, ingredients);
+      listEquals(other.ingredients, ingredients) &&
+      other.isShared == isShared;
 
   @override
   int get hashCode => Object.hash(
@@ -250,5 +273,6 @@ class MealDraft {
     servings,
     Object.hashAll(instructions),
     Object.hashAll(ingredients),
+    isShared,
   );
 }

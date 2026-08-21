@@ -147,7 +147,6 @@ class HomeScreen extends ConsumerWidget {
                 ],
 
                 const SizedBox(height: AppSpacing.space4),
-                const _Elsewhere(),
               ],
             ),
           ),
@@ -485,6 +484,31 @@ class _SpinPanel extends StatelessWidget {
               ),
             ),
           ],
+
+          // Ask and Recent, inside the card the spin lives in rather than in a
+          // panel of their own at the bottom of the screen.
+          //
+          // They belong here: both are things somebody reaches for *while*
+          // deciding, not afterwards. "Not chicken again" is checked before
+          // spinning, and asking in words is the alternative to spinning at all —
+          // so a separate panel two scrolls down was filing them as afterthoughts.
+          const SizedBox(height: AppSpacing.space5),
+          const DashboardRule(),
+          const SizedBox(height: AppSpacing.space4),
+          DashboardActionRow(
+            actions: <DashboardAction>[
+              DashboardAction(
+                label: 'Ask',
+                icon: AppIcons.assistant,
+                onTap: () => context.pushNamed(AppRoute.assistant.routeName),
+              ),
+              DashboardAction(
+                label: 'Recent',
+                icon: AppIcons.plannerActive,
+                onTap: () => context.pushNamed(AppRoute.mealHistory.routeName),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -520,46 +544,3 @@ class _SpinPanel extends StatelessWidget {
   }
 }
 
-/// The other places worth going from here.
-///
-/// Only routes that exist. A labelled tile leading to a placeholder is worse
-/// than no tile: it teaches people that tiles do not work.
-class _Elsewhere extends StatelessWidget {
-  const _Elsewhere();
-
-  @override
-  Widget build(BuildContext context) {
-    return DashboardPanel(
-      child: DashboardActionRow(
-        actions: <DashboardAction>[
-          // Two tiles, and the count is the point.
-          //
-          // This row held six and the labels truncated — "Brows e", "Recen t" —
-          // which is what happens when a row is used as a drawer. Four of those
-          // six were **Meals-tab destinations the Meals tab already lists in its
-          // own action row**: Saved, Hidden, Yours, and browsing itself, which is
-          // the tab. Eat out went the same way and further: it is a segment of the
-          // Meals tab now, because it is the other answer to the same question
-          // rather than a different place to be.
-          //
-          // What is left is what genuinely has nowhere else: the assistant, and
-          // what we ate this week.
-          DashboardAction(
-            label: 'Ask',
-            icon: AppIcons.assistant,
-            onTap: () => context.pushNamed(AppRoute.assistant.routeName),
-          ),
-          // Recent stays, unlike the other Meals destinations, because what the
-          // household ate this week is the thing somebody checks *before*
-          // spinning — "not chicken again" is a decision made on this screen, not
-          // in a catalogue.
-          DashboardAction(
-            label: 'Recent',
-            icon: AppIcons.plannerActive,
-            onTap: () => context.pushNamed(AppRoute.mealHistory.routeName),
-          ),
-        ],
-      ),
-    );
-  }
-}

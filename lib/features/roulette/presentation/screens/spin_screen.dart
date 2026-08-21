@@ -76,6 +76,18 @@ class _SpinScreenState extends ConsumerState<SpinScreen>
   /// Fires when the assistant has had long enough.
   Timer? _graceTimer;
 
+  /// True while the assistant is still choosing, so the reel holds.
+  ///
+  /// **The AI decides, and the wheel waits for it.** The deterministic engine
+  /// filters the pool and shortlists it — that is what keeps the dietary needs,
+  /// the avoided foods, the hidden meals and the repetition window, none of which
+  /// a model can be trusted with — and then the model picks from that shortlist.
+  /// Its weighted draw is the *fallback*, for a rate limit or an outage.
+  ///
+  /// Before this the window was a second and a half, which a model usually lost,
+  /// so the draw answered most spins and the AI was decoration.
+  bool _isAwaitingAssistant = false;
+
   /// Guards the navigation to the result, which two callbacks race toward.
   bool _hasRevealed = false;
 
@@ -154,7 +166,15 @@ class _SpinScreenState extends ConsumerState<SpinScreen>
   }
 
   /// Begins the travel, once.
-  void _startReel() {
+  ///
+  /// [force] is the assistant window closing. Without it the roll is refused
+  /// while the assistant is still deciding, because the card the reel lands on is
+  /// the answer — see `_isAwaitingAssistant`.
+  void _startReel({bool force = false}) {
+    if (!force && _isAwaitingAssistant) {
+      return;
+    }
+
     _poolTimer?.cancel();
     _poolTimer = null;
 
@@ -326,11 +346,16 @@ class _SpinScreenState extends ConsumerState<SpinScreen>
         // pick permanent. Either way the card the wheel stops on is the card the
         // next screen shows, which is the only promise a reel makes.
         if (next case SpinSettled(isAwaitingAssistant: true)) {
-          _graceTimer ??= Timer(_assistantGrace, _startReel);
+          _isAwaitingAssistant = true;
+          _graceTimer ??= Timer(
+            _assistantGrace,
+            () => _startReel(force: true),
+          );
         } else {
+          _isAwaitingAssistant = false;
           _graceTimer?.cancel();
           _graceTimer = null;
-          _startReel();
+          _startReel(force: true);
         }
 
         _maybeReveal();
@@ -397,7 +422,18 @@ class _SpinScreenState extends ConsumerState<SpinScreen>
   static const Duration _maxPoolWait = Duration(seconds: 2);
 
   /// How long the reveal waits for the assistant once the reel has stopped.
-  static const Duration _assistantGrace = Duration(milliseconds: 1500);
+  /// How long the roll waits for the assistant to choose.
+  ///
+  /// **The controller's own budget, plus a beat.** It was a second and a half,
+  /// which a model usually lost — so the weighted draw answered most spins and
+  /// the AI was decoration. Matching the request's timeout means the answer that
+  /// arrives is the one the wheel lands on, and the draw only stands when the
+  /// request genuinely failed.
+  ///
+  /// The cost is honest and it is real: a slow provider makes the spin about four
+  /// seconds longer, spent on a screen that says "ASKING THE ASSISTANT". Groq
+  /// usually answers in well under one.
+  static const Duration _assistantGrace = Duration(milliseconds: 4200);
 
   /// Where the deceleration starts, as a fraction of the whole travel. Derived
   /// from [AppRouletteMotion] so changing a phase length moves this too.

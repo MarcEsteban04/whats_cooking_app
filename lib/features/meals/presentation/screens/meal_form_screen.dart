@@ -11,6 +11,7 @@ import 'package:whats_cooking/core/widgets/buttons/app_button.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_icon_button.dart';
 import 'package:whats_cooking/core/widgets/cards/app_card.dart';
 import 'package:whats_cooking/core/widgets/chips/app_filter_chip.dart';
+import 'package:whats_cooking/core/widgets/dashboard/dashboard.dart';
 import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
 import 'package:whats_cooking/core/widgets/inputs/app_select.dart';
 import 'package:whats_cooking/core/widgets/inputs/app_text_field.dart';
@@ -271,6 +272,35 @@ class _MealFormScreenState extends ConsumerState<MealFormScreen> {
                             onChanged: (String value) =>
                                 _update(draft.copyWith(description: value)),
                           ),
+
+                          // Shared or ours (Sprint 53c).
+                          //
+                          // **Only when adding.** Editing does not move a meal
+                          // between the catalogue and a household: the update
+                          // policy would refuse it, and a control that silently
+                          // relocates a meal is not what "edit" means.
+                          if (!widget.isEditing) ...<Widget>[
+                            const SizedBox(height: AppSpacing.space5),
+                            AppSegmentedControl<bool>(
+                              options: const <(bool, String)>[
+                                (true, 'A common meal'),
+                                (false, 'Just ours'),
+                              ],
+                              selected: draft.isShared,
+                              onSelected: (bool value) =>
+                                  _update(draft.copyWith(isShared: value)),
+                            ),
+                            const SizedBox(height: AppSpacing.space2),
+                            Text(
+                              draft.isShared
+                                  // Says where it lands rather than what a flag
+                                  // is called. "Public" is a database word and
+                                  // means nothing in a house with two people.
+                                  ? 'Goes in the list with everything else.'
+                                  : 'Kept under Yours, out of the main list.',
+                              style: context.text.metadata,
+                            ),
+                          ],
                         ],
                       ),
 
