@@ -11,6 +11,8 @@ import 'package:whats_cooking/core/widgets/buttons/app_button.dart';
 import 'package:whats_cooking/core/widgets/chips/app_filter_chip.dart';
 import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
 import 'package:whats_cooking/core/widgets/inputs/app_text_field.dart';
+import 'package:whats_cooking/core/widgets/inputs/app_toggle.dart';
+import 'package:whats_cooking/core/widgets/press_feedback.dart';
 import 'package:whats_cooking/core/widgets/section_header.dart';
 import 'package:whats_cooking/features/restaurants/domain/entities/restaurant.dart';
 import 'package:whats_cooking/features/restaurants/presentation/providers/restaurants_controller.dart';
@@ -293,8 +295,17 @@ class _ProximityChips extends StatelessWidget {
 
 /// Whether they deliver.
 ///
-/// A row rather than a `Switch` on its own, so the label is the target too — the
-/// same reason the grocery list makes the whole row its checkbox.
+/// **Hand-built, not `SwitchListTile.adaptive`** (Sprint 49b). The adaptive tile
+/// drew a Cupertino switch on iOS and a Material one on Android — two controls,
+/// neither of them this app's — and it laid them out on its own terms: the switch
+/// pinned to the far edge with the caption running under it, which read as a
+/// clipped control rather than a setting. `AppToggle` is the pill the reference
+/// design uses and the same one the auth screens carry, so the app has one switch
+/// rather than three.
+///
+/// The whole row is the target, which is the same reason the grocery list makes
+/// its rows the checkbox: a 44-pixel pill is a small thing to hit while holding a
+/// phone in one hand.
 class _Delivers extends StatelessWidget {
   const _Delivers({required this.value, required this.onChanged});
 
@@ -303,14 +314,38 @@ class _Delivers extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SwitchListTile.adaptive(
-      value: value,
-      onChanged: onChanged,
-      contentPadding: EdgeInsets.zero,
-      title: Text('They deliver', style: context.text.bodyLarge),
-      subtitle: Text(
-        'So a night nobody wants to go out still has an answer.',
-        style: context.text.metadata,
+    return PressFeedback(
+      onTap: () => onChanged(!value),
+      isButton: false,
+      semanticLabel: 'They deliver',
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text('They deliver', style: context.text.titleSmall),
+                const SizedBox(height: AppSpacing.space1),
+                Text(
+                  'So a night nobody wants to go out still has an answer.',
+                  style: context.text.metadata,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpacing.space4),
+          // Excluded from semantics: the row above already announces itself as a
+          // switch, and two toggles in the tree for one control is what makes a
+          // screen reader read everything twice.
+          ExcludeSemantics(
+            child: AppToggle(
+              value: value,
+              onChanged: onChanged,
+              semanticLabel: 'They deliver',
+            ),
+          ),
+        ],
       ),
     );
   }

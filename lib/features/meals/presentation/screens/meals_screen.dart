@@ -14,6 +14,7 @@ import 'package:whats_cooking/core/widgets/dashboard/dashboard.dart';
 import 'package:whats_cooking/core/widgets/feedback/app_skeleton.dart';
 import 'package:whats_cooking/core/widgets/feedback/empty_state.dart';
 import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
+import 'package:whats_cooking/core/widgets/inputs/app_select.dart';
 import 'package:whats_cooking/core/widgets/inputs/search_field.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal_query.dart';
@@ -646,49 +647,26 @@ class _CuisineRow extends StatelessWidget {
       children: <Widget>[
         Text('BY CUISINE', style: context.text.overline),
         const Spacer(),
-        PopupMenuButton<Cuisine?>(
+        // A sheet rather than a `PopupMenuButton` (Sprint 49b). The stock menu
+        // opened as a floating white panel with its own type scale, covering the
+        // very list it was filtering — see [AppSelect].
+        AppSelect<Cuisine>(
+          title: 'Cuisine',
+          value: query.cuisines.length == 1 ? query.cuisines.first : null,
+          labelOverride: _label(query),
+          // The accent when a filter is on, so the control says so without a
+          // badge. Null keeps the quiet default.
+          labelColor: query.cuisines.isEmpty ? null : colors.series1,
+          options: <AppSelectOption<Cuisine>>[
+            const AppSelectOption<Cuisine>(value: null, label: 'Every cuisine'),
+            for (final Cuisine cuisine in offeredCuisines)
+              AppSelectOption<Cuisine>(value: cuisine, label: cuisine.label),
+          ],
           onSelected: (Cuisine? cuisine) => onChanged(
             query.copyWith(
               cuisines: cuisine == null
                   ? const <Cuisine>{}
                   : <Cuisine>{cuisine},
-            ),
-          ),
-          position: PopupMenuPosition.under,
-          borderRadius: AppRadius.borderLg,
-          itemBuilder: (BuildContext context) => <PopupMenuEntry<Cuisine?>>[
-            CheckedPopupMenuItem<Cuisine?>(
-              checked: query.cuisines.isEmpty,
-              child: const Text('Every cuisine'),
-            ),
-            for (final Cuisine cuisine in offeredCuisines)
-              CheckedPopupMenuItem<Cuisine?>(
-                value: cuisine,
-                checked: query.cuisines.contains(cuisine),
-                child: Text(cuisine.label),
-              ),
-          ],
-          child: Semantics(
-            button: true,
-            label: '${_label(query)}. Tap to change the cuisine',
-            excludeSemantics: true,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Text(
-                  _label(query),
-                  style: context.text.labelSmall.copyWith(
-                    color: query.cuisines.isEmpty
-                        ? colors.textSecondary
-                        : colors.series1,
-                  ),
-                ),
-                Icon(
-                  Icons.keyboard_arrow_down_rounded,
-                  size: AppIconSize.xs,
-                  color: colors.textTertiary,
-                ),
-              ],
             ),
           ),
         ),
@@ -815,44 +793,21 @@ class _MealTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final AppColorScheme colors = context.colors;
 
     return DashboardPanel(
       title: 'All meals',
       icon: AppIcons.meals,
-      trailing: PopupMenuButton<MealSort>(
-        onSelected: onSortChanged,
-        position: PopupMenuPosition.under,
-        borderRadius: AppRadius.borderLg,
-        itemBuilder: (BuildContext context) => <PopupMenuEntry<MealSort>>[
+      trailing: AppSelect<MealSort>(
+        title: 'Sort by',
+        value: feed.query.sort,
+        options: <AppSelectOption<MealSort>>[
           for (final MealSort sort in MealSort.values)
-            CheckedPopupMenuItem<MealSort>(
-              value: sort,
-              checked: sort == feed.query.sort,
-              child: Text(sort.label),
-            ),
+            AppSelectOption<MealSort>(value: sort, label: sort.label),
         ],
-        child: Semantics(
-          button: true,
-          label: 'Sorted by ${feed.query.sort.label}. Tap to change',
-          excludeSemantics: true,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Text(
-                feed.query.sort.label,
-                style: context.text.labelSmall.copyWith(
-                  color: colors.textSecondary,
-                ),
-              ),
-              Icon(
-                Icons.keyboard_arrow_down_rounded,
-                size: AppIconSize.xs,
-                color: colors.textTertiary,
-              ),
-            ],
-          ),
-        ),
+        // Never null: every option carries a value, so the sheet cannot return
+        // one. Falling back to the current sort rather than to a default, because
+        // a dismissed sheet must not quietly reorder the list.
+        onSelected: (MealSort? sort) => onSortChanged(sort ?? feed.query.sort),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

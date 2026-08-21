@@ -12,6 +12,7 @@ import 'package:whats_cooking/core/widgets/buttons/app_icon_button.dart';
 import 'package:whats_cooking/core/widgets/cards/app_card.dart';
 import 'package:whats_cooking/core/widgets/chips/app_filter_chip.dart';
 import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
+import 'package:whats_cooking/core/widgets/inputs/app_select.dart';
 import 'package:whats_cooking/core/widgets/inputs/app_text_field.dart';
 import 'package:whats_cooking/core/widgets/overlays/confirmation_dialog.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal.dart';
@@ -784,43 +785,30 @@ class _UnitPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final AppColorScheme colors = context.colors;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Text('Unit', style: context.text.labelSmall),
         const SizedBox(height: AppSpacing.space2),
-        DecoratedBox(
-          decoration: BoxDecoration(
-            color: colors.surface,
-            borderRadius: AppRadius.borderMd,
-            border: Border.all(color: colors.outline),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.space3),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: unit,
-                isExpanded: true,
-                onChanged: isEnabled
-                    ? (String? value) {
-                        if (value != null) {
-                          onChanged(value);
-                        }
-                      }
-                    : null,
-                borderRadius: AppRadius.borderMd,
-                style: context.text.bodyMedium.copyWith(
-                  color: colors.textPrimary,
-                ),
-                items: <DropdownMenuItem<String>>[
-                  for (final String value in DraftIngredient.units)
-                    DropdownMenuItem<String>(value: value, child: Text(value)),
-                ],
-              ),
-            ),
-          ),
+        // `AppSelect`, not `DropdownButton` (Sprint 49b). The stock dropdown
+        // opened a floating menu with Material's own metrics right next to two of
+        // this app's text fields, which made the row look like three controls
+        // from two different products.
+        AppSelect<String>(
+          title: 'Unit',
+          value: unit,
+          isEnabled: isEnabled,
+          style: AppSelectStyle.field,
+          options: <AppSelectOption<String>>[
+            for (final String value in DraftIngredient.units)
+              AppSelectOption<String>(value: value, label: value),
+          ],
+          onSelected: (String? value) {
+            if (value != null) {
+              onChanged(value);
+            }
+          },
         ),
       ],
     );

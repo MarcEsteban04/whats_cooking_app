@@ -270,7 +270,15 @@ class _Loaded extends StatelessWidget {
                   size: AppButtonSize.large,
                   onPressed: () =>
                       context.goNamed(AppRoute.restaurantSpin.routeName),
-                ),
+                )
+              else
+                // **Says what is missing rather than showing nothing** (Sprint
+                // 49b). The `>= 2` rule is right and the silence around it was
+                // not: with one place saved, the roulette left no trace on this
+                // screen at all, so the only way to learn it exists was to add a
+                // second place and notice a new button. A locked line teaches the
+                // feature and names the one thing that unlocks it.
+                const _PickOneLocked(),
 
               const SizedBox(height: AppSpacing.space5),
               const DashboardRule(),
@@ -517,4 +525,63 @@ class _Loading extends StatelessWidget {
   static const double _figureHeight = 40;
   static const double _trioHeight = 54;
   static const int _rows = 5;
+}
+
+/// The roulette, before there is enough to spin (Sprint 49b).
+///
+/// Deliberately quiet rather than a disabled accent button. A dead SPIN in
+/// terracotta would be the loudest thing on the screen and the only thing on it
+/// that does nothing — the accent is reserved for the action that works
+/// (docs/DESIGN_SYSTEM.md §2.2). This is a sentence and a tap that leads to the
+/// thing that fixes it.
+/// Only ever seen with exactly one place saved. An empty library gets [_Empty],
+/// which already says what the list is for, so there is no zero case to word.
+class _PickOneLocked extends StatelessWidget {
+  const _PickOneLocked();
+
+  @override
+  Widget build(BuildContext context) {
+    final AppColorScheme colors = context.colors;
+
+    return PressFeedback(
+      onTap: () => context.pushNamed(AppRoute.restaurantCreate.routeName),
+      semanticLabel: 'Add a place so we can pick one for you',
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colors.surfaceMuted,
+          borderRadius: AppRadius.borderLg,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.space4),
+          child: Row(
+            children: <Widget>[
+              Icon(AppIcons.spin, size: AppIconSize.sm, color: colors.textTertiary),
+              const SizedBox(width: AppSpacing.space3),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Text('We can pick for you', style: context.text.titleSmall),
+                    const SizedBox(height: AppSpacing.space1),
+                    Text(
+                      'One more place and the roulette can choose between '
+                      'them.',
+                      style: context.text.metadata,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.space2),
+              Icon(
+                AppIcons.forward,
+                size: AppIconSize.xs,
+                color: colors.textTertiary,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
