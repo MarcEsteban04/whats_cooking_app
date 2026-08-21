@@ -555,6 +555,20 @@ class _NoMatch extends ConsumerWidget {
               context.pushNamed(AppRoute.rouletteFilters.routeName),
         ),
 
+      // The answer the app cannot reach on its own (Sprint 37).
+      //
+      // Every other action here loosens something. This one adds something, and it
+      // is often the real fix: a spin finds nothing because we have not told it
+      // about the thing we actually cook on a Tuesday. Offered on every no-match
+      // rather than only the "only ours" one, because a filtered-out pool is just
+      // as often a thin library as it is a tight budget.
+      AppButton.tertiary(
+        label: 'Add one of your own',
+        size: AppButtonSize.small,
+        leadingIcon: AppIcons.add,
+        onPressed: () => context.pushNamed(AppRoute.mealCreate.routeName),
+      ),
+
       const SizedBox(height: AppSpacing.space2),
       AppButton.tertiary(
         label: 'Back',

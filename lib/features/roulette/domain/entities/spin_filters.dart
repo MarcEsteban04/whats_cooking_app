@@ -19,6 +19,14 @@ enum SpinConstraint {
   category('the meal type'),
   difficulty('the difficulty'),
 
+  /// Only meals this household wrote (Sprint 37).
+  ///
+  /// A constraint rather than a preference, unlike [SpinFilters.mood], because it
+  /// genuinely can empty the pool — on a fresh install nothing has been written
+  /// yet. So it has to be nameable in the no-match sentence and offerable as the
+  /// one-tap relaxation, which is exactly what being in this enum buys.
+  ours('your own meals'),
+
   /// Never relaxed, and that is the whole point of it being here.
   ///
   /// docs/PRD.md principle 3: producing a meal the user cannot eat is worse than
@@ -64,6 +72,7 @@ class SpinFilters {
     this.categories = const <MealCategory>{},
     this.difficulties = const <Difficulty>{},
     this.dietaryTags = const <DietaryTag>{},
+    this.oursOnly = false,
     this.mood,
   });
 
@@ -102,6 +111,17 @@ class SpinFilters {
   /// "any" would offer them a wheat-based vegetarian dish and call it a match.
   final Set<DietaryTag> dietaryTags;
 
+  /// Whether the spin is restricted to meals we wrote ourselves (Sprint 37).
+  ///
+  /// The point of the app is that it spins over our library rather than over a
+  /// catalogue somebody else chose. The catalogue is still there — it makes the
+  /// app usable before the library fills up, and "Surprise me" needs breadth to
+  /// surprise with — but this is the switch that says *tonight, only ours*.
+  ///
+  /// Off by default. On a fresh install it would empty the pool, and a first spin
+  /// that finds nothing is the one failure this product cannot survive.
+  final bool oursOnly;
+
   /// What the household is in the mood for tonight, or null (Sprint 36).
   ///
   /// **Deliberately not a [SpinConstraint], and it never blocks a meal.** Every
@@ -138,6 +158,10 @@ class SpinFilters {
         SpinConstraint.category,
       if (difficulties.isNotEmpty && !difficulties.contains(meal.difficulty))
         SpinConstraint.difficulty,
+      // `isPublic` rather than a household comparison: RLS already returns only
+      // "public, or my household's", so anything not public is ours by
+      // construction and the client never needs to know its own household id.
+      if (oursOnly && meal.isPublic) SpinConstraint.ours,
       if (!meal.dietaryTags.containsAll(dietaryTags)) SpinConstraint.dietary,
     };
   }
@@ -149,6 +173,7 @@ class SpinFilters {
     if (cuisines.isNotEmpty) SpinConstraint.cuisine,
     if (categories.isNotEmpty) SpinConstraint.category,
     if (difficulties.isNotEmpty) SpinConstraint.difficulty,
+    if (oursOnly) SpinConstraint.ours,
     if (dietaryTags.isNotEmpty) SpinConstraint.dietary,
   };
 
@@ -173,6 +198,7 @@ class SpinFilters {
       SpinConstraint.cuisine => copyWith(cuisines: const <Cuisine>{}),
       SpinConstraint.category => copyWith(categories: const <MealCategory>{}),
       SpinConstraint.difficulty => copyWith(difficulties: const <Difficulty>{}),
+      SpinConstraint.ours => copyWith(oursOnly: false),
       // Deliberately unreachable through the analysis, which only ever asks
       // about relaxable constraints. Honoured here so the switch is total and a
       // future caller cannot get a silently unchanged object back.
@@ -206,6 +232,10 @@ class SpinFilters {
       SpinConstraint.difficulty => _list(
         difficulties.map((Difficulty d) => d.label.toLowerCase()),
       ),
+      // Reads as "Nothing of your own that is also under ₱150 a head", which is
+      // the sentence §7 wants — it names the filter in the reader's own terms
+      // rather than saying "no results".
+      SpinConstraint.ours => 'of your own',
       SpinConstraint.dietary => _list(
         dietaryTags.map((DietaryTag t) => t.label.toLowerCase()),
       ),
@@ -218,6 +248,7 @@ class SpinFilters {
     Set<Cuisine>? cuisines,
     Set<MealCategory>? categories,
     Set<Difficulty>? difficulties,
+    bool? oursOnly,
     Mood? mood,
     Set<DietaryTag>? dietaryTags,
     bool clearBudget = false,
@@ -237,6 +268,7 @@ class SpinFilters {
       cuisines: cuisines ?? this.cuisines,
       categories: categories ?? this.categories,
       difficulties: difficulties ?? this.difficulties,
+      oursOnly: oursOnly ?? this.oursOnly,
       mood: clearMood ? null : (mood ?? this.mood),
       dietaryTags: dietaryTags ?? this.dietaryTags,
     );
@@ -262,6 +294,7 @@ class SpinFilters {
       setEquals(other.cuisines, cuisines) &&
       setEquals(other.categories, categories) &&
       setEquals(other.difficulties, difficulties) &&
+      other.oursOnly == oursOnly &&
       other.mood == mood &&
       setEquals(other.dietaryTags, dietaryTags);
 
@@ -272,6 +305,7 @@ class SpinFilters {
     Object.hashAllUnordered(cuisines),
     Object.hashAllUnordered(categories),
     Object.hashAllUnordered(difficulties),
+    oursOnly,
     mood,
     Object.hashAllUnordered(dietaryTags),
   );

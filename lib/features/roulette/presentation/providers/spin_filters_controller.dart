@@ -59,6 +59,9 @@ class SpinFiltersController extends _$SpinFiltersController {
     difficulties: _toggled(state.difficulties, difficulty),
   );
 
+  /// Restricts the spin to meals we wrote, or opens it back up (Sprint 37).
+  void setOursOnly(bool oursOnly) => state = state.copyWith(oursOnly: oursOnly);
+
   /// Tapping the chosen mood again clears it (Sprint 36).
   ///
   /// One mood at a time. Two would need a rule for what "healthy and junk food"

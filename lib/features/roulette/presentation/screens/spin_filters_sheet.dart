@@ -71,6 +71,17 @@ class SpinFiltersSheet extends ConsumerWidget {
                   onSelected: controller.setMood,
                 ),
               ),
+              // Second, after the mood and before the constraints, because it is
+              // the widest cut of the pool anybody can make here — and unlike the
+              // mood it genuinely can empty it.
+              _Section(
+                title: 'Where from',
+                subtitle: 'The catalogue is there until your own library fills up.',
+                child: _OursOnly(
+                  value: filters.oursOnly,
+                  onChanged: controller.setOursOnly,
+                ),
+              ),
               _Section(
                 title: 'Budget',
                 subtitle: 'A head, not per pot.',
@@ -270,6 +281,41 @@ class _ChipSet<T extends Object> extends StatelessWidget {
             isSelected: selected.contains(value),
             onSelected: (_) => onToggled(value),
           ),
+      ],
+    );
+  }
+}
+
+/// Ours, or everything (Sprint 37).
+///
+/// Two chips rather than a switch. A switch labelled "ours only" has an implied
+/// off-state nobody has written down — *ours only what?* — whereas two chips name
+/// both answers, which is what makes the trade legible: everything is broader, ours
+/// is better, and on a fresh install ours is empty.
+class _OursOnly extends StatelessWidget {
+  const _OursOnly({required this.value, required this.onChanged});
+
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: AppSpacing.space2,
+      runSpacing: AppSpacing.space2,
+      children: <Widget>[
+        AppFilterChip(
+          label: 'Everything',
+          icon: AppIcons.cuisine,
+          isSelected: !value,
+          onSelected: (_) => onChanged(false),
+        ),
+        AppFilterChip(
+          label: 'Only ours',
+          icon: AppIcons.edit,
+          isSelected: value,
+          onSelected: (_) => onChanged(true),
+        ),
       ],
     );
   }

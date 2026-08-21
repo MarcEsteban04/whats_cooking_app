@@ -72,12 +72,12 @@ class ScoreWeights {
     this.preferenceMatch = 30,
     this.budgetMatch = 20,
     this.ingredientMatch = 20,
-    this.partnerCompatibility = 25,
     this.favouriteMeal = 15,
     this.cuisineVariety = 10,
     this.cookingTimeMatch = 10,
     this.recentMeal = -15,
     this.moodMatch = 35,
+    this.ourOwnMeal = 20,
     this.temperature = 25,
   });
 
@@ -87,16 +87,25 @@ class ScoreWeights {
   /// It comes in under the budget, per head.
   final double budgetMatch;
 
-  /// **Not yet applied.** Needs a pantry to match against, which is Sprint 50.
+  /// **Not yet applied.** Needs a pantry to match against, which is Sprint 41.
   ///
   /// Present so the table is complete and the gap is explicit: a weight that is
   /// simply missing reads as an oversight, and the next person to open this file
   /// should be able to see what the engine does *not* know yet.
   final double ingredientMatch;
 
-  /// **Not yet applied.** Needs a second person's preferences, which is couple
-  /// mode (Sprint 41 onward).
-  final double partnerCompatibility;
+  /// `partnerCompatibility` (+25) is **gone**, not pending.
+  ///
+  /// It waited for a second person's preferences to reconcile. There is no second
+  /// person's preferences: one phone, one account, two people who agree out loud
+  /// (docs/USER_FLOWS.md §14). The two things that would have fed it — dietary needs
+  /// and avoided foods — are handled the way that actually matters, as hard
+  /// exclusions on every spin rather than as points in an average. A score reading
+  /// "87% compatible" that then serves somebody fish is worse than no score.
+  ///
+  /// Recorded here rather than deleted silently, because a weight vanishing from a
+  /// table reads as an oversight.
+  static const double partnerCompatibilityWasCutAtSprint37 = 25;
 
   /// It is one of theirs.
   final double favouriteMeal;
@@ -109,6 +118,25 @@ class ScoreWeights {
 
   /// Eaten inside the soft window. Scaled by how recently.
   final double recentMeal;
+
+  /// We wrote it ourselves (Sprint 37).
+  ///
+  /// Twenty, between a favourite cuisine and a saved meal, and the reasoning is
+  /// about **what writing a meal down means**. Nobody types out five steps and an
+  /// ingredient list for food they are indifferent to. A meal in our own library is
+  /// a meal we like *and* know how to cook — which is a stronger signal than a
+  /// cuisine tapped once during onboarding, and weaker than a specific meal saved
+  /// on purpose.
+  ///
+  /// This is why the catalogue can stay without swamping the library. Sixty seeded
+  /// meals against a handful of ours would otherwise win on volume alone, and the
+  /// app would spend months feeling like somebody else's recipe book.
+  ///
+  /// Stacks with [favouriteMeal] deliberately: a meal we wrote *and* saved is the
+  /// best evidence in the whole table, and it should read that way.
+  ///
+  /// Not in docs/ARCHITECTURE.md §5.2's table, which predates the rescope.
+  final double ourOwnMeal;
 
   /// It suits the mood asked for tonight (Sprint 36).
   ///
@@ -317,12 +345,11 @@ class ScoringOutcome {
 ///   Strictly stronger than a penalty: -100 makes a hidden meal very unlikely,
 ///   and "very unlikely" over enough evenings is a meal somebody told us never to
 ///   show them. See [ScoreWeights].
-/// * *Ingredient match (+20)* needs a pantry. Sprint 50.
-/// * *Partner compatibility (+25)* needs a second person's preferences. Couple
-///   mode, Sprint 41 onward.
+/// * *Ingredient match (+20)* needs a pantry. Sprint 41.
+/// * *Partner compatibility (+25)* is **cut**, not pending — see [ScoreWeights].
 ///
-/// Both absent weights are declared on [ScoreWeights] anyway, so the gap is a
-/// stated fact rather than something a reader has to notice.
+/// The absent weight is declared on [ScoreWeights] anyway, so the gap is a stated
+/// fact rather than something a reader has to notice.
 abstract final class MealScorer {
   /// Scores [pool] against [context].
   ///
@@ -472,6 +499,19 @@ abstract final class MealScorer {
                 ? 'Eaten today'
                 : 'Eaten ${daysAgo == 1 ? 'yesterday' : '$daysAgo days ago'}',
             points: weights.recentMeal * staleness.clamp(0.0, 1.0),
+          ),
+        );
+      }
+
+      // --- Ours ---------------------------------------------------------------
+      //
+      // `isPublic` rather than a household comparison: RLS returns only "public,
+      // or my household's", so anything not public is ours by construction.
+      if (!meal.isPublic) {
+        reasons.add(
+          ScoreReason(
+            label: 'One of yours',
+            points: weights.ourOwnMeal,
           ),
         );
       }

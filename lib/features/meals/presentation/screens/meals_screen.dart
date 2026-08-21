@@ -423,11 +423,37 @@ class _SummaryPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          BigFigure(
-            label: query.hasFilters ? 'Matching now' : 'On the menu',
-            value: '$loaded${feed.hasMore ? '+' : ''}',
-            unit: loaded == 1 ? 'meal' : 'meals',
-          ),
+          // **Ours leads once there are any** (Sprint 37).
+          //
+          // The catalogue count was the figure here, and it was the wrong one to
+          // set huge: sixty is a number somebody else chose, it never moves, and a
+          // panel whose headline is constant stops being read. The size of our own
+          // library is the number that grows, the number worth growing, and the one
+          // the roulette's quality actually tracks.
+          //
+          // Not while it is zero, though. A display-sized `0` on the first run is
+          // an accusation, and the catalogue count is a genuinely useful thing to
+          // lead with until there is something of ours to count. Filters take
+          // precedence over both — mid-search, what matches is the only figure
+          // anybody wants.
+          if (query.hasFilters)
+            BigFigure(
+              label: 'Matching now',
+              value: '$loaded${feed.hasMore ? '+' : ''}',
+              unit: loaded == 1 ? 'meal' : 'meals',
+            )
+          else if (mine > 0)
+            BigFigure(
+              label: 'Your own meals',
+              value: '$mine',
+              unit: mine == 1 ? 'meal' : 'meals',
+            )
+          else
+            BigFigure(
+              label: 'On the menu',
+              value: '$loaded${feed.hasMore ? '+' : ''}',
+              unit: loaded == 1 ? 'meal' : 'meals',
+            ),
           const SizedBox(height: AppSpacing.space5),
           StatTrio(
             columns: <StatColumnData>[
@@ -453,12 +479,25 @@ class _SummaryPanel extends StatelessWidget {
                       : query.copyWith(clearMaxCost: true),
                 ),
               ),
-              StatColumnData(
-                label: 'Yours',
-                value: '$mine',
-                fraction: share(mine),
-                color: colors.primary,
-              ),
+              // Swaps with the headline: whichever of the two is *not* set huge
+              // above appears here, so neither number is ever missing and neither
+              // is ever printed twice.
+              if (!query.hasFilters && mine > 0)
+                StatColumnData(
+                  label: 'On the menu',
+                  value: '$loaded${feed.hasMore ? '+' : ''}',
+                  fraction: 1,
+                  color: colors.primary,
+                )
+              else
+                StatColumnData(
+                  label: 'Yours',
+                  value: '$mine',
+                  fraction: share(mine),
+                  color: colors.primary,
+                  onTap: () =>
+                      context.pushNamed(AppRoute.myMeals.routeName),
+                ),
             ],
           ),
           const SizedBox(height: AppSpacing.space5),
