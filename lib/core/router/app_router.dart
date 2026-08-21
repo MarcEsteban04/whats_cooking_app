@@ -16,6 +16,9 @@ import 'package:whats_cooking/features/auth/presentation/screens/login_screen.da
 import 'package:whats_cooking/features/auth/presentation/screens/register_screen.dart';
 import 'package:whats_cooking/features/auth/presentation/screens/reset_password_screen.dart';
 import 'package:whats_cooking/features/auth/presentation/screens/welcome_screen.dart';
+import 'package:whats_cooking/features/grocery/domain/entities/grocery_item.dart';
+import 'package:whats_cooking/features/grocery/presentation/screens/grocery_item_sheet.dart';
+import 'package:whats_cooking/features/grocery/presentation/screens/grocery_screen.dart';
 import 'package:whats_cooking/features/history/presentation/screens/decided_screen.dart';
 import 'package:whats_cooking/features/history/presentation/screens/meal_history_screen.dart';
 import 'package:whats_cooking/features/home/presentation/screens/home_screen.dart';
@@ -316,21 +319,21 @@ final StatefulShellRoute _shellRoute = StatefulShellRoute.indexedStack(
           path: AppRoute.grocery.path,
           name: AppRoute.grocery.routeName,
           pageBuilder: (BuildContext context, GoRouterState state) =>
-              const AppInstantPage<void>(
-                child: PlaceholderScreen(
-                  title: 'Grocery list',
-                  sprint: 'Sprint 51',
-                ),
-              ),
+              const AppInstantPage<void>(child: GroceryScreen()),
           routes: <RouteBase>[
             GoRoute(
               path: _relative(AppRoute.groceryAdd, AppRoute.grocery),
               name: AppRoute.groceryAdd.routeName,
+              // Root navigator, per the rule the pantry sheet's comment states:
+              // every modal sheet in this app belongs here, or the floating
+              // bottom navigation covers its primary button.
+              parentNavigatorKey: rootNavigatorKey,
               pageBuilder: (BuildContext context, GoRouterState state) =>
-                  const AppSheetPage<void>(
-                    child: PlaceholderScreen(
-                      title: 'Add grocery item',
-                      sprint: 'Sprint 51',
+                  AppSheetPage<void>(
+                    child: GroceryItemSheet(
+                      existing: state.extra is GroceryItem
+                          ? state.extra as GroceryItem
+                          : null,
                     ),
                   ),
             ),
