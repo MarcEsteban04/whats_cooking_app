@@ -190,3 +190,43 @@ enum Difficulty {
     return null;
   }
 }
+
+/// Where an ingredient sits in a shop (docs/DATABASE.md §4.6).
+///
+/// The `ingredients.category` column's eight values. They exist to group a pantry
+/// and a grocery list the way the shop is laid out rather than alphabetically — a
+/// list that reads *protein, vegetables, dairy* is a list you can walk, and one
+/// sorted A-to-Z sends you back across the aisle four times.
+///
+/// `other` is a real answer and not a failure. Anything the app adds on somebody's
+/// behalf lands here, because guessing that "kangkong" is a vegetable is easy and
+/// guessing that "bagoong" is a condiment is not, and a wrong aisle is worse than
+/// no aisle.
+enum IngredientCategory {
+  protein('Protein'),
+  vegetable('Vegetables'),
+  fruit('Fruit'),
+  grain('Grains'),
+  dairy('Dairy'),
+  spice('Spices'),
+  condiment('Condiments'),
+  other('Everything else');
+
+  const IngredientCategory(this.label);
+
+  /// Plural, because it labels a group rather than a thing.
+  final String label;
+
+  String get value => name;
+
+  static IngredientCategory fromValue(String? value) {
+    for (final IngredientCategory category in IngredientCategory.values) {
+      if (category.value == value) {
+        return category;
+      }
+    }
+    // Unrecognised rather than throwing: a category added to the database ahead
+    // of the app should show up in the last group, not break the screen.
+    return IngredientCategory.other;
+  }
+}

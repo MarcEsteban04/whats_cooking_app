@@ -27,6 +27,9 @@ import 'package:whats_cooking/features/meals/presentation/screens/meal_form_scre
 import 'package:whats_cooking/features/meals/presentation/screens/meals_screen.dart';
 import 'package:whats_cooking/features/meals/presentation/screens/my_meals_screen.dart';
 import 'package:whats_cooking/features/onboarding/presentation/screens/onboarding_screen.dart';
+import 'package:whats_cooking/features/pantry/domain/entities/pantry_item.dart';
+import 'package:whats_cooking/features/pantry/presentation/screens/pantry_item_sheet.dart';
+import 'package:whats_cooking/features/pantry/presentation/screens/pantry_screen.dart';
 import 'package:whats_cooking/features/profile/presentation/screens/account_settings_screen.dart';
 import 'package:whats_cooking/features/profile/presentation/screens/appearance_settings_screen.dart';
 import 'package:whats_cooking/features/profile/presentation/screens/budget_settings_screen.dart';
@@ -271,18 +274,21 @@ final StatefulShellRoute _shellRoute = StatefulShellRoute.indexedStack(
           path: AppRoute.pantry.path,
           name: AppRoute.pantry.routeName,
           pageBuilder: (BuildContext context, GoRouterState state) =>
-              const AppInstantPage<void>(
-                child: PlaceholderScreen(title: 'Pantry', sprint: 'Sprint 48'),
-              ),
+              const AppInstantPage<void>(child: PantryScreen()),
           routes: <RouteBase>[
             GoRoute(
               path: _relative(AppRoute.pantryAdd, AppRoute.pantry),
               name: AppRoute.pantryAdd.routeName,
+              // One sheet for adding and for editing an amount (Sprint 39).
+              // `extra` carries the item when it is an edit — the pantry row is
+              // already in hand, so making the sheet re-fetch it would be a round
+              // trip to learn something the list already knows.
               pageBuilder: (BuildContext context, GoRouterState state) =>
-                  const AppSheetPage<void>(
-                    child: PlaceholderScreen(
-                      title: 'Add ingredient',
-                      sprint: 'Sprint 48',
+                  AppSheetPage<void>(
+                    child: PantryItemSheet(
+                      existing: state.extra is PantryItem
+                          ? state.extra as PantryItem
+                          : null,
                     ),
                   ),
             ),
@@ -290,7 +296,7 @@ final StatefulShellRoute _shellRoute = StatefulShellRoute.indexedStack(
               AppRoute.ingredientMatches,
               AppRoute.pantry,
               'Ingredient matches',
-              sprint: 'Sprint 50',
+              sprint: 'Sprint 41',
             ),
           ],
         ),

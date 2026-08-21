@@ -642,8 +642,14 @@ property to preserve if the function is ever changed.
 | - | -------- | ---------- |
 | Q5 | Cost estimates — national average, or per-household override table? | Sprint 23 |
 | Q8 | Custom meals private, or promotable into the public catalogue? | Sprint 26 |
-| — | Unit conversion (g ↔ kg, ml ↔ cup) — normalise on write, or convert on read? | **Sprint 39** |
 | — | Do restaurants need their own repetition window, or does one setting cover both roulettes? | Sprint 46 |
+
+**Unit conversion — resolved at Sprint 39: neither.** The question was normalise on
+write or convert on read, and the answer is that nothing converts. Both options need a
+density table to turn a bottle of soy sauce into grams, and neither has anything
+sensible to do with "1 bulb" of garlic. What the pantry is *for* is Sprint 41's
+question — **do we have any**, not do we have enough. Presence, not arithmetic. A unit
+is therefore a note to the reader, stored in the words they typed.
 
 **Q7 — household size cap. Resolved at Sprint 37: two.** The app is for two people
 (docs/app_feature.md, "Scope"). Nothing enforces a numeric cap in the schema, because a

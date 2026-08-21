@@ -1,6 +1,14 @@
-/// Public surface of the `pantry` feature — what is in the fridge, and matching meals against it.
+/// What is in the kitchen (Sprint 39).
 ///
-/// Cross-feature code imports this barrel and never a file inside the feature
-/// (docs/CODING_STANDARDS.md §3). Exports are added as the feature is built in
-/// Sprints 48–50.
+/// The pantry is the app's answer to "what can we cook *now*" rather than "what
+/// could we cook" — and from Sprint 41 it is what lets the roulette weight meals
+/// by whether the ingredients are already in.
 library;
+
+export 'data/repositories/in_memory_pantry_repository.dart';
+export 'data/repositories/supabase_pantry_repository.dart';
+export 'domain/entities/pantry_item.dart';
+export 'domain/repositories/pantry_repository.dart';
+export 'presentation/providers/pantry_controller.dart';
+export 'presentation/screens/pantry_item_sheet.dart';
+export 'presentation/screens/pantry_screen.dart';

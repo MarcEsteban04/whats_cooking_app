@@ -193,9 +193,19 @@ any query, provider or policy. It stays exactly as it is, invisible.
 Implement:
 
 * Add and remove ingredients.
-* Quantity and unit.
-* Search against the shared ingredient vocabulary.
-* Categories.
+* Quantity and unit, both **optional**.
+* Search against the shared ingredient vocabulary, adding to it when a word is
+  missing — nobody is blocked because our list is incomplete.
+* Grouped by aisle, because a pantry is read the way a shop is walked.
+
+**Nothing converts units.** docs/DATABASE.md §9's open question is resolved here as
+*neither*: both normalising on write and converting on read need a density table to
+turn a bottle of soy sauce into grams, and neither has anything to say about "1 bulb"
+of garlic. Sprint 41 asks **do we have any**, not do we have enough.
+
+**A null quantity is the common case, not a gap.** Somebody at an open fridge is
+answering *is there chicken*; requiring a number makes the fast answer the slow one,
+and the app stops being told about half the kitchen.
 
 ---
 
