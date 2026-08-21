@@ -128,6 +128,18 @@ enum AppRoute {
   groceryAdd(path: '/grocery/add', isSheet: true),
 
   // ---------------------------------------------------------------------------
+  // Eating out (Sprint 45)
+  //
+  // Full-screen on the root navigator rather than a sixth tab. Eating out is the
+  // *other* answer to the question the roulette asks, so it belongs beside it —
+  // and a navigation bar with six destinations is a navigation bar nobody reads.
+  // ---------------------------------------------------------------------------
+
+  restaurants(path: '/eat-out'),
+  restaurantCreate(path: '/eat-out/new'),
+  restaurantEdit(path: '/eat-out/:id/edit'),
+
+  // ---------------------------------------------------------------------------
   // Profile tab
   // ---------------------------------------------------------------------------
 

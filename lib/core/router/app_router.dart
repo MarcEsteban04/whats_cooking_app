@@ -38,6 +38,8 @@ import 'package:whats_cooking/features/profile/presentation/screens/appearance_s
 import 'package:whats_cooking/features/profile/presentation/screens/budget_settings_screen.dart';
 import 'package:whats_cooking/features/profile/presentation/screens/preferences_screen.dart';
 import 'package:whats_cooking/features/profile/presentation/screens/profile_screen.dart';
+import 'package:whats_cooking/features/restaurants/presentation/screens/restaurant_form_screen.dart';
+import 'package:whats_cooking/features/restaurants/presentation/screens/restaurants_screen.dart';
 import 'package:whats_cooking/features/roulette/presentation/screens/spin_filters_sheet.dart';
 import 'package:whats_cooking/features/roulette/presentation/screens/spin_result_screen.dart';
 import 'package:whats_cooking/features/roulette/presentation/screens/spin_screen.dart';
@@ -449,6 +451,35 @@ final GoRoute _mealEditRoute = GoRoute(
 );
 
 final List<RouteBase> _fullScreenRoutes = <RouteBase>[
+  // Eating out (Sprint 45). Full screen on the root navigator, beside the
+  // roulette rather than in the navigation bar — see `AppRoute.restaurants`.
+  GoRoute(
+    path: AppRoute.restaurants.path,
+    name: AppRoute.restaurants.routeName,
+    parentNavigatorKey: rootNavigatorKey,
+    pageBuilder: (BuildContext context, GoRouterState state) =>
+        const AppSlideUpPage<void>(child: RestaurantsScreen()),
+    routes: <RouteBase>[
+      GoRoute(
+        path: _relative(AppRoute.restaurantCreate, AppRoute.restaurants),
+        name: AppRoute.restaurantCreate.routeName,
+        parentNavigatorKey: rootNavigatorKey,
+        pageBuilder: (BuildContext context, GoRouterState state) =>
+            const AppSlideUpPage<void>(child: RestaurantFormScreen()),
+      ),
+      GoRoute(
+        path: _relative(AppRoute.restaurantEdit, AppRoute.restaurants),
+        name: AppRoute.restaurantEdit.routeName,
+        parentNavigatorKey: rootNavigatorKey,
+        pageBuilder: (BuildContext context, GoRouterState state) =>
+            AppSlideUpPage<void>(
+              child: RestaurantFormScreen(
+                restaurantId: state.pathParameters['id'],
+              ),
+            ),
+      ),
+    ],
+  ),
   GoRoute(
     path: AppRoute.roulette.path,
     name: AppRoute.roulette.routeName,

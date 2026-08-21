@@ -311,6 +311,14 @@ class _Elsewhere extends StatelessWidget {
             icon: AppIcons.add,
             onTap: () => context.pushNamed(AppRoute.myMeals.routeName),
           ),
+          // The other answer to the same question (Sprint 45). Here rather than
+          // in the navigation bar because "where should we eat" is a different
+          // answer to *this* screen's question, not a different place to be.
+          DashboardAction(
+            label: 'Eat out',
+            icon: AppIcons.grocery,
+            onTap: () => context.pushNamed(AppRoute.restaurants.routeName),
+          ),
         ],
       ),
     );
