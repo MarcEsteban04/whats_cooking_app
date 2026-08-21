@@ -18,6 +18,8 @@ class EmptyState extends StatelessWidget {
     this.icon,
     this.actionLabel,
     this.onAction,
+    this.secondaryActionLabel,
+    this.onSecondaryAction,
     super.key,
   });
 
@@ -112,6 +114,10 @@ class EmptyState extends StatelessWidget {
   final String? actionLabel;
   final VoidCallback? onAction;
 
+  /// A quieter second route out of the empty state, or null.
+  final String? secondaryActionLabel;
+  final VoidCallback? onSecondaryAction;
+
   @override
   Widget build(BuildContext context) {
     final AppColorScheme colors = context.colors;
@@ -160,6 +166,24 @@ class EmptyState extends StatelessWidget {
                 label: actionLabel!,
                 size: AppButtonSize.medium,
                 onPressed: onAction,
+              ),
+            ],
+            // **A second way in, when there genuinely is one.**
+            //
+            // Added because the grocery list's import was unreachable from an
+            // empty list: it lived in the panel's action row, and that row only
+            // renders once there is something to show — so the one feature that
+            // fills an empty list was hidden by the list being empty. The same
+            // mistake the eat-out roulette made by hiding itself until there were
+            // two places.
+            //
+            // Quieter than the primary, because it is the less common route in and
+            // two equal buttons is a question rather than an offer.
+            if (secondaryActionLabel != null) ...<Widget>[
+              const SizedBox(height: AppSpacing.space2),
+              AppButton.tertiary(
+                label: secondaryActionLabel!,
+                onPressed: onSecondaryAction,
               ),
             ],
           ],

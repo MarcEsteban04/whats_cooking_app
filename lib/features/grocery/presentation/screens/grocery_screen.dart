@@ -71,6 +71,16 @@ class GroceryScreen extends ConsumerWidget {
                           title: 'Shopping',
                           subtitle: _subtitle(list.value),
                           actions: <Widget>[
+                            // Always here, whatever state the list is in. Two
+                            // circles fit comfortably; the header only ran out of
+                            // room at three (see the Meals header).
+                            AppCircleAction(
+                              icon: AppIcons.invent,
+                              label: 'Import a list from a file',
+                              onTap: () => context.pushNamed(
+                                AppRoute.groceryImport.routeName,
+                              ),
+                            ),
                             AppCircleAction(
                               icon: AppIcons.add,
                               label: 'Add something to buy',
@@ -481,6 +491,13 @@ class _Empty extends StatelessWidget {
             'missing.',
         actionLabel: 'Add something',
         onAction: () => context.pushNamed(AppRoute.groceryAdd.routeName),
+        // **The import belongs here most of all.** It was only in the panel's
+        // action row, and that row does not exist on an empty list — so the one
+        // feature that fills an empty list was hidden precisely when the list was
+        // empty.
+        secondaryActionLabel: 'Import a photo, txt or PDF',
+        onSecondaryAction: () =>
+            context.pushNamed(AppRoute.groceryImport.routeName),
       ),
     );
   }
