@@ -8,9 +8,11 @@ import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/utils/formatters.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_button.dart';
 import 'package:whats_cooking/core/widgets/dashboard/dashboard.dart';
+import 'package:whats_cooking/core/widgets/press_feedback.dart';
 import 'package:whats_cooking/features/grocery/presentation/providers/grocery_controller.dart';
 import 'package:whats_cooking/features/history/presentation/providers/meal_history_controller.dart';
-import 'package:whats_cooking/features/home/presentation/providers/week_summary.dart';
+import 'package:whats_cooking/features/home/presentation/providers/home_dashboard.dart';
+import 'package:whats_cooking/features/home/presentation/widgets/dashboard_charts.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/disliked_ingredients_controller.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/dislikes_controller.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/favorites_controller.dart';
@@ -18,6 +20,7 @@ import 'package:whats_cooking/features/pantry/domain/entities/pantry_item.dart';
 import 'package:whats_cooking/features/pantry/presentation/providers/pantry_controller.dart';
 import 'package:whats_cooking/features/profile/domain/entities/user_profile.dart';
 import 'package:whats_cooking/features/profile/presentation/providers/profile_controller.dart';
+import 'package:whats_cooking/features/restaurants/presentation/providers/restaurants_controller.dart';
 import 'package:whats_cooking/features/roulette/domain/entities/spin_filters.dart';
 import 'package:whats_cooking/features/roulette/presentation/providers/spin_filters_controller.dart';
 
@@ -68,9 +71,14 @@ class HomeScreen extends ConsumerWidget {
     // first frame instead of appearing a beat later.
     ref.watch(groceryControllerProvider);
 
-    // Where things stand. Best effort by construction — a summary that failed is
-    // a panel that does not appear, never a reason Home does not load.
-    final WeekSummary? summary = ref.watch(weekSummaryProvider).value;
+    // The library and the places, for the dashboard's own counts and for the
+    // setup guide that replaces it on a fresh install. Two more warmed queries,
+    // paid once a session because both are `keepAlive`.
+    ref.watch(restaurantsControllerProvider);
+
+    // Where things stand. Best effort by construction — a dashboard that failed
+    // is a panel that does not appear, never a reason Home does not load.
+    final HomeDashboard? dashboard = ref.watch(homeDashboardProvider).value;
 
     // Read, not just warmed: Home says what needs using tonight (Sprint 40), and
     // from Sprint 41 the spin weights meals by what is already in.
@@ -124,11 +132,18 @@ class HomeScreen extends ConsumerWidget {
                 // screen has decided that looking at numbers matters more than
                 // deciding what to eat, which is the opposite of the product.
                 //
-                // Absent entirely until one number is real. Four zeros on a fresh
-                // install is a panel that says the app has nothing for you.
-                if (summary != null && summary.hasAnything) ...<Widget>[
+                if (dashboard case final HomeDashboard data) ...<Widget>[
                   const SizedBox(height: AppSpacing.space4),
-                  _WhereThingsStand(summary: summary),
+                  // **Two panels, and which one appears is the whole fix.** The
+                  // first version showed nothing at all on a fresh install,
+                  // reasoning that four zeros were worse than a gap. That was the
+                  // wrong default for the state most people are in on day one —
+                  // an empty app is exactly when the screen has something worth
+                  // saying, which is what to do next.
+                  if (data.hasAnything)
+                    _WhereThingsStand(dashboard: data)
+                  else
+                    _GetStarted(dashboard: data),
                 ],
 
                 const SizedBox(height: AppSpacing.space4),
@@ -155,21 +170,20 @@ class HomeScreen extends ConsumerWidget {
 
 /// Where things stand (Sprint 47b).
 ///
-/// **Numbers that are destinations, not a chart.** docs/project_dev.md cut "food
-/// statistics" as "an interesting dashboard nobody opens twice", and that judgement
-/// holds — a cuisine pie chart is a thing you look at once. What survives the cut
-/// is a count somebody can act on tonight, which is a different kind of number: all
-/// three columns here are tappable, and each goes to the screen where the number
-/// can be changed.
+/// **Counts that are destinations, then charts that are not.** The split is
+/// deliberate and it is the answer to a question docs/project_dev.md already
+/// settled: "food statistics" was cut as "an interesting dashboard nobody opens
+/// twice", and a pie chart on its own screen deserved that. These two earn their
+/// place because each one changes a decision — the spend trend tells you whether
+/// to cook this week, and the cuisine mix is the variety engine's premise made
+/// checkable.
 ///
-/// The figure above them is the week, and it is deliberately the one number in the
-/// app that is *not* actionable — it is the app reporting on itself. Time to
-/// Decision is the metric this product lives on (docs/ARCHITECTURE.md §10), and
-/// "three dinners decided" is the household-facing half of it.
+/// The three counts above them are the opposite kind of number: every one is a
+/// tap to the screen where it can be changed.
 class _WhereThingsStand extends StatelessWidget {
-  const _WhereThingsStand({required this.summary});
+  const _WhereThingsStand({required this.dashboard});
 
-  final WeekSummary summary;
+  final HomeDashboard dashboard;
 
   @override
   Widget build(BuildContext context) {
@@ -181,20 +195,21 @@ class _WhereThingsStand extends StatelessWidget {
         children: <Widget>[
           BigFigure(
             label: 'Decided this week',
-            value: '${summary.decisions}',
-            unit: summary.decisions == 1 ? 'dinner' : 'dinners',
+            value: '${dashboard.decisions}',
+            unit: dashboard.decisions == 1 ? 'dinner' : 'dinners',
           ),
 
-          // How the week split, and what it cost. One line rather than a chart:
-          // "four cooked, one out" is the whole story, and a bar of two segments
-          // would be a graphic of a sentence.
-          if (summary.decisions > 0) ...<Widget>[
+          // How the week split, and what it cost. One line rather than a
+          // two-segment bar, because "four cooked, one out" is the whole story and
+          // a bar of it would be a graphic of a sentence. The six-week chart below
+          // is where a shape earns its space.
+          if (dashboard.decisions > 0) ...<Widget>[
             const SizedBox(height: AppSpacing.space2),
             Text(
               <String>[
-                '${summary.mealsCooked} cooked',
-                if (summary.nightsOut > 0) '${summary.nightsOut} out',
-                if (summary.averageCostPerHead case final double cost)
+                '${dashboard.mealsCooked} cooked',
+                if (dashboard.nightsOut > 0) '${dashboard.nightsOut} out',
+                if (dashboard.averageCostPerHead case final double cost)
                   'about ${AppFormat.peso(cost.round())} a head',
               ].join(' · '),
               style: context.text.metadata,
@@ -206,32 +221,154 @@ class _WhereThingsStand extends StatelessWidget {
             columns: <StatColumnData>[
               StatColumnData(
                 label: 'Can cook now',
-                value: '${summary.cookableNow}',
+                value: '${dashboard.cookableNow}',
                 color: colors.series1,
                 onTap: () => context.goNamed(AppRoute.meals.routeName),
               ),
               StatColumnData(
                 label: 'To use up',
-                value: '${summary.needsUsing}',
-                // The one column that changes colour, because it is the one with
-                // a deadline. Warning only when there is something to warn about—
-                // an amber zero is a warning somebody learns to stop seeing.
-                color: summary.needsUsing > 0
+                value: '${dashboard.needsUsing}',
+                // The one column that changes colour, because it is the one with a
+                // deadline — and only when there is something to warn about. An
+                // amber zero is a warning somebody learns to stop seeing.
+                color: dashboard.needsUsing > 0
                     ? colors.warning.color
                     : colors.series2,
                 onTap: () => context.goNamed(AppRoute.pantry.routeName),
               ),
               StatColumnData(
                 label: 'To buy',
-                value: '${summary.stillToBuy}',
+                value: '${dashboard.stillToBuy}',
                 color: colors.primary,
                 onTap: () => context.goNamed(AppRoute.grocery.routeName),
               ),
             ],
           ),
+
+          // The charts, and only once there is history to draw. A chart of one
+          // dinner is a chart making a claim about a trend it cannot see.
+          if (dashboard.hasHistory) ...<Widget>[
+            const SizedBox(height: AppSpacing.space5),
+            const DashboardRule(),
+            const SizedBox(height: AppSpacing.space4),
+            SpendChart(weeks: dashboard.spend),
+
+            if (dashboard.cuisineMix.isNotEmpty) ...<Widget>[
+              const SizedBox(height: AppSpacing.space5),
+              const DashboardRule(),
+              const SizedBox(height: AppSpacing.space4),
+              CuisineMix(counts: dashboard.cuisineMix),
+            ],
+          ],
         ],
       ),
     );
+  }
+}
+
+/// What Home shows before anything has happened (Sprint 47b).
+///
+/// **This is the panel that should have been there on day one.** The first version
+/// hid the dashboard until a number was real, on the argument that four zeros are
+/// worse than a gap — which is true of zeros and false of the space. An empty app
+/// is exactly when this screen has something worth saying, and it is not a figure:
+/// it is the three things that make the roulette worth using.
+///
+/// Ticked rather than hidden once done, so the list is a short record of progress
+/// rather than a shrinking pile of chores — and so that finishing the last one
+/// visibly finishes something.
+class _GetStarted extends StatelessWidget {
+  const _GetStarted({required this.dashboard});
+
+  final HomeDashboard dashboard;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppColorScheme colors = context.colors;
+    final List<({String label, String body, bool isDone, HomeSetupStep step})>
+    steps = dashboard.setupSteps;
+    final int done = steps.where((({String label, String body, bool isDone, HomeSetupStep step}) s) => s.isDone).length;
+
+    return DashboardPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          BigFigure(
+            label: 'Worth setting up',
+            value: '$done of ${steps.length}',
+            unit: 'done',
+          ),
+          const SizedBox(height: AppSpacing.space2),
+          Text(
+            // Says what the payoff is, because a checklist with no stated reward is
+            // homework. The roulette already works — this is what makes it good.
+            'It already works. These make it better at guessing.',
+            style: context.text.metadata,
+          ),
+          const SizedBox(height: AppSpacing.space5),
+          for (final (int index,
+                  ({String label, String body, bool isDone, HomeSetupStep step})
+                  step)
+              in steps.indexed) ...<Widget>[
+            if (index > 0) const DashboardRule(),
+            PressFeedback(
+              onTap: () => _open(context, step.step),
+              semanticLabel: step.label,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  vertical: AppSpacing.space3,
+                ),
+                child: Row(
+                  children: <Widget>[
+                    Icon(
+                      step.isDone
+                          ? AppIcons.success
+                          : AppIcons.forward,
+                      size: AppIconSize.sm,
+                      color: step.isDone
+                          ? colors.series2
+                          : colors.textTertiary,
+                    ),
+                    const SizedBox(width: AppSpacing.space4),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          Text(
+                            step.label,
+                            style: context.text.bodyLarge.copyWith(
+                              color: step.isDone ? colors.textTertiary : null,
+                              decoration: step.isDone
+                                  ? TextDecoration.lineThrough
+                                  : null,
+                              decorationColor: colors.textTertiary,
+                            ),
+                          ),
+                          if (!step.isDone)
+                            Text(step.body, style: context.text.metadata),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _open(BuildContext context, HomeSetupStep step) {
+    switch (step) {
+      case HomeSetupStep.meals:
+        context.pushNamed(AppRoute.mealCreate.routeName);
+      case HomeSetupStep.pantry:
+        context.goNamed(AppRoute.pantry.routeName);
+      case HomeSetupStep.places:
+        context.pushNamed(AppRoute.restaurantCreate.routeName);
+    }
   }
 }
 
