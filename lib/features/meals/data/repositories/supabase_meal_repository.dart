@@ -425,6 +425,29 @@ class SupabaseMealRepository implements MealRepository {
     );
   }
 
+  @override
+  Future<Set<String>> mealsBlockedByDislikes() {
+    return RemoteCall.guard(
+      () async {
+        // An RPC rather than a filter on the meal query. "No meal containing any
+        // of these" is a join through `meal_ingredients`, which PostgREST cannot
+        // express as a negated filter on `meals` — and the alternative, fetching
+        // every meal's ingredients to sift them here, would pull the whole
+        // catalogue's recipe rows to answer a question about a handful of words.
+        final dynamic rows = await _client.rpc<dynamic>(_blockedFunction);
+
+        return <String>{
+          if (rows is List)
+            for (final dynamic row in rows)
+              if (row is Map && row['meal_id'] is String)
+                row['meal_id'] as String,
+        };
+      },
+      label: 'meals.blockedByDislikes',
+      timeout: AppConstants.requestTimeout,
+    );
+  }
+
   /// Resolves each ingredient name to a row, adding any that are new, then links
   /// them to the meal.
   ///
@@ -538,6 +561,10 @@ class SupabaseMealRepository implements MealRepository {
     }
     return trimmed.replaceAll(RegExp(r'[%_,()*\\"]'), ' ').trim();
   }
+
+  /// Migration 0021. Reads `disliked_ingredient_names` for `auth.uid()` and
+  /// returns the meal ids those foods rule out.
+  static const String _blockedFunction = 'meals_blocked_by_dislikes';
 
   static const String _table = 'meals';
 

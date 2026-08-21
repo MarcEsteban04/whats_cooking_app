@@ -12,7 +12,7 @@ part 'spin_filters_controller.g.dart';
 /// here writes back to the profile: tightening the budget for one evening should
 /// not silently change what the app assumes next week.
 ///
-/// Budget and time are seeded from the profile once, with `read` rather than
+/// Budget, time and effort are seeded from the profile once, with `read` rather than
 /// `watch`, so this notifier never rebuilds and can therefore never lose an edit
 /// the reader has just made. If the profile has not loaded yet the seed is
 /// skipped, which errs toward a *wider* spin — and the one filter where wider
@@ -35,6 +35,7 @@ class SpinFiltersController extends _$SpinFiltersController {
     return SpinFilters(
       maxCostPerServing: preferences.budget,
       maxCookingTimeMinutes: preferences.maxCookingTimeMinutes,
+      difficulties: _upTo(preferences.maxDifficulty),
     );
   }
 
@@ -62,6 +63,34 @@ class SpinFiltersController extends _$SpinFiltersController {
 
   /// Drops everything the reader chose.
   void clear() => state = const SpinFilters();
+
+  /// Every difficulty at or below [ceiling] (Sprint 35).
+  ///
+  /// The preference is stored as a ceiling because that is how people hold it —
+  /// "nothing hard" — while the filter is a set, because the sheet lets somebody
+  /// tick individual levels for one evening. This is the one place the two shapes
+  /// meet, and it relies on [Difficulty] being declared easiest-first.
+  ///
+  /// An empty set for no preference, which is what [SpinFilters] already reads as
+  /// "do not filter on this" — and for `hard`, which today means the same thing.
+  /// Left as a real answer rather than special-cased to null so that adding a
+  /// fourth level above it does the right thing without anybody remembering to
+  /// come back here.
+  static Set<Difficulty> _upTo(Difficulty? ceiling) {
+    if (ceiling == null) {
+      return const <Difficulty>{};
+    }
+    final Set<Difficulty> allowed = <Difficulty>{
+      for (final Difficulty level in Difficulty.values)
+        if (level.index <= ceiling.index) level,
+    };
+    // All of them is not a filter. Returning the full set would light up the
+    // sheet's difficulty chips and put "the difficulty" in the no-match
+    // sentence for a constraint that is excluding nothing.
+    return allowed.length == Difficulty.values.length
+        ? const <Difficulty>{}
+        : allowed;
+  }
 
   static Set<T> _toggled<T>(Set<T> current, T value) {
     final Set<T> next = current.toSet();

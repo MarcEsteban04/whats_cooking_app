@@ -22,6 +22,7 @@ class FoodPreferences {
     this.maxCookingTimeMinutes,
     this.cookingFor,
     this.repetitionWindowDays,
+    this.maxDifficulty,
   });
 
   final Set<Cuisine> favouriteCuisines;
@@ -58,6 +59,18 @@ class FoodPreferences {
   /// than a repeat.
   final int? repetitionWindowDays;
 
+  /// The hardest recipe to be offered, or null for no preference (Sprint 35).
+  ///
+  /// The roulette has been able to filter by difficulty for one session since
+  /// Sprint 29; this is the standing answer, so somebody who never wants a
+  /// three-hour braise on a weeknight says it once. It seeds the filter the same
+  /// way [budget] and [maxCookingTimeMinutes] do.
+  ///
+  /// A ceiling rather than a set, because that is how people hold it: "nothing
+  /// hard" is an answer somebody gives, and "easy or hard but not medium" is
+  /// not.
+  final Difficulty? maxDifficulty;
+
   /// Servings to store, defaulting to the product's assumption of two.
   int get preferredServings =>
       cookingFor?.servings ?? AppConstants.defaultPartySize;
@@ -73,7 +86,8 @@ class FoodPreferences {
       budget != null ||
       maxCookingTimeMinutes != null ||
       cookingFor != null ||
-      repetitionWindowDays != null;
+      repetitionWindowDays != null ||
+      maxDifficulty != null;
 
   FoodPreferences copyWith({
     Set<Cuisine>? favouriteCuisines,
@@ -83,9 +97,11 @@ class FoodPreferences {
     int? maxCookingTimeMinutes,
     CookingFor? cookingFor,
     int? repetitionWindowDays,
+    Difficulty? maxDifficulty,
     bool clearBudget = false,
     bool clearMaxCookingTime = false,
     bool clearRepetitionWindow = false,
+    bool clearMaxDifficulty = false,
   }) {
     return FoodPreferences(
       favouriteCuisines: favouriteCuisines ?? this.favouriteCuisines,
@@ -102,6 +118,9 @@ class FoodPreferences {
       repetitionWindowDays: clearRepetitionWindow
           ? null
           : (repetitionWindowDays ?? this.repetitionWindowDays),
+      maxDifficulty: clearMaxDifficulty
+          ? null
+          : (maxDifficulty ?? this.maxDifficulty),
     );
   }
 
@@ -114,7 +133,8 @@ class FoodPreferences {
         other.budget == budget &&
         other.maxCookingTimeMinutes == maxCookingTimeMinutes &&
         other.cookingFor == cookingFor &&
-        other.repetitionWindowDays == repetitionWindowDays;
+        other.repetitionWindowDays == repetitionWindowDays &&
+        other.maxDifficulty == maxDifficulty;
   }
 
   @override
@@ -126,6 +146,7 @@ class FoodPreferences {
     maxCookingTimeMinutes,
     cookingFor,
     repetitionWindowDays,
+    maxDifficulty,
   );
 
   /// Value equality over the collections, not identity.

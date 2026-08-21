@@ -12,7 +12,7 @@ import 'package:whats_cooking/features/profile/domain/entities/user_profile.dart
 import 'package:whats_cooking/features/profile/presentation/providers/profile_controller.dart';
 import 'package:whats_cooking/features/profile/presentation/widgets/settings_scaffold.dart';
 
-/// Editing cuisines, dislikes and dietary needs (docs/USER_FLOWS.md §17).
+/// Editing cuisines, dislikes, dietary needs and effort (docs/USER_FLOWS.md §17).
 ///
 /// The same three editors onboarding used, from
 /// `core/widgets/preferences/` — docs/COMPONENTS.md §18b: "a user must meet the
@@ -104,6 +104,20 @@ class _PreferencesScreenState extends ConsumerState<PreferencesScreen> {
             selected: preferences.dietaryTags,
             onChanged: (Set<DietaryTag> tags) => setState(
               () => _edited = preferences.copyWith(dietaryTags: tags),
+            ),
+          ),
+          const SectionHeader(
+            title: 'How much effort',
+            subtitle: 'The hardest thing we should offer.',
+          ),
+          DifficultyPicker(
+            maxDifficulty: preferences.maxDifficulty,
+            onChanged: (Difficulty? level) => setState(
+              () => _edited = level == null
+                  // "Anything" is the absence of an opinion, not the top of the
+                  // scale — so it clears rather than assigning `hard`.
+                  ? preferences.copyWith(clearMaxDifficulty: true)
+                  : preferences.copyWith(maxDifficulty: level),
             ),
           ),
           const SectionHeader(

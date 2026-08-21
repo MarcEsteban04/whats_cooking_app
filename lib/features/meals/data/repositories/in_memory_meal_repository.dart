@@ -248,6 +248,24 @@ class InMemoryMealRepository implements MealRepository {
   }
 
   @override
+  Future<Set<String>> mealsBlockedByDislikes() async {
+    await Future<void>.delayed(latency);
+
+    if (failReads) {
+      throw const ServerException();
+    }
+
+    // Always empty. The real answer comes from a Postgres function reading the
+    // caller's own preferences, and there is no session here to have any — a
+    // no-backend build is one where nobody has told us what they avoid.
+    //
+    // Empty rather than unimplemented: this repository exists so the app runs
+    // without credentials, and a spin that threw because it could not check for
+    // disliked ingredients would defeat that entirely.
+    return const <String>{};
+  }
+
+  @override
   Future<List<Meal>> byIds(Set<String> ids) async {
     await Future<void>.delayed(latency);
 

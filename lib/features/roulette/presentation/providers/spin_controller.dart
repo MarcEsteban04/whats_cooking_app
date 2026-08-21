@@ -12,6 +12,7 @@ import 'package:whats_cooking/features/history/presentation/providers/meal_histo
 import 'package:whats_cooking/features/meals/domain/entities/meal.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal_query.dart';
 import 'package:whats_cooking/features/meals/domain/repositories/meal_repository.dart';
+import 'package:whats_cooking/features/meals/presentation/providers/disliked_ingredients_controller.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/dislikes_controller.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/favorites_controller.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/meal_repository_provider.dart';
@@ -93,6 +94,7 @@ class SpinNoMatch extends SpinState {
     this.mostRelaxable,
     this.wouldOpen = 0,
     this.blockedByRepetition = 0,
+    this.blockedByIngredient = 0,
   });
 
   /// What was applied when nothing came back.
@@ -132,9 +134,28 @@ class SpinNoMatch extends SpinState {
   /// that, and the fix is different — wait a day, or widen the window.
   final int blockedByRepetition;
 
+  /// How many were ruled out for containing a food the household avoids
+  /// (Sprint 35).
+  ///
+  /// Its own number for the same reason [blockedByRepetition] is: the fix is
+  /// different from every other emptiness. Nothing needs relaxing and nothing
+  /// needs waiting — somebody typed a food that turns out to be in most of what
+  /// they can cook, and the honest thing is to say so and point at the list.
+  final int blockedByIngredient;
+
   /// Whether the reader's own filters are what emptied the pool.
   bool get isFilteredOut =>
-      blockedByRepetition == 0 && eligibleCount > 0 && blocking.isNotEmpty;
+      blockedByRepetition == 0 &&
+      blockedByIngredient == 0 &&
+      eligibleCount > 0 &&
+      blocking.isNotEmpty;
+
+  /// Whether avoided foods are what emptied it.
+  ///
+  /// Checked before the filters, because it is the more specific answer: if a
+  /// disliked ingredient took the last candidate, saying "nothing under ₱150"
+  /// sends the reader to change a budget that was never the problem.
+  bool get isAllAvoided => blockedByIngredient > 0 && eligibleCount == 0;
 
   /// Whether everything that matched had been eaten too recently.
   bool get isAllTooRecent => blockedByRepetition > 0;
@@ -258,11 +279,23 @@ class SpinController extends _$SpinController {
         dislikesControllerProvider.future,
       );
 
+      // Meals carrying a food this household avoids (Sprint 35). Read here with
+      // the hidden set because it belongs in the same place: both are promises
+      // rather than choices, and a promise applied client-side is one that
+      // breaks the first time a filter is skipped.
+      final Set<String> avoided = await ref.read(
+        mealsBlockedByDislikesProvider.future,
+      );
+
       final MealQuery query = MealQuery(
-        // Both exclusions in one set, because the query does not care why a meal
-        // is out — only that it must not come back. Applied on the server, so
-        // the pool is right rather than filtered after the fact.
-        excludedMealIds: <String>{...hidden, ..._seenThisSession},
+        // All three exclusions in one set, because the query does not care why a
+        // meal is out — only that it must not come back. Applied on the server,
+        // so the pool is right rather than filtered after the fact.
+        excludedMealIds: <String>{
+          ...hidden,
+          ...avoided,
+          ..._seenThisSession,
+        },
       );
 
       final MealPage page = await ref
@@ -282,6 +315,7 @@ class SpinController extends _$SpinController {
             filters: filters,
             eligible: eligible,
             hiddenCount: hidden.length,
+            blockedByIngredient: avoided.length,
           ),
         );
         return;
@@ -303,6 +337,7 @@ class SpinController extends _$SpinController {
             eligible: eligible,
             hiddenCount: hidden.length,
             blockedByRepetition: scoring.blocked,
+            blockedByIngredient: avoided.length,
           ),
         );
         return;
@@ -317,6 +352,7 @@ class SpinController extends _$SpinController {
             eligible: eligible,
             hiddenCount: hidden.length,
             blockedByRepetition: scoring.blocked,
+            blockedByIngredient: avoided.length,
           ),
         );
         return;
@@ -385,6 +421,7 @@ class SpinController extends _$SpinController {
     required List<Meal> eligible,
     required int hiddenCount,
     int blockedByRepetition = 0,
+    int blockedByIngredient = 0,
   }) {
     // Sorted by what each one costs, so the sentence leads with the filter doing
     // the most damage rather than whichever happens to be declared first.
@@ -423,6 +460,7 @@ class SpinController extends _$SpinController {
       mostRelaxable: bestCount > 0 ? best : null,
       wouldOpen: bestCount,
       blockedByRepetition: blockedByRepetition,
+      blockedByIngredient: blockedByIngredient,
     );
   }
 

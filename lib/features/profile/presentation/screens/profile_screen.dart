@@ -154,7 +154,7 @@ class _ProfileBody extends ConsumerWidget {
     );
   }
 
-  /// A one-line summary of the six preference fields.
+  /// A one-line summary of the preference fields.
   ///
   /// Cuisines first, because that is the answer people remember giving; then a
   /// count of the things they avoid, which is the answer that changes the results
@@ -170,6 +170,11 @@ class _ProfileBody extends ConsumerWidget {
         '${preferences.dislikedFoods.length} avoided',
       if (preferences.dietaryTags.isNotEmpty)
         '${preferences.dietaryTags.length} dietary',
+      // Last, because it is the answer that changes results least — but present,
+      // because a preference the summary never mentions is one somebody forgets
+      // they set and then blames the engine for.
+      if (preferences.maxDifficulty case final Difficulty level)
+        'up to ${level.label.toLowerCase()}',
     ];
 
     return parts.isEmpty ? 'Nothing set yet' : parts.join(' · ');

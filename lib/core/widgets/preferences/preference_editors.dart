@@ -378,7 +378,67 @@ class RepetitionWindowPicker extends StatelessWidget {
   ];
 }
 
+/// How much effort the household wants to be offered (Sprint 35).
+///
+/// **A ceiling, not a set.** "Nothing hard" is an answer somebody actually gives;
+/// "easy or hard but not medium" is not. So this offers three cumulative choices
+/// and the roulette expands the ceiling into the set of difficulties at or below
+/// it — which is also why picking `hard` and picking "no preference" look
+/// different here even though they filter identically today: one is an opinion
+/// that survives a fourth difficulty being added, and the other is its absence.
+class DifficultyPicker extends StatelessWidget {
+  const DifficultyPicker({
+    required this.maxDifficulty,
+    required this.onChanged,
+    super.key,
+  });
+
+  /// Null means no preference.
+  final Difficulty? maxDifficulty;
+
+  /// Called with null to go back to no preference.
+  final ValueChanged<Difficulty?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        SelectableTile(
+          title: 'Anything',
+          caption: 'Offer me the lot',
+          icon: AppIcons.spin,
+          isSelected: maxDifficulty == null,
+          onSelected: () => onChanged(null),
+        ),
+        const SizedBox(height: AppSpacing.space3),
+        for (final (Difficulty option, String title, String caption)
+            in _options) ...<Widget>[
+          SelectableTile(
+            title: title,
+            caption: caption,
+            icon: AppIcons.difficulty,
+            isSelected: maxDifficulty == option,
+            onSelected: () => onChanged(option),
+          ),
+          const SizedBox(height: AppSpacing.space3),
+        ],
+      ],
+    );
+  }
+
+  /// Worded as ceilings rather than as levels, because that is what they mean:
+  /// choosing "up to medium" is choosing easy meals as well.
+  static const List<(Difficulty, String, String)> _options =
+      <(Difficulty, String, String)>[
+        (Difficulty.easy, 'Keep it easy', 'Weeknight cooking only'),
+        (Difficulty.medium, 'Up to medium', 'Easy or a bit of work'),
+        (Difficulty.hard, 'Bring it on', 'Including the long ones'),
+      ];
+}
+
 /// The glyph for each [CookingFor] option.
+
 ///
 /// Mapped here rather than on the enum because `core/domain` imports nothing —
 /// it is pure Dart on purpose — and pulling Flutter into it for one `IconData`

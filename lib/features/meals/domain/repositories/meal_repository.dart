@@ -119,6 +119,26 @@ abstract interface class MealRepository {
   /// after it was favourited should leave the rest of the list intact rather
   /// than failing the whole screen.
   Future<List<Meal>> byIds(Set<String> ids);
+
+  /// Meals ruled out by the foods this user said they avoid (Sprint 35).
+  ///
+  /// **This is the half of the dislikes promise that was missing.** Since
+  /// migration 0011 the app has captured typed foods, stored them, and shown
+  /// their count under the words "We will never suggest these" — and nothing read
+  /// them. The roulette was free to offer a meal built on the one ingredient
+  /// somebody cannot stand, which is a worse outcome than never having asked.
+  ///
+  /// Resolved server-side, by a function that reads the caller's own preferences.
+  /// Two things follow from that: the list of foods never leaves the database, and
+  /// there is no argument for a caller to get wrong. It also means the matching
+  /// stays current — a food that matches nothing in today's catalogue matches as
+  /// soon as a recipe adds it, which a one-off reconciliation at save time would
+  /// never notice.
+  ///
+  /// Optional ingredients do not block: a recipe listing coriander as a garnish is
+  /// one a coriander-hater can cook.
+  Future<Set<String>> mealsBlockedByDislikes();
+
 }
 
 /// The page size for the feed.

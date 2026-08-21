@@ -107,7 +107,7 @@ class SupabaseOnboardingRepository implements OnboardingRepository {
   static const String preferenceColumns =
       'favorite_cuisines, dietary_tags, default_budget, '
       'max_cooking_time, preferred_servings, repetition_window_days, '
-      'disliked_ingredient_names';
+      'disliked_ingredient_names, max_difficulty';
 
   /// The same list, minus anything a database might not have yet.
   ///
@@ -126,6 +126,8 @@ class SupabaseOnboardingRepository implements OnboardingRepository {
   static const Set<String> _recentColumns = <String>{
     // Migration 0019, Sprint 32.
     'repetition_window_days',
+    // Migration 0021, Sprint 35.
+    'max_difficulty',
   };
 
   /// Reads the preferences row, tolerating a database that has not caught up.
@@ -250,6 +252,9 @@ class SupabaseOnboardingRepository implements OnboardingRepository {
       // the app default", 0 means "we do not mind repeats". Sent either way so
       // clearing the answer is possible.
       'repetition_window_days': preferences.repetitionWindowDays,
+      // Also null-meaningful: no preference is a different answer from 'easy',
+      // and the roulette treats them differently.
+      'max_difficulty': preferences.maxDifficulty?.value,
     };
   }
 
@@ -282,6 +287,9 @@ class SupabaseOnboardingRepository implements OnboardingRepository {
       // they did not ask for.
       cookingFor: CookingFor.fromServings(
         (row['preferred_servings'] as num?)?.toInt(),
+      ),
+      maxDifficulty: Difficulty.fromValue(
+        (row['max_difficulty'] as String?) ?? '',
       ),
       // Null stays null. It means "use the app default", which the engine treats
       // differently from the 0 that means "we do not mind repeats".

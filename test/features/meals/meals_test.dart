@@ -695,6 +695,10 @@ class _SmallPageRepository implements MealRepository {
 
   @override
   Future<List<Meal>> mine() => _inner.mine();
+
+  @override
+  Future<Set<String>> mealsBlockedByDislikes() =>
+      _inner.mealsBlockedByDislikes();
 }
 
 /// A repository whose reads can be held open, for observing the reloading state.
@@ -736,4 +740,8 @@ class _SlowRepository implements MealRepository {
 
   @override
   Future<List<Meal>> mine() => _inner.mine();
+
+  @override
+  Future<Set<String>> mealsBlockedByDislikes() =>
+      _inner.mealsBlockedByDislikes();
 }

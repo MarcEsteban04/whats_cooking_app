@@ -411,6 +411,9 @@ class _Spinning extends StatelessWidget {
 /// * **Exhausted** — every eligible meal has already been turned down this
 ///   session. Starting again is the fix and nothing needs relaxing.
 /// * **Everything hidden** — the reader hid it all. The hidden list is the fix.
+/// * **Everything avoided** — every remaining meal uses a food on the avoid
+///   list. Editing that list is the fix, and the screen never offers to ignore
+///   it: an avoided food is a promise, like a dietary need.
 ///
 /// It never offers to relax a dietary need, at any point, for any reason.
 class _NoMatch extends ConsumerWidget {
@@ -442,6 +445,9 @@ class _NoMatch extends ConsumerWidget {
   }
 
   String get _title {
+    if (state.isAllAvoided) {
+      return 'Everything has something you avoid';
+    }
     if (state.isAllTooRecent) {
       return 'You have had them all';
     }
@@ -457,6 +463,12 @@ class _NoMatch extends ConsumerWidget {
   }
 
   String get _body {
+    if (state.isAllAvoided) {
+      final int blocked = state.blockedByIngredient;
+      final String noun = blocked == 1 ? 'meal' : 'meals';
+      return 'All $blocked $noun use a food on your avoid list. Take one off '
+          'and we will have something to offer.';
+    }
     if (state.isAllTooRecent) {
       final int blocked = state.blockedByRepetition;
       final String noun = blocked == 1 ? 'meal' : 'meals';
@@ -487,7 +499,15 @@ class _NoMatch extends ConsumerWidget {
       // out is the preference that owns it — not a one-tap relaxation.
       // Offering "ignore what we ate recently, just this once" would undo the
       // one rule the household explicitly asked for.
-      if (state.isAllTooRecent)
+      // The avoided list is a promise, so this never offers to ignore it — the
+      // way out is editing the list itself, which is the reader's call and not
+      // a relaxation the app gets to suggest.
+      if (state.isAllAvoided)
+        AppButton.primary(
+          label: 'What you avoid',
+          onPressed: () => context.pushNamed(AppRoute.preferences.routeName),
+        )
+      else if (state.isAllTooRecent)
         AppButton.primary(
           label: 'Change how often we repeat',
           onPressed: () => context.pushNamed(AppRoute.preferences.routeName),
