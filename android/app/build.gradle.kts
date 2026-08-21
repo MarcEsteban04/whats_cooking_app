@@ -66,6 +66,48 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // Keep only the architecture that was asked for.
+        //
+        // **This is a crash, not tidiness.** `--target-platform android-arm64`
+        // tells Flutter which engine to compile, so `libflutter.so` and
+        // `libapp.so` land under `lib/arm64-v8a/` and nowhere else — but plugin
+        // AARs ship every ABI regardless, so the APK still ends up with
+        // `lib/x86_64/` and `lib/armeabi-v7a/` directories holding a couple of
+        // plugin libraries and *no engine*.
+        //
+        // Android's installer picks the app's ABI as the first entry of
+        // `Build.SUPPORTED_ABIS` that appears in the APK. A directory that exists
+        // but has no `libflutter.so` in it is therefore a directory the installer
+        // can choose, and the app then dies on launch with
+        //
+        //   MissingLibraryException: Could not find 'libflutter.so'.
+        //   Looked for: [arm64-v8a], but only found: [x86_64].
+        //
+        // which is what the first install on a real phone did. Filtering here is
+        // the only place that reaches the plugin libraries too.
+        //
+        // Reads the property Flutter already passes, so nothing changes for a
+        // plain `flutter run` or an unqualified `flutter build apk` — both leave
+        // it unset and get every ABI, engine included.
+        val requestedAbis = (project.findProperty("target-platform") as String?)
+            ?.split(",")
+            ?.mapNotNull {
+                when (it.trim()) {
+                    "android-arm64" -> "arm64-v8a"
+                    "android-arm" -> "armeabi-v7a"
+                    "android-x64" -> "x86_64"
+                    else -> null
+                }
+            }
+            ?.takeIf { it.isNotEmpty() }
+
+        if (requestedAbis != null) {
+            ndk {
+                abiFilters.clear()
+                abiFilters.addAll(requestedAbis)
+            }
+        }
     }
 
     signingConfigs {

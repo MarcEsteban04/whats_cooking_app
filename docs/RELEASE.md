@@ -155,8 +155,41 @@ flutter build apk --release --target-platform android-arm64 \
 
 Every Android phone worth installing this on is `arm64` — 32-bit ARM has been
 gone from new devices for years and `x86_64` is emulators. That is roughly a third
-of the size for the same app. Use the universal build only when you do not know
-what you are installing onto.
+of the size for the same app (27.6 MB against 64.6 MB). Use the universal build
+only when you do not know what you are installing onto.
+
+### Check the APK before transferring it
+
+The first install on a real phone crashed on launch with
+
+```
+MissingLibraryException: Could not find 'libflutter.so'.
+Looked for: [arm64-v8a], but only found: [x86_64].
+```
+
+Two things make that possible, and both are silent until the app dies:
+
+* **`flutter run` builds for the attached device only.** A debug APK left in
+  `build/app/outputs/flutter-apk/` after running on an emulator contains x86_64
+  and nothing else. It is the same directory the release build writes to, and the
+  file that is *newest* there is usually the debug one.
+* **`--target-platform` does not filter plugin libraries.** Flutter compiles its
+  engine for the platform asked for, but plugin AARs ship every ABI — so an
+  arm64-targeted APK still grew `lib/x86_64/` and `lib/armeabi-v7a/` directories
+  containing a plugin library and *no engine*. Android picks the app's ABI as the
+  first entry of `Build.SUPPORTED_ABIS` present in the APK, so a directory that
+  exists without an engine in it is a directory the installer can choose. Fixed
+  with `abiFilters` in `android/app/build.gradle.kts`, which is the only place
+  that reaches the plugin libraries too.
+
+So look inside the file rather than trusting its name:
+
+```bash
+unzip -l build/app/outputs/flutter-apk/app-release.apk | grep '\.so$'
+```
+
+Every `lib/<abi>/` directory that appears must contain `libflutter.so`. For an
+arm64 build the whole listing should be four lines, all under `lib/arm64-v8a/`.
 
 Install with `adb install -r build/app/outputs/flutter-apk/app-release.apk`, or
 copy the file to the phone and open it. On Android 8 and later the file manager
