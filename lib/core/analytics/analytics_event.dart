@@ -41,6 +41,23 @@ sealed class AnalyticsEvent {
   String toString() => '$name $properties';
 }
 
+/// Which roulette an event came from (Sprint 46).
+///
+/// docs/ARCHITECTURE.md §10 records why this exists: "we cooked" and "we went
+/// out" are the two things this app most needs to be able to tell apart, and
+/// without this field every figure blends them — a Time to Decision that averages
+/// a night cooking with a night out is a number about neither.
+///
+/// Defaulted to [cooking] on every event, so nothing that existed before this
+/// sprint had to change and no historical row is silently re-attributed.
+enum SpinSurface {
+  cooking,
+  eatingOut;
+
+  /// Snake case on the wire, matching every other property name.
+  String get value => this == SpinSurface.cooking ? 'cooking' : 'eating_out';
+}
+
 /// The app came to the foreground.
 ///
 /// [isCold] separates a launch from a resume, which matters because the session
@@ -64,6 +81,7 @@ final class SpinStarted extends AnalyticsEvent {
     required this.householdSize,
     required this.spinCountThisSession,
     this.mood,
+    this.surface = SpinSurface.cooking,
   });
 
   /// How many constraints the reader had chosen — not which ones.
@@ -94,6 +112,9 @@ final class SpinStarted extends AnalyticsEvent {
   /// a mood makes people accept the first meal they are offered.
   final String? mood;
 
+  /// Which roulette this was.
+  final SpinSurface surface;
+
   @override
   String get name => 'spin_started';
 
@@ -103,6 +124,7 @@ final class SpinStarted extends AnalyticsEvent {
     'household_size': householdSize,
     'spin_count': spinCountThisSession,
     'mood': mood,
+    'surface': surface.value,
   };
 }
 
@@ -113,6 +135,7 @@ final class SpinCompleted extends AnalyticsEvent {
     required this.score,
     required this.candidatePoolSize,
     required this.latency,
+    this.surface = SpinSurface.cooking,
   });
 
   final String mealId;
@@ -134,6 +157,9 @@ final class SpinCompleted extends AnalyticsEvent {
   /// shorter than the reel.
   final Duration latency;
 
+  /// Which roulette this was.
+  final SpinSurface surface;
+
   @override
   String get name => 'spin_completed';
 
@@ -145,6 +171,7 @@ final class SpinCompleted extends AnalyticsEvent {
     'score': double.parse(score.toStringAsFixed(3)),
     'pool_size': candidatePoolSize,
     'latency_ms': latency.inMilliseconds,
+    'surface': surface.value,
   };
 }
 
@@ -154,6 +181,7 @@ final class MealAccepted extends AnalyticsEvent {
     required this.mealId,
     required this.sinceAppOpen,
     required this.spinCount,
+    this.surface = SpinSurface.cooking,
   });
 
   final String mealId;
@@ -171,6 +199,13 @@ final class MealAccepted extends AnalyticsEvent {
   /// How many spins it took.
   final int spinCount;
 
+  /// Whether we cooked or went out.
+  ///
+  /// The single most valuable property on the north-star event after the duration
+  /// itself: a household that decides in forty seconds by going out has not solved
+  /// the same problem as one that decides in forty seconds by cooking.
+  final SpinSurface surface;
+
   @override
   String get name => 'meal_accepted';
 
@@ -181,15 +216,21 @@ final class MealAccepted extends AnalyticsEvent {
     // has a 60-second target and nobody is going to argue over 400 ms of it.
     'seconds_since_app_open': sinceAppOpen.inSeconds,
     'spin_count': spinCount,
+    'surface': surface.value,
   };
 }
 
 /// The reader said no and asked for another.
 final class MealRejected extends AnalyticsEvent {
-  const MealRejected({required this.mealId, required this.spinCount});
+  const MealRejected({
+    required this.mealId,
+    required this.spinCount,
+    this.surface = SpinSurface.cooking,
+  });
 
   final String mealId;
   final int spinCount;
+  final SpinSurface surface;
 
   @override
   String get name => 'meal_rejected';
@@ -198,6 +239,7 @@ final class MealRejected extends AnalyticsEvent {
   Map<String, Object?> get properties => <String, Object?>{
     'meal_id': mealId,
     'spin_count': spinCount,
+    'surface': surface.value,
   };
 }
 
@@ -212,6 +254,7 @@ final class NoMatchFound extends AnalyticsEvent {
     required this.blockingConstraint,
     required this.eligibleCount,
     required this.blockedByRepetition,
+    this.surface = SpinSurface.cooking,
   });
 
   /// The constraint costing the reader dinner, or null when nothing was filtering
@@ -229,6 +272,9 @@ final class NoMatchFound extends AnalyticsEvent {
   /// people over-filter.
   final int blockedByRepetition;
 
+  /// Which roulette found nothing.
+  final SpinSurface surface;
+
   @override
   String get name => 'no_match';
 
@@ -237,5 +283,6 @@ final class NoMatchFound extends AnalyticsEvent {
     'blocking_constraint': blockingConstraint,
     'eligible_count': eligibleCount,
     'blocked_by_repetition': blockedByRepetition,
+    'surface': surface.value,
   };
 }

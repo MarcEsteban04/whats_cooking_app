@@ -6,6 +6,7 @@ import 'package:whats_cooking/core/errors/error_presenter.dart';
 import 'package:whats_cooking/core/router/app_routes.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/utils/formatters.dart';
+import 'package:whats_cooking/core/widgets/buttons/app_button.dart';
 import 'package:whats_cooking/core/widgets/dashboard/dashboard.dart';
 import 'package:whats_cooking/core/widgets/feedback/app_skeleton.dart';
 import 'package:whats_cooking/core/widgets/feedback/empty_state.dart';
@@ -204,6 +205,23 @@ class _Loaded extends StatelessWidget {
                     ),
                 ],
               ),
+              const SizedBox(height: AppSpacing.space5),
+
+              // The point of the list (Sprint 46). Loud, in the accent, exactly
+              // as Home's is — this screen is a decision surface too, and a list
+              // you can only read is a list nobody keeps up to date.
+              //
+              // Two places, not one: spinning between a single option is a
+              // ceremony with a foregone conclusion, and the button would teach
+              // somebody the feature is pointless on the one occasion it is.
+              if (all.length >= 2)
+                AppButton.brand(
+                  label: 'PICK ONE',
+                  size: AppButtonSize.large,
+                  onPressed: () =>
+                      context.goNamed(AppRoute.restaurantSpin.routeName),
+                ),
+
               const SizedBox(height: AppSpacing.space5),
               const DashboardRule(),
               const SizedBox(height: AppSpacing.space4),

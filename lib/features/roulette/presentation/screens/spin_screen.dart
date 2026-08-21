@@ -7,6 +7,7 @@ import 'package:whats_cooking/core/errors/error_presenter.dart';
 import 'package:whats_cooking/core/router/app_routes.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/utils/app_haptics.dart';
+import 'package:whats_cooking/core/utils/formatters.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_button.dart';
 import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal.dart';
@@ -376,7 +377,23 @@ class _Spinning extends StatelessWidget {
             final double offset = reelOffsetAt(animation.value);
             return MealReel(
               offset: offset,
-              pool: pool,
+              // Mapped here rather than by the reel (Sprint 46). The reel takes
+              // a view model now so the restaurant roulette can be the *same*
+              // reel rather than a copy — and a meal's metadata line is time and
+              // cost, which is not what a restaurant's says.
+              pool: <ReelEntry>[
+                for (final Meal meal in pool)
+                  ReelEntry(
+                    id: meal.id,
+                    overline: meal.cuisine.label,
+                    title: meal.name,
+                    metadata: AppFormat.metadata(<String?>[
+                      AppFormat.cookingTime(meal.cookingTimeMinutes),
+                      '${AppFormat.peso(meal.costPerServing)} a head',
+                    ]),
+                    tint: meal.cuisine.label,
+                  ),
+              ],
               settledIndex: isStopped ? reelSettleIndex(offset) : null,
             );
           },

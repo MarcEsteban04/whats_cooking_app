@@ -642,7 +642,13 @@ property to preserve if the function is ever changed.
 | - | -------- | ---------- |
 | Q5 | Cost estimates — national average, or per-household override table? | Sprint 23 |
 | Q8 | Custom meals private, or promotable into the public catalogue? | Sprint 26 |
-| — | Do restaurants need their own repetition window, or does one setting cover both roulettes? | Sprint 46 |
+
+**Restaurant repetition window — resolved at Sprint 46: its own.** One setting does
+not cover both. A household happy to cook adobo twice in a week is not necessarily
+happy to eat out twice in a week, and the money is the reason — so the default block
+is a week against a meal's two days, and the taper a month against a fortnight. It is
+a constant in `VisitSettings` rather than a column, because nobody has asked to tune
+it and a preference nobody sets is a screen nobody opens.
 
 **Unit conversion — resolved at Sprint 39: neither.** The question was normalise on
 write or convert on read, and the answer is that nothing converts. Both options need a

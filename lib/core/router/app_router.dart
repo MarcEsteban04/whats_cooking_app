@@ -38,7 +38,10 @@ import 'package:whats_cooking/features/profile/presentation/screens/appearance_s
 import 'package:whats_cooking/features/profile/presentation/screens/budget_settings_screen.dart';
 import 'package:whats_cooking/features/profile/presentation/screens/preferences_screen.dart';
 import 'package:whats_cooking/features/profile/presentation/screens/profile_screen.dart';
+import 'package:whats_cooking/features/restaurants/domain/entities/restaurant.dart';
 import 'package:whats_cooking/features/restaurants/presentation/screens/restaurant_form_screen.dart';
+import 'package:whats_cooking/features/restaurants/presentation/screens/restaurant_result_screen.dart';
+import 'package:whats_cooking/features/restaurants/presentation/screens/restaurant_spin_screen.dart';
 import 'package:whats_cooking/features/restaurants/presentation/screens/restaurants_screen.dart';
 import 'package:whats_cooking/features/roulette/presentation/screens/spin_filters_sheet.dart';
 import 'package:whats_cooking/features/roulette/presentation/screens/spin_result_screen.dart';
@@ -453,6 +456,29 @@ final GoRoute _mealEditRoute = GoRoute(
 final List<RouteBase> _fullScreenRoutes = <RouteBase>[
   // Eating out (Sprint 45). Full screen on the root navigator, beside the
   // roulette rather than in the navigation bar — see `AppRoute.restaurants`.
+  GoRoute(
+    path: AppRoute.restaurantSpin.path,
+    name: AppRoute.restaurantSpin.routeName,
+    parentNavigatorKey: rootNavigatorKey,
+    pageBuilder: (BuildContext context, GoRouterState state) =>
+        const AppScaleFadePage<void>(child: RestaurantSpinScreen()),
+  ),
+  GoRoute(
+    path: AppRoute.restaurantResult.path,
+    name: AppRoute.restaurantResult.routeName,
+    parentNavigatorKey: rootNavigatorKey,
+    // The scale-and-fade entry *is* the reveal, exactly as it is for meals — the
+    // spin screen stops one phase short so this transition finishes the job.
+    pageBuilder: (BuildContext context, GoRouterState state) =>
+        AppScaleFadePage<void>(
+          child: RestaurantResultScreen(
+            restaurantId: state.pathParameters['id']!,
+            pick: state.extra is Restaurant
+                ? state.extra as Restaurant
+                : null,
+          ),
+        ),
+  ),
   GoRoute(
     path: AppRoute.restaurants.path,
     name: AppRoute.restaurants.routeName,

@@ -344,10 +344,27 @@ Sprint 41. The weight exists on `ScoreWeights` anyway, so the gap is a stated fa
 rather than something a reader has to notice. `partnerCompatibility` is removed from
 the table above and should come off `ScoreWeights` when Sprint 41 next touches it.
 
-**The same engine scores restaurants** from Sprint 46. Budget, cuisine preference,
-variety, favourites and recency are the same signals over a different pool; only the
-entity changes. A second scorer for "where shall we eat" would be the same arithmetic
-maintained twice.
+**The arithmetic is shared with the restaurant roulette; the weight tables are
+not.** Sprint 37's note here said "the same engine scores restaurants — only the
+entity changes", and Sprint 46 found that to be an overstatement worth correcting.
+
+What *is* shared, in `SpinWeighting`: the exponential weighting, the floor and cap,
+the weighted draw, and the headroom ramp. Those are identical between the two and are
+exactly where a second copy would drift the first time either was tuned — invisibly,
+because both engines would still work and would merely disagree about what "well under
+budget" is worth.
+
+What is not: cooking time and the pantry match are meaningless for a restaurant, and
+proximity and delivery are meaningless for a meal. `RestaurantWeights` is its own
+table, echoing the meal numbers where the signal is genuinely the same — a favourite
+cuisine is 30 in both, and the mood still outranks it at 35 — and differing where the
+reasoning does. A starred restaurant is worth 25 against a saved meal's 15, because
+somebody has been there and written down what to order; a recent visit is −20 against
+a recent meal's −15, because eating out twice in a week also costs four times as
+much.
+
+One scorer taking a union of nine fields, four of them always null, would be one
+function pretending to be two.
 
 ### 5.3 Testability
 

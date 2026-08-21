@@ -2,8 +2,6 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
-import 'package:whats_cooking/core/utils/formatters.dart';
-import 'package:whats_cooking/features/meals/domain/entities/meal.dart';
 
 /// The reel of meals, rolling (docs/design_ui.md §12).
 ///
@@ -23,6 +21,45 @@ import 'package:whats_cooking/features/meals/domain/entities/meal.dart';
 /// one thing design_ui §12 rules out — "do not make it look like a casino slot
 /// machine" — and it also insists on owning the scroll physics, which is exactly
 /// what has to be driven by the spin's own curve here.
+/// One card's worth of whatever is being spun for (Sprint 46).
+///
+/// The reel used to take `List<Meal>`. It takes these instead so that the
+/// restaurant roulette is the *same* reel rather than a copy of it — the
+/// animation, the timing curve, the edge fade, the settle border and the
+/// planting arithmetic are the product's signature moment, and two of them would
+/// drift apart the first time one was touched.
+///
+/// Deliberately not an interface either entity implements. A view model keeps the
+/// domain free of presentation concerns — `Meal` should not have to know what an
+/// overline is — and it lets the two callers say different things in the same
+/// slot: a meal's metadata is time and cost, a restaurant's is cost and distance.
+@immutable
+class ReelEntry {
+  const ReelEntry({
+    required this.id,
+    required this.overline,
+    required this.title,
+    required this.metadata,
+    required this.tint,
+  });
+
+  final String id;
+
+  /// Tiny caps above the name. The cuisine, for both roulettes.
+  final String overline;
+
+  final String title;
+
+  /// One line under it: `35 min · ₱180 a head`, or `₱450 a head · short ride`.
+  final String metadata;
+
+  /// What the card's pastel is looked up from — the cuisine label.
+  ///
+  /// The tint is doing real work at speed: what the eye tracks is the block of
+  /// colour changing, not the letters.
+  final String tint;
+}
+
 class MealReel extends StatelessWidget {
   const MealReel({
     required this.offset,
@@ -35,7 +72,7 @@ class MealReel extends StatelessWidget {
   final double offset;
 
   /// What is on the reel. Cycled endlessly by wrapping the index.
-  final List<Meal> pool;
+  final List<ReelEntry> pool;
 
   /// Set once the reel has stopped, so the landed card can be lifted out of the
   /// row of neighbours it was travelling with.
@@ -82,7 +119,7 @@ class MealReel extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    final Meal meal = pool[slot % pool.length];
+    final ReelEntry entry = pool[slot % pool.length];
     final double from = distance.abs();
 
     // Neighbours are smaller, dimmer and pushed back. All three fall off
@@ -102,7 +139,7 @@ class MealReel extends StatelessWidget {
           opacity: opacity,
           child: Transform.scale(
             scale: scale,
-            child: _ReelCard(meal: meal, isSettled: isSettled),
+            child: _ReelCard(entry: entry, isSettled: isSettled),
           ),
         ),
       ),
@@ -119,15 +156,15 @@ class MealReel extends StatelessWidget {
   static const double _cardExtent = _cardHeight + AppSpacing.space3;
 }
 
-/// One meal on the reel.
+/// One card on the reel.
 ///
-/// The cuisine tint is doing real work: at speed, what the eye tracks is the
-/// block of colour changing, not the letters. Text alone at 80 ms a card is a
-/// flicker; a card whose whole surface changes is a card being replaced.
+/// The tint is doing real work: at speed, what the eye tracks is the block of
+/// colour changing, not the letters. Text alone at 80 ms a card is a flicker; a
+/// card whose whole surface changes is a card being replaced.
 class _ReelCard extends StatelessWidget {
-  const _ReelCard({required this.meal, required this.isSettled});
+  const _ReelCard({required this.entry, required this.isSettled});
 
-  final Meal meal;
+  final ReelEntry entry;
 
   /// The reel has stopped and this is the one it stopped on.
   final bool isSettled;
@@ -135,7 +172,7 @@ class _ReelCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final AppColorScheme colors = context.colors;
-    final AppAccent accent = colors.accentFor(meal.cuisine.label);
+    final AppAccent accent = colors.accentFor(entry.tint);
 
     return AnimatedContainer(
       duration: AppRouletteMotion.reveal,
@@ -162,7 +199,7 @@ class _ReelCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           Text(
-            meal.cuisine.label.toUpperCase(),
+            entry.overline.toUpperCase(),
             style: context.text.overline.copyWith(color: accent.foreground),
             textAlign: TextAlign.center,
             maxLines: 1,
@@ -170,7 +207,7 @@ class _ReelCard extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.space2),
           Text(
-            meal.name,
+            entry.title,
             style: context.text.headlineMedium,
             textAlign: TextAlign.center,
             maxLines: 2,
@@ -178,10 +215,10 @@ class _ReelCard extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.space2),
           Text(
-            AppFormat.metadata(<String?>[
-              AppFormat.cookingTime(meal.cookingTimeMinutes),
-              '${AppFormat.peso(meal.costPerServing)} a head',
-            ]),
+            // Composed by the caller rather than here. A meal's line is time and
+            // cost; a restaurant's is cost and distance — and the card should not
+            // have to know which kind of thing it is holding.
+            entry.metadata,
             style: context.text.metadata,
             textAlign: TextAlign.center,
             maxLines: 1,

@@ -139,6 +139,15 @@ enum AppRoute {
   restaurantCreate(path: '/eat-out/new'),
   restaurantEdit(path: '/eat-out/:id/edit'),
 
+  /// The night-out roulette (Sprint 46).
+  ///
+  /// A sibling of [roulette] rather than a child of [restaurants], because it is
+  /// the same *kind* of thing as the meal spin — a full-screen decision that
+  /// takes over — and nesting it under the list would make going back land on a
+  /// list nobody asked to see.
+  restaurantSpin(path: '/eat-out/spin'),
+  restaurantResult(path: '/eat-out/spin/:id'),
+
   // ---------------------------------------------------------------------------
   // Profile tab
   // ---------------------------------------------------------------------------

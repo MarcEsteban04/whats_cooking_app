@@ -59,12 +59,17 @@ class Analytics {
   ///
   /// The duration comes from the clock rather than the caller, which is the whole
   /// reason this method exists.
-  void mealAccepted({required String mealId, required int spinCount}) {
+  void mealAccepted({
+    required String mealId,
+    required int spinCount,
+    SpinSurface surface = SpinSurface.cooking,
+  }) {
     record(
       MealAccepted(
         mealId: mealId,
         sinceAppOpen: _clock.sinceOpen,
         spinCount: spinCount,
+        surface: surface,
       ),
     );
   }
