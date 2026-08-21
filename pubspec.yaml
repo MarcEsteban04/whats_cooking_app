@@ -8,6 +8,16 @@ environment:
 
 dependencies:
   cached_network_image: ^3.4.1
+
+  # Not used directly — nothing here imports Cupertino (Sprint 52).
+  #
+  # It is here because Material's adaptive widgets and the iOS text-selection
+  # toolbar reference `CupertinoIcons` constants whether or not this app does, and
+  # without the package the release build warns "Expected to find fonts for
+  # (packages/cupertino_icons/CupertinoIcons)" and those glyphs would be missing on
+  # an Apple device. The tree shaker reduces it to nothing when it is genuinely
+  # unreferenced, so the cost is a line in this file.
+  cupertino_icons: ^1.0.8
   flutter:
     sdk: flutter
   flutter_riverpod: ^3.4.2

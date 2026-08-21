@@ -92,7 +92,7 @@ reason to ship something broken to the two people who have to live with it.
 | 9 | 42–43 | Grocery | ✅ Done |
 | 10 | 45–46 | Restaurant Roulette | ✅ Done |
 | 11 | 47–50 | AI | ✅ Done |
-| 12 | 51–52 | Hardening & Shipping | ▶ 51 done |
+| 12 | 51–52 | Hardening & Shipping | ✅ Done |
 
 ---
 
@@ -613,6 +613,52 @@ No store listing. No screenshots. No privacy policy. No review process.
 **Note:** with no Play listing, `com.example.*` stops being a hard blocker and
 becomes a tidiness issue — but the application id is still permanent per install,
 so it is worth setting once, here, before either phone has data worth keeping.
+
+**Delivered — see docs/RELEASE.md for the parts that are yours.**
+
+**The deep link was broken, and silently.** The app has been sending
+`whatscooking://reset-password` as its `redirectTo` on every reset email since the
+auth sprint, and **nothing on either platform claimed the scheme** — no intent
+filter on Android, no `CFBundleURLTypes` on iOS. So the link in the email opened
+nothing at all: no error, no log, a tap that did nothing, which reads as a broken
+email rather than as a missing manifest entry. That is now registered on both
+platforms, scheme-only rather than pinned to a host, because Supabase sends more
+than one path back and a filter pinned to `reset-password` would fail the same
+silent way for the next one. The Dart side was already right —
+`AuthChangeEvent.passwordRecovery` is handled ahead of the signed-in cases
+precisely so a recovery link cannot land on Home.
+
+**`com.acoretechnology.whatscooking`**, replacing the template's
+`com.example.whats_cooking`: Android `applicationId` and `namespace`, the Kotlin
+package directory, and the iOS and macOS `PRODUCT_BUNDLE_IDENTIFIER`. Reverse DNS
+on a domain the household controls, and no underscore. **Change it before the
+first install if it should be something else** — after that it is a one-way door,
+because Android treats a changed id as a different app.
+
+**Release signing reads `android/key.properties`** — git-ignored, alongside a
+committed `.example` and the `keytool` line that makes the keystore — and **falls
+back to debug signing when it is absent**. That fallback is deliberate: "does this
+app build with the tree shaker on" and "is this the artifact for the phone" are
+different questions, and failing the first because of the second would put the
+useful check behind the key.
+
+R8 is **off**. It needs keep rules for anything reached by reflection, and the
+plugins here — secure storage, shared preferences, the image picker — are exactly
+the shape that breaks silently: the build succeeds and a feature stops working in
+release only. Two megabytes is not worth that.
+
+**A release APK was built and it compiles clean** — 64.6 MB universal, which the
+release doc corrects to `--target-platform android-arm64` for roughly a third of
+that. The build also surfaced a missing `cupertino_icons`: nothing here imports
+Cupertino, but Material's adaptive widgets and the iOS text-selection toolbar
+reference its glyphs regardless, and without the package those would be absent on
+an Apple device. Added; the tree shaker removes it when genuinely unreferenced.
+
+**Left to Marc, and written down rather than guessed at:** the keystore, the
+Supabase dashboard's redirect allow-list (an entry that is missing is not an error
+the app can see — Supabase quietly substitutes its own hosted page), the
+production project with backups on, the function secrets, and the on-device
+checks that an emulator cannot answer.
 
 ---
 

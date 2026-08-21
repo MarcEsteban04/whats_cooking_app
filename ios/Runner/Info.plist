@@ -32,6 +32,23 @@
 		<string>To read what is in your fridge and suggest what to add to your kitchen. The photo is not saved.</string>
 		<key>NSPhotoLibraryUsageDescription</key>
 		<string>To read a photo of your fridge and suggest what to add to your kitchen. The photo is not saved.</string>
+		<!-- The deep link back from an email (Sprint 52). The Android manifest
+		     carries the reasoning; the short version is that the app has been
+		     sending whatscooking://reset-password as its redirect since the auth
+		     sprint and nothing claimed the scheme, so the link opened nothing. -->
+		<key>CFBundleURLTypes</key>
+		<array>
+			<dict>
+				<key>CFBundleTypeRole</key>
+				<string>Editor</string>
+				<key>CFBundleURLName</key>
+				<string>com.acoretechnology.whatscooking</string>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>whatscooking</string>
+				</array>
+			</dict>
+		</array>
 		<key>LSRequiresIPhoneOS</key>
 		<true/>
 		<key>UIApplicationSceneManifest</key>

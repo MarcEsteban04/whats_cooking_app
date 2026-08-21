@@ -1,4 +1,4 @@
-package com.example.whats_cooking
+package com.acoretechnology.whatscooking
 
 import io.flutter.embedding.android.FlutterActivity
 

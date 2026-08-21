@@ -62,3 +62,11 @@ app.*.map.json
 # The example is committed; the filled-in copy holds credentials and is not.
 /config/*.json
 !/config/*.example.json
+
+# Release signing (Sprint 52).
+# The keystore and its passwords never go in the repository. Losing the .jks is
+# unrecoverable — Android refuses an install whose signature differs — so it
+# belongs in a backup, not in version control.
+/android/key.properties
+*.jks
+*.keystore

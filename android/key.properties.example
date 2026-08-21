@@ -1,0 +1,24 @@
+# The release signing keys (Sprint 52).
+#
+# Copy to `android/key.properties`, which is git-ignored, and fill in. The build
+# falls back to debug signing when this file is absent, so a fresh clone still
+# builds — see android/app/build.gradle.kts.
+#
+# Generate the keystore once:
+#
+#   keytool -genkey -v -keystore ~/whats-cooking-release.jks \
+#     -keyalg RSA -keysize 2048 -validity 10000 -alias whatscooking
+#
+# **Back the .jks file up somewhere that is not this machine, and keep the
+# passwords with it.** Losing it is unrecoverable: Android will not let a
+# differently-signed APK upgrade an installed one, so a lost key means uninstall
+# and reinstall on every phone that has the app — and everything the app kept
+# only on the device goes with it.
+#
+# The keystore itself must never be committed. `.gitignore` covers `*.jks` and
+# this file's real counterpart.
+
+storeFile=../whats-cooking-release.jks
+storePassword=
+keyAlias=whatscooking
+keyPassword=

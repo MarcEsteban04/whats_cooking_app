@@ -24,6 +24,41 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+
+            <!-- The deep link back from an email (Sprint 52).
+                 =====================================================
+                 **This was missing, and it broke password reset silently.** The
+                 app has been sending `whatscooking://reset-password` as the
+                 `redirectTo` on every reset email since the auth sprint
+                 (AppConstants.passwordResetRedirect), and nothing on either
+                 platform claimed the scheme — so the link in the email opened
+                 nothing at all. No error, no log: a tap that does nothing, which
+                 reads as a broken email rather than a missing intent filter.
+
+                 The scheme is registered without a host on purpose. Supabase
+                 sends more than one path back — reset-password now, a
+                 confirmation callback if email confirmation is turned on — and a
+                 filter pinned to one host would work for that one and fail the
+                 same silent way for the next.
+
+                 `singleTop` above matters here: without it the link would start
+                 a second copy of the activity on top of the running app, and the
+                 session it delivers would land in the wrong one.
+
+                 This is a custom scheme, not an App Link, so there is no domain
+                 verification and no assetlinks.json to serve. The trade is that
+                 any app may claim the same scheme; for a two-phone household that
+                 is a better deal than owning and verifying a domain.
+
+                 The matching allow-list entry has to exist in the Supabase
+                 dashboard under Authentication → URL Configuration, or the
+                 backend refuses to send the link at all. See supabase/README.md. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="whatscooking"/>
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
