@@ -1,4 +1,29 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- The app talks to Supabase. Everything it shows comes from there.
+         ===================================================================
+         **This was missing, and it made release builds offline.** The Flutter
+         template declares INTERNET in `src/debug/` and `src/profile/` only —
+         those two exist so the tooling can attach for hot reload — and leaves
+         the main manifest without it, on the assumption that the developer
+         adds it when the app actually needs the network.
+
+         Nothing catches the omission. Debug and profile builds work because
+         their manifests merge the permission in, so every emulator run and
+         every `flutter run` is fine. The *release* build is the only one that
+         ships without it, and Android does not refuse the connection — it
+         fails the DNS lookup:
+
+           SocketException: Failed host lookup: '<project>.supabase.co'
+           (OS Error: No address associated with hostname)
+
+         Which reads as a broken phone or a broken ISP. The first real install
+         was spent looking at Private DNS settings.
+
+         No ACCESS_NETWORK_STATE: nothing here inspects the connection type, and
+         `BackendHealth` answers "is the backend reachable" by asking it rather
+         than by asking Android what kind of radio is on. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+
     <application
         android:label="What's Cooking?"
         android:name="${applicationName}"

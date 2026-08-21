@@ -191,6 +191,30 @@ unzip -l build/app/outputs/flutter-apk/app-release.apk | grep '\.so$'
 Every `lib/<abi>/` directory that appears must contain `libflutter.so`. For an
 arm64 build the whole listing should be four lines, all under `lib/arm64-v8a/`.
 
+### And check the permissions
+
+The second thing the first real install got wrong, and it is invisible in every
+build except the one that matters. The Flutter template declares `INTERNET` in
+`android/app/src/debug/` and `android/app/src/profile/` **only** — those exist so
+the tooling can attach for hot reload — and leaves the main manifest without it.
+Debug and profile builds therefore have network access and the release build does
+not. Android does not refuse the connection either; it fails the DNS lookup:
+
+```
+SocketException: Failed host lookup: '<project>.supabase.co'
+(OS Error: No address associated with hostname)
+```
+
+which reads as a broken phone. Declared in the main manifest now, so it applies to
+every build type. Verify it survived:
+
+```bash
+"$ANDROID_HOME/build-tools/<version>/aapt2" dump permissions \
+  build/app/outputs/flutter-apk/app-release.apk
+```
+
+`android.permission.INTERNET` must be in the list.
+
 Install with `adb install -r build/app/outputs/flutter-apk/app-release.apk`, or
 copy the file to the phone and open it. On Android 8 and later the file manager
 asks for permission to install unknown apps — that is the one prompt to expect,
