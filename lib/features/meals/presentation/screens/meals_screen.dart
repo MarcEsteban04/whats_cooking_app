@@ -132,7 +132,6 @@ class _MealsScreenState extends ConsumerState<MealsScreen> {
                     sliver: SliverList.list(
                       children: <Widget>[
                         DashboardHeader(
-                          initials: 'wc',
                           title: 'Meals',
                           subtitle: _countLine(current),
                           onSubtitleTap: (current?.query.hasFilters ?? false)

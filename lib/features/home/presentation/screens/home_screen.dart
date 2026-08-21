@@ -73,7 +73,6 @@ class HomeScreen extends ConsumerWidget {
               ),
               children: <Widget>[
                 DashboardHeader(
-                  initials: 'wc',
                   title: 'Tonight',
                   subtitle: _kitchenLine(profile.value),
                   onSubtitleTap: () =>

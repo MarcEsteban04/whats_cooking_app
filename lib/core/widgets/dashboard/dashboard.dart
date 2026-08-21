@@ -33,6 +33,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
+import 'package:whats_cooking/core/widgets/brand_logo.dart';
 import 'package:whats_cooking/core/widgets/cards/app_card.dart';
 import 'package:whats_cooking/core/widgets/press_feedback.dart';
 
@@ -784,12 +785,24 @@ class _ActionTile extends StatelessWidget {
 
 /// The screen header from the reference.
 ///
-/// A rounded square holding two initials, the name beside it, a tappable
-/// context line beneath, and circular actions on the right — `GC Global Connect
-/// / 37 Members ⌄` with a settings and a member button.
+/// The product mark, the screen's name beside it, a tappable context line
+/// beneath, and circular actions on the right — the reference's `GC Global
+/// Connect / 37 Members ⌄` with its settings and member buttons.
+///
+/// The reference puts an organisation's monogram in that first slot, and this
+/// carried two initials there for the same reason. It now carries [BrandLogo]
+/// instead, because a monogram of the product is a worse thing than the product's
+/// own mark: the mark is the only place the app is ever branded inside itself,
+/// and the two dashboards are the screens a signed-in household actually lives
+/// on. Every other placement — welcome, onboarding, the launch window — is
+/// somewhere they pass once.
+///
+/// The lettering inside it is not legible at [_markSize] and is not meant to be.
+/// What reads at this size is the silhouette: a dark green roundel under a white
+/// dome. That is what makes it recognisable in a header, the same way an icon on
+/// a home screen is recognised by its shape long before anything written on it.
 class DashboardHeader extends StatelessWidget {
   const DashboardHeader({
-    required this.initials,
     required this.title,
     this.subtitle,
     this.onSubtitleTap,
@@ -797,8 +810,6 @@ class DashboardHeader extends StatelessWidget {
     super.key,
   });
 
-  /// Two characters. More than two stops being a mark and starts being a word.
-  final String initials;
   final String title;
   final String? subtitle;
   final VoidCallback? onSubtitleTap;
@@ -810,21 +821,15 @@ class DashboardHeader extends StatelessWidget {
 
     return Row(
       children: <Widget>[
-        DecoratedBox(
-          decoration: BoxDecoration(
-            color: colors.series1,
-            borderRadius: AppRadius.borderSm,
-          ),
-          child: SizedBox.square(
-            dimension: _markSize,
-            child: Center(
-              child: Text(
-                initials.toUpperCase(),
-                style: context.text.labelSmall.copyWith(color: colors.surface),
-              ),
-            ),
-          ),
-        ),
+        // Drawn plain, with nothing behind it. The mark is already a roundel, so
+        // a filled chip would put a square behind a circle and read as two marks
+        // fighting rather than one — and the fill it used to have was the accent,
+        // which the mark's own green then sat inside.
+        //
+        // Decorative, so no semantic label: the title next to it is what a screen
+        // reader needs from this row, and announcing the product on every
+        // dashboard would be noise before the useful part.
+        const BrandLogo(height: _markSize),
         const SizedBox(width: AppSpacing.space3),
         Expanded(
           child: Column(
@@ -871,5 +876,11 @@ class DashboardHeader extends StatelessWidget {
     );
   }
 
-  static const double _markSize = 36;
+  /// A shade over the 36 the reference's monogram uses.
+  ///
+  /// A solid tile carries visual weight from its fill, and this has none — a
+  /// transparent mark in the same box reads smaller than the square it replaced.
+  /// 40 still fits the row, whose height comes from the title and context line
+  /// beside it rather than from here.
+  static const double _markSize = 40;
 }
