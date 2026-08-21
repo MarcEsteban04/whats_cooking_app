@@ -6,6 +6,7 @@ import 'package:whats_cooking/core/errors/app_exception.dart';
 import 'package:whats_cooking/core/errors/error_presenter.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/utils/app_haptics.dart';
+import 'package:whats_cooking/core/utils/formatters.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_button.dart';
 import 'package:whats_cooking/core/widgets/chips/app_filter_chip.dart';
 import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
@@ -46,6 +47,9 @@ class _PantryItemSheetState extends ConsumerState<PantryItemSheet> {
   bool _isSaving = false;
   AppException? _failure;
 
+  /// The chosen date, or null for "no date" (Sprint 40).
+  DateTime? _expiresOn;
+
   bool get _isEditing => widget.existing != null;
 
   @override
@@ -65,6 +69,7 @@ class _PantryItemSheetState extends ConsumerState<PantryItemSheet> {
       },
     );
     _unit = TextEditingController(text: existing?.unit ?? '');
+    _expiresOn = existing?.expiresOn;
   }
 
   @override
@@ -86,7 +91,15 @@ class _PantryItemSheetState extends ConsumerState<PantryItemSheet> {
           )
         : ref.watch(ingredientSuggestionsProvider(_term));
 
-    return Padding(
+    // **Scrollable, and it has to be.** The sheet's height is capped by its
+    // parent, and this Column is not a fixed height: the suggestion chips appear
+    // and wrap onto a second line while somebody types, the error banner appears
+    // on a failure, and the edit variant carries an extra button. It overflowed by
+    // 38 pixels the moment the expiry row was added — which is the same
+    // unbounded-content-in-a-bounded-box mistake the dashboard components made
+    // three times, and the reason a variable-height sheet should never be a bare
+    // Column.
+    return SingleChildScrollView(
       padding: EdgeInsets.only(
         left: AppLayout.screenMargin,
         right: AppLayout.screenMargin,
@@ -167,6 +180,13 @@ class _PantryItemSheetState extends ConsumerState<PantryItemSheet> {
             ],
           ),
 
+          const SizedBox(height: AppSpacing.space4),
+          _ExpiryField(
+            value: _expiresOn,
+            isStaple: widget.existing?.isStaple ?? false,
+            onChanged: (DateTime? date) => setState(() => _expiresOn = date),
+          ),
+
           if (_failure case final AppException problem) ...<Widget>[
             const SizedBox(height: AppSpacing.space4),
             InlineErrorBanner(
@@ -230,12 +250,15 @@ class _PantryItemSheetState extends ConsumerState<PantryItemSheet> {
         existing,
         quantity: quantity,
         unit: _unit.text.trim(),
+        expiresOn: _expiresOn,
         clearQuantity: clearQuantity || quantity == null,
+        clearExpiry: _expiresOn == null,
       ),
       null => await controller.add(
         name: name,
         quantity: quantity,
         unit: _unit.text.trim(),
+        expiresOn: _expiresOn,
       ),
     };
 
@@ -253,6 +276,92 @@ class _PantryItemSheetState extends ConsumerState<PantryItemSheet> {
 
     AppHaptics.reveal();
     context.pop();
+  }
+}
+
+/// When it goes off, if anybody wants to say (Sprint 40).
+///
+/// **A row that reads as a sentence, not a labelled date field.** Most items will
+/// never get a date — rice, salt, a bottle of vinegar have no honest answer — so
+/// the unset state has to look finished rather than blank. "No date" is the
+/// default and says so.
+///
+/// Shown but disabled on a staple, with the reason. Hiding it would leave somebody
+/// wondering why the field they used yesterday has gone; saying "staples never
+/// expire here" answers it once (docs/USER_FLOWS.md §12).
+class _ExpiryField extends StatelessWidget {
+  const _ExpiryField({
+    required this.value,
+    required this.isStaple,
+    required this.onChanged,
+  });
+
+  final DateTime? value;
+  final bool isStaple;
+  final ValueChanged<DateTime?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    if (isStaple) {
+      return Row(
+        children: <Widget>[
+          Icon(
+            AppIcons.check,
+            size: AppIconSize.xs,
+            color: context.colors.textTertiary,
+          ),
+          const SizedBox(width: AppSpacing.space2),
+          Expanded(
+            child: Text(
+              'A staple — we assume this is always in.',
+              style: context.text.metadata,
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Row(
+      children: <Widget>[
+        Expanded(
+          child: AppButton.secondary(
+            label: value == null
+                ? 'No date'
+                : 'Goes off ${AppFormat.calendarDate(value!)}',
+            leadingIcon: AppIcons.expiring,
+            size: AppButtonSize.small,
+            onPressed: () => _pick(context),
+          ),
+        ),
+        if (value != null) ...<Widget>[
+          const SizedBox(width: AppSpacing.space2),
+          AppButton.tertiary(
+            label: 'Clear',
+            size: AppButtonSize.small,
+            onPressed: () => onChanged(null),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Future<void> _pick(BuildContext context) async {
+    final DateTime today = DateTime.now();
+
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: value ?? today.add(const Duration(days: 3)),
+      // Backwards as well as forwards. Something already past its date is a thing
+      // to record and throw out, and a picker that refuses yesterday makes that
+      // impossible to say.
+      firstDate: DateTime(today.year - 1),
+      lastDate: DateTime(today.year + 3),
+      helpText: 'When does it go off?',
+    );
+
+    if (picked != null) {
+      onChanged(picked);
+    }
   }
 }
 

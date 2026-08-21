@@ -87,7 +87,24 @@ abstract final class AppFormat {
     };
   }
 
+  /// `22 Aug`, or `22 Aug 2027` when it is not this year (Sprint 40).
+  ///
+  /// Absolute, unlike [dayLabel]. That one is written for a *history* and speaks
+  /// in relative words — "Yesterday", "Tuesday" — which are the right words
+  /// looking backwards and the wrong ones looking forwards: "Goes off Tuesday"
+  /// reads as the Tuesday just gone. A date on a button has to be a date.
+  ///
+  /// The year appears only when it is not the current one, because a pantry is
+  /// mostly measured in days and "22 Aug 2026" is four characters of noise on
+  /// every line of it.
+  static String calendarDate(DateTime date, {DateTime? now}) {
+    final DateTime today = now ?? DateTime.now();
+    final String day = '${date.day} ${_months[date.month - 1]}';
+    return date.year == today.year ? day : '$day ${date.year}';
+  }
+
   /// `7:30 pm`.
+
   ///
   /// Lower-case meridiem and no leading zero, because this appears in a metadata
   /// line beside words rather than in a table of times.

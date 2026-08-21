@@ -142,6 +142,13 @@ class _Loaded extends ConsumerWidget {
 
     final int withAmounts = items.where((PantryItem i) => i.hasAmount).length;
 
+    // One clock for the whole build. Reading `DateTime.now()` per row would let a
+    // list rendered across midnight disagree with itself about what day it is.
+    final DateTime now = DateTime.now();
+    final int urgent = items
+        .where((PantryItem i) => i.statusAsOf(now).needsAttention)
+        .length;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
@@ -164,16 +171,28 @@ class _Loaded extends ConsumerWidget {
                         byAisle.length / IngredientCategory.values.length,
                     color: context.colors.series1,
                   ),
-                  StatColumnData(
-                    // The number the pantry does *not* need in order to be
-                    // useful — Sprint 41 asks "do we have any", not "how much".
-                    // Shown because it is the honest measure of how much detail
-                    // has been bothered with, not because it is a target.
-                    label: 'With amounts',
-                    value: '$withAmounts',
-                    fraction: items.isEmpty ? 0 : withAmounts / items.length,
-                    color: context.colors.series2,
-                  ),
+                  // Urgency displaces detail (Sprint 40). "With amounts" is a
+                  // curiosity; "3 to use up" is a thing to do tonight, and while
+                  // there is one of those it has the better claim on the middle
+                  // column. It goes back to the curiosity when the fridge is calm,
+                  // rather than sitting there reading "0" — a zero on a warning is
+                  // a warning somebody learns to stop reading.
+                  if (urgent > 0)
+                    StatColumnData(
+                      label: 'To use up',
+                      value: '$urgent',
+                      fraction: items.isEmpty ? 0 : urgent / items.length,
+                      color: context.colors.warning.color,
+                    )
+                  else
+                    StatColumnData(
+                      // The number the pantry does *not* need in order to be
+                      // useful — Sprint 41 asks "do we have any", not "how much".
+                      label: 'With amounts',
+                      value: '$withAmounts',
+                      fraction: items.isEmpty ? 0 : withAmounts / items.length,
+                      color: context.colors.series2,
+                    ),
                   StatColumnData(
                     label: 'Staples',
                     value: '${items.where((PantryItem i) => i.isStaple).length}',
@@ -216,7 +235,11 @@ class _Loaded extends ConsumerWidget {
             ...<Widget>[
               SectionHeader(title: aisle.label),
               for (final PantryItem item in group)
-                _PantryRow(item: item, key: ValueKey<String>(item.id)),
+                _PantryRow(
+                  item: item,
+                  now: now,
+                  key: ValueKey<String>(item.id),
+                ),
             ],
       ],
     );
@@ -228,9 +251,13 @@ class _Loaded extends ConsumerWidget {
 /// A row rather than a card, per the dashboard language: hairline division, the
 /// name leading, the amount right-aligned as the figure.
 class _PantryRow extends ConsumerWidget {
-  const _PantryRow({required this.item, super.key});
+  const _PantryRow({required this.item, required this.now, super.key});
 
   final PantryItem item;
+
+  /// Passed in rather than read here, so every row in one build agrees about what
+  /// day it is.
+  final DateTime now;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -298,7 +325,21 @@ class _PantryRow extends ConsumerWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    if (item.isStaple)
+                    if (item.expiryLabel(now) case final String warning)
+                      Text(
+                        warning,
+                        style: context.text.metadata.copyWith(
+                          // Past its date is an error; nearly is a warning. The
+                          // two want different colours because they want different
+                          // actions — throw it out, or cook it.
+                          color:
+                              item.statusAsOf(now) == ExpiryStatus.gone
+                              ? context.colors.error.color
+                              : context.colors.warning.color,
+                        ),
+                        maxLines: 1,
+                      )
+                    else if (item.isStaple)
                       Text(
                         'Always assumed in',
                         style: context.text.metadata,

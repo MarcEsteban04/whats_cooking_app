@@ -12,6 +12,8 @@ import 'package:whats_cooking/features/history/presentation/providers/meal_histo
 import 'package:whats_cooking/features/meals/presentation/providers/disliked_ingredients_controller.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/dislikes_controller.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/favorites_controller.dart';
+import 'package:whats_cooking/features/pantry/domain/entities/pantry_item.dart';
+import 'package:whats_cooking/features/pantry/presentation/providers/pantry_controller.dart';
 import 'package:whats_cooking/features/profile/domain/entities/user_profile.dart';
 import 'package:whats_cooking/features/profile/presentation/providers/profile_controller.dart';
 import 'package:whats_cooking/features/roulette/domain/entities/spin_filters.dart';
@@ -59,6 +61,18 @@ class HomeScreen extends ConsumerWidget {
     ref.watch(mealHistoryProvider);
     ref.watch(mealsBlockedByDislikesProvider);
 
+    // Read, not just warmed: Home says what needs using tonight (Sprint 40), and
+    // from Sprint 41 the spin weights meals by what is already in.
+    final List<PantryItem> pantry =
+        ref.watch(pantryControllerProvider).value ?? const <PantryItem>[];
+
+    // One clock for the whole build, so no two rows can disagree about what day
+    // it is if this renders across midnight.
+    final DateTime now = DateTime.now();
+    final int needsUsing = pantry
+        .where((PantryItem item) => item.statusAsOf(now).needsAttention)
+        .length;
+
     return Scaffold(
       backgroundColor: context.colors.background,
       body: SafeArea(
@@ -89,6 +103,7 @@ class HomeScreen extends ConsumerWidget {
                   servings:
                       profile.value?.preferences.preferredServings ??
                       AppConstants.defaultPartySize,
+                  needsUsing: needsUsing,
                 ),
                 const SizedBox(height: AppSpacing.space4),
                 const _Elsewhere(),
@@ -114,7 +129,11 @@ class HomeScreen extends ConsumerWidget {
 
 /// The centrepiece: the question, the constraints, and the button.
 class _SpinPanel extends StatelessWidget {
-  const _SpinPanel({required this.filters, required this.servings});
+  const _SpinPanel({
+    required this.filters,
+    required this.servings,
+    this.needsUsing = 0,
+  });
 
   /// What the next spin will narrow by.
   final SpinFilters filters;
@@ -124,6 +143,13 @@ class _SpinPanel extends StatelessWidget {
   /// A preference rather than a filter: it changes the cost a head the reader is
   /// comparing against, not which meals are eligible.
   final int servings;
+
+  /// How many things in the kitchen want eating soon (Sprint 40).
+  ///
+  /// Zero hides the line entirely. A permanent row reading "0 to use up" is a
+  /// warning somebody learns to stop seeing, and this one has to still work on the
+  /// evening it matters.
+  final int needsUsing;
 
   @override
   Widget build(BuildContext context) {
@@ -194,6 +220,26 @@ class _SpinPanel extends StatelessWidget {
               onPressed: () => _openFilters(context),
             ),
           ),
+
+          // What the fridge is about to lose (Sprint 40).
+          //
+          // Under the spin rather than above it, because it is not the question
+          // Home exists to ask — it is a reason to answer that question a
+          // particular way tonight. And phrased as an amount rather than a
+          // scolding: "2 things to use up" is a fact, where "you are wasting
+          // food" is an app with an opinion about somebody's week.
+          if (needsUsing > 0) ...<Widget>[
+            const SizedBox(height: AppSpacing.space2),
+            Center(
+              child: AppButton.tertiary(
+                label:
+                    '$needsUsing ${needsUsing == 1 ? 'thing' : 'things'} to use up',
+                size: AppButtonSize.small,
+                leadingIcon: AppIcons.expiring,
+                onPressed: () => context.goNamed(AppRoute.pantry.routeName),
+              ),
+            ),
+          ],
         ],
       ),
     );

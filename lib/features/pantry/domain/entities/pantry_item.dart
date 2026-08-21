@@ -68,8 +68,11 @@ class PantryItem {
   /// As typed. Empty when there is no amount to qualify.
   final String unit;
 
-  /// Sprint 40 does the surfacing; the column and this field exist now so an item
-  /// added today does not have to be edited later to gain a date it always had.
+  /// When it goes off, or null.
+  ///
+  /// Optional, and most items will not have one. A pantry that demands a date per
+  /// line is a pantry nobody fills in — and for rice, salt or a bottle of vinegar
+  /// there is no honest answer to give.
   final DateTime? expiresOn;
 
   /// Salt, oil, garlic. Assumed present, and never counted against a match
@@ -95,6 +98,61 @@ class PantryItem {
 
   /// What the row says when there is no amount at all.
   bool get hasAmount => amount.trim().isNotEmpty;
+
+  /// Whole days from [now] until this goes off, or null when it has no date.
+  ///
+  /// **Midnight to midnight, not elapsed hours.** Something dated tomorrow is
+  /// "tomorrow" whether it is nine in the morning or eleven at night, and an
+  /// hours-based count would call it "today" for most of the evening — which is
+  /// exactly the evening somebody is deciding what to cook. The same arithmetic the
+  /// repetition window uses, for the same reason.
+  ///
+  /// Negative means it has already gone.
+  int? daysUntilExpiry(DateTime now) {
+    if (expiresOn case final DateTime date) {
+      final DateTime today = DateTime(now.year, now.month, now.day);
+      final DateTime then = DateTime(date.year, date.month, date.day);
+      return then.difference(today).inDays;
+    }
+    return null;
+  }
+
+  /// How urgent this is, as of [now].
+  ///
+  /// **Staples never expire in the app's opinion**, whatever date is on them
+  /// (docs/USER_FLOWS.md §12). Salt, oil and rice are assumed present and assumed
+  /// fine; flagging the salt would train somebody to ignore the flag, and the flag
+  /// only works while it is rare.
+  ExpiryStatus statusAsOf(DateTime now) {
+    if (isStaple) {
+      return ExpiryStatus.none;
+    }
+
+    return switch (daysUntilExpiry(now)) {
+      null => ExpiryStatus.none,
+      final int days when days < 0 => ExpiryStatus.gone,
+      0 => ExpiryStatus.today,
+      final int days when days <= ExpiryStatus.soonWithinDays =>
+        ExpiryStatus.soon,
+      _ => ExpiryStatus.fine,
+    };
+  }
+
+  /// The badge's words, or null when there is nothing worth saying.
+  ///
+  /// Written as an instruction rather than a date. "Use today" is a thing to do;
+  /// "expires 22 Aug" is a thing to work out, and the working out happens in front
+  /// of an open fridge.
+  String? expiryLabel(DateTime now) {
+    final int? days = daysUntilExpiry(now);
+    return switch (statusAsOf(now)) {
+      ExpiryStatus.none || ExpiryStatus.fine => null,
+      ExpiryStatus.gone => days == -1 ? 'Went off yesterday' : 'Past its date',
+      ExpiryStatus.today => 'Use today',
+      ExpiryStatus.soon =>
+        days == 1 ? 'Use tomorrow' : 'Use within $days days',
+    };
+  }
 
   PantryItem copyWith({
     double? quantity,
@@ -144,6 +202,41 @@ class PantryItem {
 
   @override
   String toString() => 'PantryItem($name, $amount)';
+}
+
+/// How close something is to going off (Sprint 40).
+///
+/// Ordered most urgent first, so a list sorted on `index` puts what needs eating
+/// tonight at the top without a comparator that has to be kept in step with this.
+enum ExpiryStatus {
+  /// Already past its date. **Called out rather than hidden** — an app that
+  /// quietly drops expired items is an app that lets somebody cook with them.
+  gone,
+
+  /// Today is the day.
+  today,
+
+  /// Within [soonWithinDays].
+  soon,
+
+  /// Dated, and not urgent.
+  fine,
+
+  /// No date, or a staple. Nothing to say.
+  none;
+
+  /// Whether this is worth putting in front of somebody.
+  bool get needsAttention =>
+      this == ExpiryStatus.gone ||
+      this == ExpiryStatus.today ||
+      this == ExpiryStatus.soon;
+
+  /// How many days ahead counts as soon.
+  ///
+  /// Three. Long enough that a midweek shop can be planned around it, short enough
+  /// that the flag stays rare — and rare is the whole reason it works. A pantry
+  /// where a third of the lines are amber is a pantry where nobody reads the amber.
+  static const int soonWithinDays = 3;
 }
 
 /// A name the vocabulary already knows, offered while somebody types.
