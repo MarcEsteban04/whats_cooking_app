@@ -481,6 +481,8 @@ class SupabaseAssistantRepository implements AssistantRepository {
                   ? _listPrompt
                   : '$_listPrompt\n\nThe list:\n'
                         '${trimmed.substring(0, min(trimmed.length, _maxTextChars))}',
+              // Kept here so the caller can say a long file was cut, rather than
+              // the tail vanishing without a word.
             },
           ],
           // No context, for the same reason the fridge scan sends none: a model
@@ -536,10 +538,17 @@ class SupabaseAssistantRepository implements AssistantRepository {
 
   /// How much of a text file is sent.
   ///
-  /// Generous for a shopping list and a hard stop for a file that is not one:
-  /// somebody picking the wrong `.txt` should cost one refused import, not a
-  /// novel's worth of tokens.
-  static const int _maxTextChars = 8000;
+  /// **Sized to fit the Edge Function's own per-message cap, not to a round
+  /// number.** The function keeps `MAX_MESSAGE_CHARS` (2,000) of each message and
+  /// *silently truncates* the rest — it does not refuse it — so this was set to
+  /// 8,000 and quietly lost everything past the first ~1,550 characters of any
+  /// long list. A cut nobody is told about is the worst of the three options.
+  ///
+  /// 1,400 leaves room for the prompt in front of it and is about a hundred lines
+  /// of shopping list. A file longer than that is either not a shopping list or
+  /// is one nobody reads in an aisle, and the caller says so rather than dropping
+  /// the tail in silence.
+  static const int _maxTextChars = 1400;
 
   /// Turns the function's named error codes into something a person reads.
   ///
@@ -592,6 +601,21 @@ class SupabaseAssistantRepository implements AssistantRepository {
         message:
             message ??
             'The assistant is not answering right now. Try again in a moment.',
+      ),
+      // **A 400 from our own function means the two sides disagree.** Both ends
+      // of this call ship from this repository, so the app cannot send a body the
+      // function does not understand *unless the deployed function is older than
+      // the app* — a new `purpose` or a new field it has never heard of. That is
+      // exactly what it looked like on the phone: "Something went wrong.
+      // ai-assistant returned 400", which is true and tells nobody what to do.
+      //
+      // The function's own `bad_request` message is deliberately vague, so this
+      // one does not use it.
+      'bad_request' => const ServerException(
+        message: 'The assistant on the server is out of date. It needs '
+            'redeploying before this works.',
+        detail: 'ai-assistant rejected the request as bad_request — most likely '
+            'a purpose or field added after the last deploy',
       ),
       _ => ServerException(
         message:
