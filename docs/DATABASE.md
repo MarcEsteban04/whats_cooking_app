@@ -7,6 +7,14 @@
 | **Engine** | PostgreSQL 15 via Supabase |
 | **Related** | [ARCHITECTURE.md](ARCHITECTURE.md) · [PRD.md](PRD.md) · [app_feature.md](app_feature.md) |
 
+> **Rescoped at Sprint 37.** This app is for one household of two, not a product with
+> users (docs/app_feature.md, "Scope"). Couple Mode, the meal planner, gamification,
+> statistics, notifications, monetization and the store launch are cut; a restaurant
+> roulette is added. Sections describing cut work are **kept and marked** rather than
+> deleted — their numbers are cited from code, and a section that vanishes reads as an
+> oversight instead of a decision. See docs/project_dev.md, "Cut".
+
+
 ---
 
 ## 1. Entity relationship diagram
@@ -147,6 +155,12 @@ A personal household is created for **every** user by trigger. Inviting a partne
 Codes exclude `0`, `O`, `1`, `I` — they will be read aloud and typed by hand. Redemption runs
 in the `redeem-invite` Edge Function so validation, membership insert and status update are
 atomic.
+
+**Narrowed at Sprint 37.** This table is now used **once, ever** — the second phone joins
+the first phone's household and that is the end of it (docs/USER_FLOWS.md §14). It is kept
+rather than replaced by a hard-coded pair because the join still has to be authenticated
+and atomic, and a code is the simplest thing that is both. What is *not* built on top of it:
+invitation management, reissuing, revoking, or more than one outstanding invite.
 
 ### 4.5 `meals`
 
@@ -318,46 +332,79 @@ first.
 `added_from_meal_id` lets the UI show *why* an item is on the list, and lets removal of a
 planned meal clean up after itself.
 
-### 4.13 `meal_plans` — v1.3
+### 4.13 ~~`meal_plans`~~ — cut at Sprint 37
+
+Was a weekly planner slot: `household_id`, `meal_id`, `planned_date`, `meal_type`,
+unique per slot.
+
+**Never created, and now never will be.** The premise of this app is deciding at
+seven in the evening; a planner answers what we will eat on Thursday, which is the
+opposite question (docs/USER_FLOWS.md §16). Ingredient reuse — the one genuinely
+valuable thing the planner was for — survives in a smaller form: the pantry weights
+the roulette toward meals that use what is already in the kitchen.
+
+*Section number retained so §4.14 onward and every code citation still resolve.*
+
+### 4.14 ~~`vote_sessions`~~ and ~~`meal_votes`~~ — cut at Sprint 37
+
+Was a frozen candidate set plus one row per partner per meal, intersected to find a
+match.
+
+**Never created.** Two people standing in the same kitchen can say "not that one"
+out loud, and a voting round would add a turn-taking protocol, a waiting state and a
+no-match fallback to a conversation that already works
+(docs/USER_FLOWS.md §15). The `vote_choice` enum in §3 is unused and should come out
+with the next enum migration.
+
+### 4.15 `restaurants` — Sprint 45
+
+The second library. Ours, manually written, with no discovery layer.
+
+| Column | Type | Notes |
+| ------ | ---- | ----- |
+| `id` | `uuid` PK | |
+| `household_id` | `uuid` not null | FK, cascade. Always household-scoped — unlike `meals`, there is no public catalogue of these |
+| `name` | `text` not null | |
+| `cuisine` | `text` not null | Same twelve values as `meals.cuisine` |
+| `cost_per_head` | `numeric(10,2)` not null | A head, not a bill — the number both roulettes filter on |
+| `proximity` | `proximity` not null | New enum: `walk`, `short_ride`, `worth_the_trip` |
+| `delivers` | `boolean` not null default false | |
+| `notes` | `text` | |
+| `go_to_order` | `text` | What we get there. The single most useful field on the whole table and the reason this is not a maps integration |
+| `tags` | `text[]` not null default `'{}'` | So moods work over restaurants too |
+| `created_by` | `uuid` | FK → `profiles(id)`, set null |
+| `created_at` / `updated_at` | `timestamptz` | |
+
+`unique (household_id, lower(name))` — the same place added twice is a data-entry
+slip, not two restaurants.
+
+**`proximity` is an enum, not a distance.** Kilometres would need a location
+permission, a maps provider and a coordinate per row, to produce a number nobody
+uses: the real decision is *can we walk, do we have to ride, or is it a trip*. Three
+values answer it and cost nothing.
+
+### 4.16 `restaurant_history` — Sprint 46
 
 | Column | Type | Notes |
 | ------ | ---- | ----- |
 | `id` | `uuid` PK | |
 | `household_id` | `uuid` not null | FK, cascade |
-| `meal_id` | `uuid` not null | FK, cascade |
-| `planned_date` | `date` not null | |
-| `meal_type` | `meal_type` not null | |
-| `created_by` | `uuid` not null | FK → `profiles(id)` |
+| `restaurant_id` | `uuid` not null | FK, cascade |
+| `decided_by` | `uuid` not null | FK → `profiles(id)`. Checked against `auth.uid()` by the insert policy |
+| `eaten_at` | `timestamptz` not null default `now()` | |
+| `estimated_cost` | `numeric(10,2)` | Copied at decision time, because the restaurant's own price will drift |
+| `actual_cost` | `numeric(10,2)` | What it really came to |
 | `created_at` | `timestamptz` | |
 
-`unique (household_id, planned_date, meal_type)` — one meal per slot.
+Separate from `meal_history` rather than a nullable `restaurant_id` bolted onto it.
+The two share a shape and not a meaning: one records cooking and the other records
+going out, every query wants one or the other, and a single table would need a
+`check` constraint asserting exactly one of two foreign keys is set — which is the
+shape of a table doing two jobs.
 
-### 4.14 `vote_sessions` and `meal_votes` — v1.1
-
-**`vote_sessions`**
-
-| Column | Type | Notes |
-| ------ | ---- | ----- |
-| `id` | `uuid` PK | |
-| `household_id` | `uuid` not null | FK, cascade |
-| `candidate_meal_ids` | `uuid[]` not null | The set **both** partners vote on |
-| `started_by` | `uuid` not null | FK → `profiles(id)` |
-| `resolved_meal_id` | `uuid` | FK → `meals(id)` |
-| `created_at` / `resolved_at` | `timestamptz` | |
-
-**`meal_votes`**
-
-| Column | Type |
-| ------ | ---- |
-| `id` | `uuid` PK |
-| `session_id` | `uuid` not null FK, cascade |
-| `user_id` | `uuid` not null FK |
-| `meal_id` | `uuid` not null FK |
-| `choice` | `vote_choice` not null |
-| `created_at` | `timestamptz` |
-
-`unique (session_id, user_id, meal_id)`. The candidate set is frozen on the session so both
-partners genuinely vote on the same meals — regenerating per user makes a "match" meaningless.
+**No uniqueness.** A household can eat at the same place twice in a day, and a
+retried insert being indistinguishable from the truth is why this write never
+retries.
 
 ---
 
@@ -590,10 +637,20 @@ property to preserve if the function is ever changed.
 | # | Question | Resolve by |
 | - | -------- | ---------- |
 | Q5 | Cost estimates — national average, or per-household override table? | Sprint 23 |
-| Q7 | Household size cap — enforce 2, or allow up to 5? | Sprint 41 |
 | Q8 | Custom meals private, or promotable into the public catalogue? | Sprint 26 |
-| — | Does `meal_history` need a `rating` column for preference learning? | Sprint 37 |
-| — | Unit conversion (g ↔ kg, ml ↔ cup) — normalise on write, or convert on read? | Sprint 50 |
+| — | Unit conversion (g ↔ kg, ml ↔ cup) — normalise on write, or convert on read? | **Sprint 39** |
+| — | Do restaurants need their own repetition window, or does one setting cover both roulettes? | Sprint 46 |
+
+**Q7 — household size cap. Resolved at Sprint 37: two.** The app is for two people
+(docs/app_feature.md, "Scope"). Nothing enforces a numeric cap in the schema, because a
+`check` on a count is a trigger and a trigger is a thing to maintain — but no flow creates a
+third member, and no screen offers to.
+
+**`meal_history.rating` — dropped, not deferred.** It existed for the preference learning
+cut at Sprint 37. Over a library we wrote ourselves, asking us to rate a meal we chose to
+add is asking a question we answered by adding it, and the roulette already reads favourites
+and history. A rating column with nothing reading it is a column that gets a UI built for it
+eventually because it is there.
 
 ### Resolved
 

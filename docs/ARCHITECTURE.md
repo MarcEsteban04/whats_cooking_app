@@ -10,6 +10,14 @@ This document fixes the technical decisions for the life of the project. Where a
 had a credible alternative, the alternative and the reason for rejecting it are recorded —
 so a future reader can tell a *choice* from an *accident*.
 
+> **Rescoped at Sprint 37.** This app is for one household of two, not a product with
+> users (docs/app_feature.md, "Scope"). Couple Mode, the meal planner, gamification,
+> statistics, notifications, monetization and the store launch are cut; a restaurant
+> roulette is added. Sections describing cut work are **kept and marked** rather than
+> deleted — their numbers are cited from code, and a section that vanishes reads as an
+> oversight instead of a decision. See docs/project_dev.md, "Cut".
+
+
 ---
 
 ## 1. System overview
@@ -275,16 +283,30 @@ ceiling, cooking-time ceiling, explicit cuisine or category selection.
 
 **Soft scoring** — the weights from [app_feature.md](app_feature.md), stored as data:
 
-| Signal | Weight |
-| ------ | -----: |
-| Preference match | +30 |
-| Partner compatibility | +25 |
-| Budget match | +20 |
-| Ingredient match | +20 |
-| Favourite | +15 |
-| Cuisine variety | +10 |
-| Cooking-time match | +10 |
-| Recent meal | −15 |
+| Signal | Weight | State |
+| ------ | -----: | ----- |
+| Mood match | ±35 | Sprint 36 |
+| Preference match | +30 | Sprint 33 |
+| Budget match | +20 | Sprint 33, scaled by headroom |
+| Ingredient match | +20 | **Declared, not applied** — needs the pantry, Sprint 41 |
+| Favourite | +15 | Sprint 33 |
+| Cuisine variety | ±10 | Sprint 33 |
+| Cooking-time match | +10 | Sprint 33, scaled by headroom |
+| Recent meal | −15 | Sprint 32, tapered |
+| ~~Partner compatibility~~ | ~~+25~~ | **Removed** at Sprint 37 |
+
+**Mood is the heaviest signal, above a favourite cuisine**, and the reasoning is
+about what kind of statement each one is. A favourite cuisine is a standing fact
+mentioned once during onboarding; a mood is a request made thirty seconds ago about
+this evening. When they disagree, the fresher and more specific answer has to win,
+or the mood row is decoration.
+
+**Partner compatibility is gone rather than pending.** This app has two users who
+live together and share a household (docs/app_feature.md, "Scope"); there is no
+third preference set to reconcile, and the two that exist are handled the way that
+actually matters — dietary needs and avoided foods are *personal and applied as hard
+exclusions to every spin*, never averaged into a compatibility figure. A score that
+says "87% compatible" and then serves one of them fish is worse than no score.
 
 Selection picks with probability derived from the score. This is what produces the product's
 required feel:
@@ -316,17 +338,25 @@ size where scoring all of it costs something; that is a measurement, not a guess
 very unlikely, and "very unlikely" across enough evenings is somebody being offered the food
 they told the app never to show them. US-B-07 promises *never*.
 
-**Ingredient match and partner compatibility are declared but not yet applied** — they need a
-pantry (Sprint 50) and a second person's preferences (Sprint 41 onward). The weights exist on
-`ScoreWeights` anyway, so the gap is a stated fact rather than something a reader has to
-notice.
+**Ingredient match is declared but not yet applied** — it needs a pantry, which is
+Sprint 41. The weight exists on `ScoreWeights` anyway, so the gap is a stated fact
+rather than something a reader has to notice. `partnerCompatibility` is removed from
+the table above and should come off `ScoreWeights` when Sprint 41 next touches it.
+
+**The same engine scores restaurants** from Sprint 46. Budget, cuisine preference,
+variety, favourites and recency are the same signals over a different pool; only the
+entity changes. A second scorer for "where shall we eat" would be the same arithmetic
+maintained twice.
 
 ### 5.3 Testability
 
 The engine is a pure function of `(candidates, preferences, history, filters, weights) →
-ranked list`. Sprint 40's scenario tests — low budget, short time, conflicting preferences —
-run in milliseconds with no device and no network. This is the single strongest reason the
+ranked list`. Scenario tests — low budget, short time, conflicting preferences — run in
+milliseconds with no device and no network. This is the single strongest reason the
 domain layer forbids Flutter imports.
+
+*Sprint 40 was the scheduled home for those scenarios and was cut with the
+personalization phase; they belong to Sprint 51's hardening pass now.*
 
 ---
 
@@ -556,11 +586,20 @@ The north-star metric must be measurable from the first build, not retrofitted.
 | `meal_rejected` | meal_id, spin count |
 | `no_match` | blocking constraint |
 | `onboarding_step` | step, completed/skipped |
-| `household_created` / `invite_accepted` | — |
 | `pantry_item_added` / `grocery_generated` | item count |
+| ~~`household_created`~~ / ~~`invite_accepted`~~ | **Cut** at Sprint 37 — both fire once, ever |
+
+`spin_started` also carries the **mood** and the spin count (Sprint 36). From Sprint 46
+the roulette events carry which roulette they came from, because "we cooked" and "we
+went out" are the two things this app most needs to be able to tell apart.
 
 `meal_accepted.seconds_since_app_open` **is** Time to Decision. Everything else is
-diagnostic. Events carry no PII and no meal names — IDs only.
+diagnostic. Events carry no PII and no meal names — IDs only, enforced by the event
+constructors and asserted again before any write (`lib/core/analytics/`).
+
+**Only events with a live call site are defined.** An event class with no caller is a
+dashboard promising a series that will always be empty, so the rows above that are not
+yet emitted arrive with the sprints that own them.
 
 ---
 

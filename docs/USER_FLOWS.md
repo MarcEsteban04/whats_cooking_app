@@ -10,6 +10,13 @@ Every flow below is traced to the user stories it satisfies. Diagrams render nat
 GitHub. Where a flow has failure paths, they are drawn — an unhandled path in a diagram is
 an unhandled path in the app.
 
+> **Rescoped at Sprint 37.** This app is for one household of two, not a product with
+> users (docs/app_feature.md, "Scope"). Couple Mode, the meal planner, gamification,
+> statistics, notifications, monetization and the store launch are cut; a restaurant
+> roulette is added. Sections describing cut work are **kept and marked** rather than
+> deleted — their numbers are cited from code, and a section that vanishes reads as an
+> oversight instead of a decision. See docs/project_dev.md, "Cut".
+
 ---
 
 ## 0. Conventions
@@ -419,94 +426,86 @@ rather than creating a second row.
 
 ---
 
-## 14. Couple mode — create, invite, join
+## 14. Sharing one kitchen
 
-*Satisfies US-D-01, US-D-02, US-D-04, US-D-05*
+*Rescoped at Sprint 37. Was "Couple mode — create, invite, join".*
+
+This app has exactly two users and they live together (docs/app_feature.md,
+"Scope"). What used to be a seven-sprint Couple Mode is now a single flow whose
+only job is making both phones look at the same kitchen.
 
 ```mermaid
 flowchart TD
-    A([Couple]) --> B{Has household?}
-    B -->|No| C([Create or join])
-    B -->|Yes| D([Our kitchen])
+    A([First run]) --> B{Has household?}
+    B -->|No| C[Create it, named after the pair] --> D([Our kitchen])
+    B -->|Yes| D
 
-    C --> E{Choice}
-    E -->|Create| F[Name the household] --> G[Create + add self as owner] --> H([Invite partner])
-    E -->|Join| I[Enter invite code] --> J{Valid?}
-    J -->|Yes| K[Join household] --> D
-    J -->|Invalid or expired| L[Explain and offer to request a new code] --> I
-    J -->|Already in a household| M[Explain: leave current first] --> C
+    C --> E([Show the join code, once])
+    E --> F([Second phone enters it]) --> G[Join as member] --> D
 
-    H --> N[Generate code and share link]
-    N --> O([Waiting for partner])
-    O --> P{Partner joins?}
-    P -->|Yes| Q([Partner joined - celebration]) --> D
-    P -->|Not yet| O
+    D --> H{Shared}
+    H --> I([Meal history])
+    H --> J([Pantry])
+    H --> K([Grocery])
+    H --> L([Restaurants])
+    H --> M([Custom meals])
 
-    D --> R{Action}
-    R -->|Shared favourites| S([Favourites])
-    R -->|Recently eaten together| T([History])
-    R -->|Our preferences| U([Combined preference view])
-    R -->|Cannot agree| V([Voting])
-    R -->|Remove member or leave| W[Confirm] --> X[Update membership]
+    D --> N{Private, per person}
+    N --> O([Favourites])
+    N --> P([Hidden meals])
+    N --> Q([Dietary needs and avoided foods])
 ```
 
 **Rules**
 
-* One household per user at MVP. Attempting to join a second explains the constraint rather
-  than failing (open question **Q7** covers the size cap).
-* Invite codes expire and are single-use.
-* Leaving a household **preserves shared history** — the data belongs to the household, not
-  the departing member. Personal preferences leave with the user.
-* Once a household exists, recommendations become household-aware everywhere — Home,
-  roulette and pantry all change context together, never partially.
+* One household. There is no second one to join, and no flow for leaving.
+* The join code is entered once, on the second phone, and then never again.
+* **Favourites and dislikes stay private.** A partner seeing what you dislike is a
+  social cost with no product benefit; the engine reads both server-side
+  regardless (docs/ARCHITECTURE.md §8.3).
+* **Dietary needs stay personal and are applied to every spin.** A shared household
+  does not merge them into an average — the strictest set wins, because producing a
+  meal somebody cannot eat is worse than producing none.
+
+**Not built**, deliberately: invitation management, expiring or reissued codes,
+roles beyond owner and member, compatibility scores, per-partner preference
+merging.
 
 ---
 
-## 15. Can't Agree voting
+## 15. *Cut — Can't Agree voting*
 
-*Satisfies US-D-06 — **T2, first to be cut***
+Removed at Sprint 37. Was a voting round in which both partners rated a shared
+candidate set and the app intersected the likes.
 
-```mermaid
-flowchart TD
-    A([Cannot agree?]) --> B[Generate a candidate set for the household]
-    B --> C([Partner A votes: like or pass])
-    B --> D([Partner B votes: like or pass])
-    C --> E{Both finished?}
-    D --> E
-    E -->|No| F([Waiting for your partner])
-    E -->|Yes| G[Intersect the likes]
-    G --> H{Matches?}
-    H -->|One or more| I([You both picked it]) --> J([Result]) --> K([Accepted])
-    H -->|None| L([No match - here is the closest]) --> M{Choice}
-    M -->|Vote again| B
-    M -->|Just spin| N([Roulette])
-```
+Two people standing in the same kitchen can say "not that one" out loud. A voting
+round would add a turn-taking protocol, a waiting state and a no-match fallback to
+a conversation that already works — and every second it costs comes straight out
+of the sixty-second budget in §19.
 
-Both partners vote on the **same candidate set**, generated once. The no-match path must
-still produce a suggestion — a voting round that ends with nothing has wasted the user's
-time and broken the promise.
+The need it served is met by **Try again**, which excludes the rejected meal for
+the rest of the session (§8).
+
+*Section number retained so §16 onward and every code citation still resolve.*
 
 ---
 
-## 16. Meal planning
+## 16. *Cut — Meal planning*
 
-*Satisfies US-F-01 … US-F-04 — **out of MVP scope, v1.3***
+Removed at Sprint 37. Was a weekly calendar, automatic plan generation, ingredient
+reuse optimisation and a plan-to-grocery aggregation.
 
-```mermaid
-flowchart TD
-    A([Planner: this week]) --> B{Action}
-    B -->|Tap empty slot| C([Choose meal]) --> D[Assign to day and meal type]
-    B -->|Tap filled slot| E{Action}
-    E -->|Replace| C
-    E -->|Remove| F[Clear slot]
-    E -->|View| G([Meal detail])
-    B -->|Generate week| H[Plan against budget, history, pantry, variety]
-    H --> I[Optimise for ingredient reuse] --> J([Review plan])
-    J --> K{Accept?}
-    K -->|Yes| L[Save plan]
-    K -->|Adjust| E
-    B -->|Grocery for the week| M[Aggregate ingredients, combine duplicates] --> N([Grocery])
-```
+The premise of this app is deciding at seven in the evening. A planner answers the
+opposite question — what will we eat on Thursday — and a household that plans a
+week does not need a roulette. Building both would be building two products and
+believing neither.
+
+Ingredient reuse survives in a smaller and more useful form: the pantry weights
+the roulette toward meals that use what is already in the kitchen (§12, Sprint 41).
+
+`meal_plans` is dropped from the schema.
+
+*Section number retained so §17 onward and every code citation still resolve.*
 
 ---
 
@@ -615,9 +614,13 @@ performance risks for the life of the project.
 | Meal history | US-C-08, US-B-06 |
 | Pantry | US-E-01, US-E-02 |
 | Grocery | US-E-03, US-E-04, US-E-05 |
-| Couple mode | US-D-01 … US-D-05 |
-| Can't Agree | US-D-06 |
-| Planner | US-F-01 … US-F-04 |
+| Sharing one kitchen | US-D-01 … US-D-05, **narrowed** — see §14 |
+| ~~Can't Agree~~ | US-D-06, **cut** at Sprint 37 |
+| ~~Planner~~ | US-F-01 … US-F-04, **cut** at Sprint 37 |
+| Restaurant roulette | *new at Sprint 45 — stories to be written* |
 | Profile | US-G-01 … US-G-05 |
 
-Every P0 story appears in at least one flow.
+Every P0 story appears in at least one flow, **except the ones cut at Sprint 37**
+(US-D-06, US-F-01 … US-F-04). Those are struck through above rather than deleted,
+because a story that silently disappears from a traceability table reads as an
+oversight, and these were a decision — see docs/project_dev.md, "Cut".
