@@ -112,10 +112,37 @@ abstract final class ErrorMapper {
   ) {
     final String message = error.message.toLowerCase();
 
-    // Checked before anything else. A 429 arrives as an AuthException like any
-    // other, and treating it as a credential failure would tell someone their
-    // password was wrong when it was simply too soon to ask again
-    // (docs/USER_FLOWS.md §3).
+    // **First, because it is not an auth failure at all.**
+    //
+    // When the HTTP call never gets an answer — no DNS, no route, a dead
+    // connection — gotrue wraps it in an `AuthRetryableFetchException`, which
+    // extends `AuthException`. So it arrives here, on the auth branch, carrying a
+    // `SocketException` as its text, and fell through to the credential
+    // catch-all: a phone whose DNS could not resolve the project was told
+    // *"Those details did not match"*.
+    //
+    // That is the worst possible wording for it. Somebody reading it changes a
+    // password that was already correct, and the reset email they ask for next
+    // needs the same network that just failed.
+    //
+    // Matched on type rather than on the message, because the message is a
+    // platform string that differs between Android, iOS and the browser, and one
+    // of them will eventually stop containing the word this looked for.
+    if (error is supabase.AuthRetryableFetchException ||
+        message.contains('socketexception') ||
+        message.contains('failed host lookup') ||
+        message.contains('clientexception')) {
+      return NetworkException(
+        detail: error.message,
+        code: error.statusCode,
+        cause: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    // Then a 429. It arrives as an AuthException like any other, and treating it
+    // as a credential failure would tell someone their password was wrong when it
+    // was simply too soon to ask again (docs/USER_FLOWS.md §3).
     if (error.statusCode == '429' ||
         message.contains('rate limit') ||
         message.contains('too many requests')) {

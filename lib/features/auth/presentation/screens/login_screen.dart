@@ -81,7 +81,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     // docs/USER_FLOWS.md §3: on a failed login the password is cleared. Retyping
     // it is a small cost; leaving a rejected secret on screen is not.
-    if (mounted && ref.read(authControllerProvider) is AuthFailed) {
+    //
+    // **Only when it was actually rejected**, though. A password that never
+    // reached the server was not refused by anything — clearing it because the
+    // phone had no DNS is friction that buys nothing, and it happens at exactly
+    // the moment somebody is retrying.
+    if (mounted &&
+        ref.read(authControllerProvider).failure is AuthFailureException) {
       _password.clear();
     }
     // Nothing navigates on success. The session changes, the router's redirect
