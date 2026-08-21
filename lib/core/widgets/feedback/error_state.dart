@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:whats_cooking/core/config/app_env.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_button.dart';
 
@@ -146,9 +147,29 @@ class ErrorState extends StatelessWidget {
 /// For the failures that should not take over the screen — a favourite that did
 /// not save, a background refresh that failed. Slides in over `durationNormal`.
 class InlineErrorBanner extends StatelessWidget {
-  const InlineErrorBanner({required this.message, this.onRetry, super.key});
+  const InlineErrorBanner({
+    required this.message,
+    this.detail,
+    this.onRetry,
+    super.key,
+  });
 
   final String message;
+
+  /// The technical reason, shown **in a verbose build only**.
+  ///
+  /// docs/design_ui.md §31 says never show technical exception text, and that
+  /// stands for a release build. It cost a real evening to hold to it too
+  /// literally, though: an auth failure on a phone showed "Those details did not
+  /// match" and nothing else, and the backend's actual reason — which the
+  /// exception was carrying the whole time in `detail` — was unreachable without
+  /// attaching a debugger to a device that was not on this desk.
+  ///
+  /// So in a development build it goes under the message, in a quieter style.
+  /// Same rule as the assistant's provider name: a developer's fact, gated on the
+  /// flavour rather than on nothing.
+  final String? detail;
+
   final VoidCallback? onRetry;
 
   @override
@@ -178,12 +199,32 @@ class InlineErrorBanner extends StatelessWidget {
                 ),
                 const SizedBox(width: AppSpacing.space3),
                 Expanded(
-                  child: Text(
-                    message,
-                    style: context.text.bodySmall.copyWith(
-                      color: colors.error.onSurface,
-                    ),
-                    maxLines: 2,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Text(
+                        message,
+                        style: context.text.bodySmall.copyWith(
+                          color: colors.error.onSurface,
+                        ),
+                        maxLines: 2,
+                      ),
+                      if (AppEnv.isVerboseLogging)
+                        if (detail case final String reason)
+                          Padding(
+                            padding: const EdgeInsets.only(
+                              top: AppSpacing.space1,
+                            ),
+                            child: Text(
+                              reason,
+                              style: context.text.metadata.copyWith(
+                                color: colors.error.onSurface,
+                              ),
+                              maxLines: 3,
+                            ),
+                          ),
+                    ],
                   ),
                 ),
                 if (onRetry != null) ...<Widget>[

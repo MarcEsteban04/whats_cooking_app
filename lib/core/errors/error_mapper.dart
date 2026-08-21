@@ -161,9 +161,7 @@ abstract final class ErrorMapper {
         error.statusCode == '401';
 
     return AuthFailureException(
-      message: isExpired
-          ? 'Please sign in again'
-          : 'Those details did not match',
+      message: isExpired ? 'Please sign in again' : genericAuthFailure,
       detail: error.message,
       code: error.statusCode,
       cause: error,
@@ -171,6 +169,17 @@ abstract final class ErrorMapper {
       isSessionExpired: isExpired,
     );
   }
+
+  /// What an auth failure says when nothing more specific is known.
+  ///
+  /// Public so a caller can tell "we do not know why" apart from a message this
+  /// mapper chose deliberately — a rate limit and an unconfirmed address both
+  /// get their own wording, and those must survive being handled elsewhere.
+  ///
+  /// **It is only true on a sign-in.** Sign-up has no details to match, and
+  /// showing this there is a sentence that cannot be acted on — see
+  /// `AuthController.signUp`, which substitutes its own.
+  static const String genericAuthFailure = 'Those details did not match';
 
   /// The wait from a rate-limit message, when it states one.
   ///

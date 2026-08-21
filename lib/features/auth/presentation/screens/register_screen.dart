@@ -32,6 +32,20 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   bool _acceptedTerms = false;
 
   @override
+  void initState() {
+    super.initState();
+
+    // Arriving here clears whatever the sign-in form last failed with. See the
+    // login screen for why the state survives the move between the two, and what
+    // it looked like when it did.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ref.read(authControllerProvider.notifier).reset();
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _name.dispose();
     _email.dispose();
@@ -114,7 +128,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       ),
       children: <Widget>[
         if (failure != null && suggestLoginFor == null) ...<Widget>[
-          InlineErrorBanner(message: failure.message),
+          InlineErrorBanner(message: failure.message, detail: failure.detail),
           const SizedBox(height: AppSpacing.space4),
         ],
         if (suggestLoginFor != null) ...<Widget>[

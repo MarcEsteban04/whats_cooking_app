@@ -114,8 +114,38 @@ class AuthController extends _$AuthController {
         suggestLoginFor: error.email,
       );
     } on Object catch (error, stackTrace) {
-      state = AuthFailed(ErrorMapper.map(error, stackTrace));
+      state = AuthFailed(_forSignUp(ErrorMapper.map(error, stackTrace)));
     }
+  }
+
+  /// Rewords the one message that cannot be true on a sign-up form.
+  ///
+  /// `ErrorMapper` has no idea which form it is mapping for, so an
+  /// `AuthApiException` it cannot place becomes "Those details did not match" —
+  /// correct on a sign-in, and nonsense on a sign-up, where there is nothing to
+  /// match against. Somebody reading it on the register screen goes looking for a
+  /// typo in a password they are inventing.
+  ///
+  /// Only the catch-all is replaced. A rate limit, an unconfirmed address and an
+  /// expired session all carry wording this mapper chose on purpose, and those
+  /// have to survive.
+  AppException _forSignUp(AppException mapped) {
+    if (mapped is! AuthFailureException ||
+        mapped.message != ErrorMapper.genericAuthFailure) {
+      return mapped;
+    }
+
+    return AuthFailureException(
+      // Says what to do rather than what went wrong, because at this point the
+      // app genuinely does not know which it was — the backend refused and the
+      // reason is in `detail`, which only a verbose build shows.
+      message: 'We could not create that account. Check the address, or sign '
+          'in if you already have one.',
+      detail: mapped.detail,
+      code: mapped.code,
+      cause: mapped.cause,
+      stackTrace: mapped.stackTrace,
+    );
   }
 
   /// Requests a reset email.

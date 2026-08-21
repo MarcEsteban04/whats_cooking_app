@@ -39,6 +39,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   void initState() {
     super.initState();
     _email = TextEditingController(text: widget.prefilledEmail ?? '');
+
+    // **Arriving on this screen clears the last failure.**
+    //
+    // `AuthController` is shared by the sign-in and sign-up forms, and moving
+    // between them never drops its listener count to zero — the new screen
+    // subscribes in the same frame the old one unsubscribes — so an
+    // `AuthFailed` set on one form was still there on the other. What that looked
+    // like on a phone: "Those details did not match" sitting above an empty
+    // password field that was *separately* complaining "Enter your password",
+    // which is two errors describing nothing that just happened.
+    //
+    // Deferred to after the first frame, because a provider must not be written
+    // to during a build.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ref.read(authControllerProvider.notifier).reset();
+      }
+    });
   }
 
   @override
@@ -89,7 +107,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         if (failure != null) ...<Widget>[
           // A banner rather than a field error: a failed login is not attributed
           // to either field, which is the enumeration defence §3 asks for.
-          InlineErrorBanner(message: failure.message),
+          InlineErrorBanner(
+            message: failure.message,
+            // The backend's own reason, development builds only. Without it a
+            // sign-in that fails on a device is undiagnosable.
+            detail: failure.detail,
+          ),
           const SizedBox(height: AppSpacing.space4),
         ],
         AppTextField(
