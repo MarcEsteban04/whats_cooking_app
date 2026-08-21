@@ -538,11 +538,19 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Beef and Broccoli'), findsNothing);
 
-      // The header scrolls away with everything else now, so Clear has to be
-      // brought back before it can be tapped.
-      await tester.ensureVisible(find.text('Clear'));
+      // **There is no Clear button.** The filter redesign moved clearing onto the
+      // header's subtitle, which reads "filtered — tap to clear" whenever
+      // anything is applied — so a test tapping `find.text('Clear')` had been
+      // pointing at a widget that no longer exists (Sprint 51).
+      //
+      // The header scrolls away with everything else, so it has to be brought
+      // back before it can be tapped.
+      const String clearLine = 'filtered — tap to clear';
+      expect(find.text(clearLine), findsOneWidget);
+
+      await tester.ensureVisible(find.text(clearLine));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Clear'));
+      await tester.tap(find.text(clearLine));
       await tester.pumpAndSettle();
 
       await tester.scrollUntilVisible(
@@ -559,10 +567,28 @@ void main() {
       expect(find.text('Beef and Broccoli'), findsOneWidget);
     });
 
+    /// Opens the search field.
+    ///
+    /// **It is not on screen until it is asked for.** The header carries a search
+    /// circle and the field renders only once it has been tapped, so two tests
+    /// were typing into a `TextField` that did not exist — they had been broken
+    /// since the header redesign and nobody noticed, because nobody ran them
+    /// (Sprint 51).
+    Future<void> openSearch(WidgetTester tester) async {
+      await tester.tap(find.bySemanticsLabel('Search meals'));
+      await tester.pumpAndSettle();
+      expect(
+        find.byType(TextField),
+        findsOneWidget,
+        reason: 'the search field should be on screen once search is open',
+      );
+    }
+
     testWidgets('searching filters after the debounce, not on each keystroke', (
       WidgetTester tester,
     ) async {
       await pumpScreen(tester);
+      await openSearch(tester);
 
       await tester.enterText(find.byType(TextField), 'turon');
       await tester.pump();
@@ -584,6 +610,7 @@ void main() {
       WidgetTester tester,
     ) async {
       await pumpScreen(tester);
+      await openSearch(tester);
 
       await tester.enterText(find.byType(TextField), 'sushi burrito');
       await tester.pump(const Duration(milliseconds: 400));

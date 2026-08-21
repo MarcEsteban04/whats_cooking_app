@@ -92,7 +92,7 @@ reason to ship something broken to the two people who have to live with it.
 | 9 | 42–43 | Grocery | ✅ Done |
 | 10 | 45–46 | Restaurant Roulette | ✅ Done |
 | 11 | 47–50 | AI | ✅ Done |
-| 12 | 51–52 | Hardening & Shipping | |
+| 12 | 51–52 | Hardening & Shipping | ▶ 51 done |
 
 ---
 
@@ -521,6 +521,76 @@ The sprint that used to be a beta programme.
 * Slow-network and offline behaviour.
 * Memory and animation performance on the real device.
 * Confirm no service-role key and no AI provider key reach the client.
+
+**Delivered, with one item explicitly handed over.**
+
+**The biggest find was not in the tests.** `RemoteCall.guard` took an *optional*
+`timeout`, and five of fifty-four call sites passed one — so on a stalled
+connection the other forty-nine waited indefinitely. The symptom is not a slow
+app: it is a spinner that never resolves, with no error, no retry and nothing to
+tap, because a request that never completes never reaches the retry logic either.
+`timeout` now defaults to `RemoteCall.defaultTimeout` (15 s), chosen against the
+*retry budget* rather than a single request: three attempts plus backoff puts the
+worst honest wait at about fifty seconds, which is long and, for the first time,
+finite. `Duration.zero` opts out.
+
+**Stale assertions found and fixed** — by reading the tests against the current
+widgets rather than by running them, per how this project works:
+
+* `MealCardData.formattedCostPerServing` returns `₱90`, not `₱90 a head` — the
+  " a head" is the card's own second span, in a quieter style.
+* `find.text('₱90 a head')` could never match: the cost is a `Text.rich`, and a
+  plain `find.text` matches on `Text.data`, which rich text has none of. Needs
+  `findRichText: true`.
+* `find.text('35 min')` and `find.text('Easy')` — both live inside the single
+  `detailLine` Text, `Dinner · 35 min · Easy`.
+* `find.text('Clear')` — **there is no Clear button.** The filter redesign moved
+  clearing onto the header subtitle, which reads "filtered — tap to clear".
+* Two search tests typed into `find.byType(TextField)` without opening search
+  first. The field renders only after the header's search circle is tapped, so
+  they were addressing a widget that was not on screen.
+
+**The `ListView` gap is closed with a harness, not with one test.**
+`pumpComponent` wraps its subject in a `Center`, which hands down a *bounded*
+height — which is exactly why three separate widgets shipped a
+`CrossAxisAlignment.stretch` that only fails under a `ListView`'s
+`maxHeight: infinity`. New `pumpInList`/`testInList` put a component under an
+unbounded parent in both themes and at 1.3× on 320 px, and
+`test/core/widgets/dashboard_test.dart` runs every dashboard component and both
+charts through it. Any future component with a full-height divider, rail or
+stretched child belongs there.
+
+**RLS: `supabase/tests/rls_check.sql`.** Eight groups of checks, and it is honest
+about its limit — the real cross-household negative needs a second account,
+because `household_members.user_id` references `auth.users` and a fabricated uuid
+cannot be inserted. So it tests the closest strong thing: RLS actually enabled on
+every table, no table with zero policies, no policy that is unconditionally true
+(bar `ingredients`, which is deliberately open), and an authenticated stranger who
+belongs to no household seeing zero rows and being refused every write. Those are
+the two failures that actually happen, and both are silent — the app keeps working
+perfectly, because the app only ever asks for its own rows.
+
+**Index review: one finding**, migration 0026. The pantry autocomplete runs
+`ilike 'term%'` against `ingredients`, and `ingredients_name_idx` — a plain btree
+— cannot serve `ILIKE` at all. `meals.name` has had a trigram index for this exact
+query since migration 0008; the ingredient vocabulary was missed. Honest about the
+size of it: a few hundred rows today, so nobody would feel the sequential scan —
+but the table grows every time somebody adds food the catalogue lacks, which is a
+deliberate feature, and the query is on the interactive path.
+
+**Keys: verified clean.** `assertNoPrivilegedKey` and `assertNoProviderKey` both
+run on the first frame in `main.dart`, before anything else. `config/development.json`
+carries four keys — flavour, URL, publishable key, verbose flag — and none of the
+six forbidden names. The publishable key is not `sb_secret_`-prefixed and is not a
+JWT, so it cannot be carrying a `service_role` claim. `config/*.json` and `.env.*`
+are both git-ignored and only the example file is tracked.
+
+**Handed over: running the suite, and the device work.** Pinpointing any remaining
+wrong assertion means executing the suite, which is Marc's call by standing
+agreement — `flutter test` when he wants it. Memory and animation profiling needs
+the real device rather than the emulator, and so does the slow-network end of this
+sprint: the timeout default is the fix, and confirming what a two-bar connection
+now feels like is a phone-in-hand job.
 
 ---
 

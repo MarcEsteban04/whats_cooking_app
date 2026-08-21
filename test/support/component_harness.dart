@@ -74,3 +74,83 @@ void expectNoOverflow(WidgetTester tester) {
     reason: 'the layout overflowed its constraints',
   );
 }
+
+/// Pumps [child] inside a scrolling list, which is where it actually lives.
+///
+/// **This is the harness that would have caught the bug three times.**
+/// [pumpComponent] wraps its child in a `Center`, which hands down a *bounded*
+/// height — and every dashboard component passed under it. The real screens put
+/// the same components inside a `ListView` or a `SliverList`, which hands down
+/// `maxHeight: infinity`, and three separate widgets shipped a
+/// `CrossAxisAlignment.stretch` inside a `Row` that only fails there:
+///
+/// * the meal card's cuisine rail, which took the whole feed down;
+/// * `StatTrio`'s dividers;
+/// * `DashboardActionRow`'s dividers.
+///
+/// "BoxConstraints forces an infinite height" is not a subtle failure — it is a
+/// red screen — and it reached a device every time because no test ever gave a
+/// component an unbounded parent. Any new component that draws a full-height
+/// divider, a rail or a stretched child belongs in this harness.
+Future<void> pumpInList(
+  WidgetTester tester,
+  Widget child, {
+  Brightness brightness = Brightness.light,
+  double textScale = 1,
+  Size? surfaceSize,
+}) async {
+  if (surfaceSize != null) {
+    tester.view.physicalSize = surfaceSize * tester.view.devicePixelRatio;
+    addTearDown(tester.view.resetPhysicalSize);
+  }
+
+  await tester.pumpWidget(
+    MaterialApp(
+      theme: brightness == Brightness.dark ? AppTheme.dark() : AppTheme.light(),
+      home: MediaQuery(
+        data: MediaQueryData(
+          textScaler: TextScaler.linear(textScale),
+          size: surfaceSize ?? const Size(400, 800),
+        ),
+        child: Scaffold(
+          body: ListView(
+            // Padding rather than a bare child, so a component that assumes it
+            // has the screen margins around it lays out as it does in the app.
+            padding: const EdgeInsets.all(16),
+            children: <Widget>[child],
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.pump();
+}
+
+/// Asserts what [build] returns survives an unbounded parent, both themes, 1.3x
+/// and 320 px.
+///
+/// The whole definition of done for a dashboard component in one call, because a
+/// component that only gets one of the four checked is a component that will fail
+/// on one of the other three.
+void testInList(String description, Widget Function() build) {
+  for (final Brightness brightness in Brightness.values) {
+    testWidgets('$description under a ListView (${brightness.name})', (
+      WidgetTester tester,
+    ) async {
+      await pumpInList(tester, build(), brightness: brightness);
+      expectNoOverflow(tester);
+    });
+  }
+
+  testWidgets('$description under a ListView at 1.3x on a 320 px screen', (
+    WidgetTester tester,
+  ) async {
+    await pumpInList(
+      tester,
+      build(),
+      textScale: AppTypography.maxTextScale,
+      surfaceSize: kSmallPhone,
+    );
+    expectNoOverflow(tester);
+  });
+}

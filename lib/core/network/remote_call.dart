@@ -19,6 +19,8 @@ import 'package:whats_cooking/core/utils/logger.dart';
 ///   than a failure, so it is rethrown unmapped and unretried.
 /// * **The technical detail is logged** and the user-facing message is not
 ///   polluted with it (docs/design_ui.md §31).
+/// * **Nothing waits forever** (Sprint 51). Every call has a deadline, whether or
+///   not the call site asked for one — see `RemoteCall.defaultTimeout`.
 ///
 /// The alternative — a try/catch in each of the several dozen repository methods
 /// this project will grow — is several dozen chances to forget one of the three.
@@ -27,11 +29,15 @@ abstract final class RemoteCall {
   ///
   /// [label] names the call in logs. It should describe the operation and carry
   /// no user data: "fetchMealDetail", never the meal name.
+  ///
+  /// [timeout] defaults to [RemoteCall.defaultTimeout] and can be widened for a
+  /// call that genuinely takes longer. `Duration.zero` opts out entirely, which
+  /// almost nothing should.
   static Future<T> guard<T>(
     Future<T> Function() operation, {
     required String label,
     RetryPolicy policy = RetryPolicy.standard,
-    Duration? timeout,
+    Duration timeout = defaultTimeout,
     Future<void> Function()? onSessionExpired,
   }) async {
     int attempt = 0;
@@ -41,7 +47,7 @@ abstract final class RemoteCall {
 
       try {
         final Future<T> future = operation();
-        return timeout == null ? await future : await future.timeout(timeout);
+        return timeout == Duration.zero ? await future : await future.timeout(timeout);
       } on DomainSignal {
         // Passed through untouched. A signal is an answer, not a failure: it
         // carries meaning the caller acts on, and mapping it to an
@@ -104,7 +110,7 @@ abstract final class RemoteCall {
     Future<T> Function() operation, {
     required String label,
     RetryPolicy policy = RetryPolicy.standard,
-    Duration? timeout,
+    Duration timeout = defaultTimeout,
   }) async {
     try {
       return await guard<T>(
@@ -117,6 +123,25 @@ abstract final class RemoteCall {
       return null;
     }
   }
+
+  /// The deadline every backend call gets unless it asks for another.
+  ///
+  /// **A default rather than a parameter each call site remembers** (Sprint 51).
+  /// Before this, `timeout` was optional and five of fifty-four call sites passed
+  /// one — so on a bad connection the other forty-nine could hang indefinitely.
+  /// The failure was not a slow app: it was a spinner that never resolved, with no
+  /// error, no retry and nothing to tap, because a request that never completes
+  /// never reaches the retry logic either.
+  ///
+  /// Fifteen seconds is chosen against the *retry budget*, not against a single
+  /// request. `RetryPolicy.standard` allows three attempts with up to four seconds
+  /// of backoff, so the worst honest case a reader can sit through is about
+  /// fifty seconds before an error they can act on — long, and finite, which is
+  /// the property that was missing.
+  ///
+  /// Longer than the AI calls take deliberately: those pass their own, shorter
+  /// budgets, because a spin cannot wait on a model.
+  static const Duration defaultTimeout = Duration(seconds: 15);
 
   static const String _name = 'RemoteCall';
 }

@@ -22,7 +22,18 @@ void main() {
     test('builds its metadata line from what is present', () {
       expect(adobo.contextLabel, 'Filipino · Dinner');
       expect(adobo.formattedCost, '₱180');
-      expect(adobo.formattedCostPerServing, '₱90 a head');
+
+      // The figure only. " a head" is the card's own second span, in a quieter
+      // style — this getter has never returned it, and the assertion that said
+      // otherwise had been wrong since the card redesign (Sprint 51).
+      expect(adobo.formattedCostPerServing, '₱90');
+    });
+
+    test('the detail line carries what the cost row does not', () {
+      // Category, time and difficulty on one line. Three pills per card across
+      // twenty cards is a screen of grey lozenges, so these share a line — which
+      // is also why a test looking for '35 min' on its own finds nothing.
+      expect(adobo.detailLine, 'Dinner · 35 min · Easy');
     });
 
     test('drops missing parts rather than leaving a dangling separator', () {
@@ -55,10 +66,22 @@ void main() {
       );
 
       expect(find.text('Chicken Adobo'), findsOneWidget);
+
+      // The cuisine is the one tinted pill left on the card, so it is the only
+      // piece of metadata with a Text of its own.
       expect(find.text('Filipino'), findsOneWidget);
-      expect(find.text('₱90 a head'), findsOneWidget);
-      expect(find.text('35 min'), findsOneWidget);
-      expect(find.text('Easy'), findsOneWidget);
+
+      // `findRichText`, because the cost is two spans in one `Text.rich` — the
+      // figure in `titleMedium` and " a head" in `metadata`. A plain `find.text`
+      // matches on `Text.data`, which a rich text does not have, so this
+      // assertion passed only because nobody ran it (Sprint 51).
+      expect(
+        find.text('₱90 a head', findRichText: true),
+        findsOneWidget,
+      );
+
+      // One line, not three. Looking for '35 min' or 'Easy' alone finds nothing.
+      expect(find.text('Dinner · 35 min · Easy'), findsOneWidget);
     });
 
     testWidgets('the whole card navigates to detail', (
