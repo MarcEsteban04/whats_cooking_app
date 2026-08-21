@@ -124,6 +124,13 @@ enum AppRoute {
   pantry(path: '/pantry'),
   pantryAdd(path: '/pantry/add', isSheet: true),
 
+  /// Reading a photo of the fridge (Sprint 49).
+  ///
+  /// Under `/pantry` because what it produces is pantry items, and because the
+  /// only place it makes sense to reach for is standing in front of the fridge
+  /// with the kitchen list open.
+  pantryScan(path: '/pantry/scan'),
+
   /// Ranked by match percentage.
   ingredientMatches(path: '/pantry/matches'),
 

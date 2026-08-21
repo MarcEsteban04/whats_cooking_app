@@ -10,6 +10,7 @@ import 'package:whats_cooking/core/router/router_guards.dart';
 import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
 import 'package:whats_cooking/core/widgets/placeholder_screen.dart';
 import 'package:whats_cooking/features/ai/presentation/screens/assistant_screen.dart';
+import 'package:whats_cooking/features/ai/presentation/screens/fridge_scan_screen.dart';
 import 'package:whats_cooking/features/ai/presentation/screens/recipe_generator_screen.dart';
 import 'package:whats_cooking/features/auth/domain/entities/app_session.dart';
 import 'package:whats_cooking/features/auth/presentation/providers/session_provider.dart';
@@ -479,6 +480,16 @@ final GoRoute _mealEditRoute = GoRoute(
 );
 
 final List<RouteBase> _fullScreenRoutes = <RouteBase>[
+  // Reading the fridge (Sprint 49). Full screen on the root navigator, like every
+  // other screen whose primary button must not end up behind the floating bottom
+  // navigation — the rule this app has now learned twice.
+  GoRoute(
+    path: AppRoute.pantryScan.path,
+    name: AppRoute.pantryScan.routeName,
+    parentNavigatorKey: rootNavigatorKey,
+    pageBuilder: (BuildContext context, GoRouterState state) =>
+        const AppSlideUpPage<void>(child: FridgeScanScreen()),
+  ),
   // Asking in words (Sprint 47). Slides up on the root navigator: it is a
   // conversation that takes the screen, and its composer must not end up behind
   // the floating bottom navigation.

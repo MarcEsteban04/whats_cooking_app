@@ -111,6 +111,18 @@ class _PantryScreenState extends ConsumerState<PantryScreen> {
                                   : 'Search the kitchen',
                               onTap: _toggleSearch,
                             ),
+                            // Reading the fridge (Sprint 49). A circle here
+                            // rather than a fifth tile in the action row below:
+                            // that row already carries four labels, and this is
+                            // the header you are looking at while standing in
+                            // front of the thing being photographed.
+                            AppCircleAction(
+                              icon: AppIcons.camera,
+                              label: 'Read the fridge from a photo',
+                              onTap: () => context.pushNamed(
+                                AppRoute.pantryScan.routeName,
+                              ),
+                            ),
                             AppCircleAction(
                               icon: AppIcons.add,
                               label: 'Add an ingredient',

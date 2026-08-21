@@ -15,6 +15,13 @@ dependencies:
   freezed_annotation: ^3.1.0
   go_router: ^17.5.0
   google_fonts: ^8.2.1
+
+  # Reading the fridge (Sprint 49). The camera and the gallery, and — the reason
+  # this beats writing it by hand — a native downscale on the way out: `maxWidth`
+  # and `imageQuality` are applied by the platform before the bytes reach Dart, so
+  # a 12-megapixel photo never becomes a 12-megapixel `Uint8List` in memory.
+  image_picker: ^1.2.0
+
   intl: ^0.20.3
   json_annotation: ^4.12.0
   riverpod_annotation: ^4.0.6

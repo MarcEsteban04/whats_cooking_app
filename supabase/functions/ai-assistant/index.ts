@@ -22,6 +22,10 @@ interface AssistantRequest {
   purpose?: string;
   messages?: unknown;
   context?: Record<string, unknown>;
+  /** A fridge photo, base64 with no `data:` prefix (Sprint 49). */
+  image?: unknown;
+  /** Its mime type. Only the two the camera and the gallery produce. */
+  imageMimeType?: unknown;
 }
 
 const PURPOSES = new Set(["assistant", "recipe", "fridge_scan", "personalise"]);
@@ -30,6 +34,19 @@ const PURPOSES = new Set(["assistant", "recipe", "fridge_scan", "personalise"]);
 const MAX_MESSAGES = 12;
 const MAX_MESSAGE_CHARS = 2_000;
 const MAX_OUTPUT_TOKENS = 700;
+
+/**
+ * The biggest photo this will forward, as base64 characters (Sprint 49).
+ *
+ * About 1.5 MB of base64, so roughly 1.1 MB of JPEG — which at the 1280 px the app
+ * downscales to is a generous photo, not a tight one. The cap is here rather than
+ * only on the client because the client is not the thing to trust with the size of
+ * a request somebody else pays for.
+ */
+const MAX_IMAGE_CHARS = 1_500_000;
+
+/** What a camera and a gallery produce, and nothing else. */
+const IMAGE_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 Deno.serve(async (request: Request): Promise<Response> => {
   if (request.method === "OPTIONS") {
@@ -74,6 +91,34 @@ Deno.serve(async (request: Request): Promise<Response> => {
     return failure("bad_request", "There was nothing to ask.", 400);
   }
 
+  // The photo, if there is one (Sprint 49).
+  //
+  // **Validated, forwarded, and never written down.** No Storage bucket, no row,
+  // no log line — it lives in this request and in the provider's, and after that
+  // nowhere. A picture of somebody's kitchen is the most personal thing this app
+  // will ever handle, and the cheapest way to keep it safe is not to keep it.
+  let image: { mimeType: string; base64: string } | undefined;
+
+  if (body.image !== undefined && body.image !== null) {
+    if (typeof body.image !== "string" || body.image === "") {
+      return failure("bad_request", "Something went wrong.", 400);
+    }
+    if (body.image.length > MAX_IMAGE_CHARS) {
+      return failure(
+        "image_too_large",
+        "That photo is too big. Try taking it again.",
+        413,
+      );
+    }
+    const mimeType = typeof body.imageMimeType === "string"
+      ? body.imageMimeType
+      : "image/jpeg";
+    if (!IMAGE_MIME_TYPES.has(mimeType)) {
+      return failure("bad_request", "Something went wrong.", 400);
+    }
+    image = { mimeType, base64: body.image };
+  }
+
   const startedAt = Date.now();
   let reply: ChatReply | null = null;
   let attempts = 0;
@@ -88,6 +133,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
       // actually have, and a creative answer to "what is under ₱150" is a wrong
       // answer with confidence.
       temperature: 0.4,
+      image,
     });
     reply = result.reply;
     attempts = result.attempts;

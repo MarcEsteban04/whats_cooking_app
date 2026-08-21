@@ -1,8 +1,12 @@
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 import 'package:whats_cooking/core/errors/app_exception.dart';
 import 'package:whats_cooking/core/utils/logger.dart';
 import 'package:whats_cooking/features/ai/domain/entities/assistant_choice.dart';
 import 'package:whats_cooking/features/ai/domain/entities/assistant_message.dart';
+import 'package:whats_cooking/features/ai/domain/entities/fridge_reading.dart';
 import 'package:whats_cooking/features/ai/domain/entities/generated_recipe.dart';
 
 /// Asking the assistant something (Sprint 47).
@@ -65,6 +69,29 @@ abstract interface class AssistantRepository {
     required List<String> ingredients,
     String? note,
     Map<String, Object?> context,
+  });
+
+  /// Reads a photo and says what food is in it (Sprint 49).
+  ///
+  /// **The photo is not stored anywhere.** Not in a bucket, not in a row, not in a
+  /// log line — it goes into this request, on to whichever provider answers, and
+  /// then nowhere. A picture of somebody's kitchen is the most personal thing this
+  /// app handles, and the cheapest way to keep it safe is not to keep it.
+  ///
+  /// **No context is sent with it, deliberately.** Every other purpose gets the
+  /// household's facts; this one would be actively harmed by them. A model told
+  /// "in_the_kitchen: chicken, eggs, rice" and then shown a photo has been given
+  /// the answer it is being asked for, and it will find chicken.
+  ///
+  /// Returns the names, lower cased and deduplicated — never a pantry write. What
+  /// comes back is a *suggestion list*, and the confirmation screen is the only
+  /// thing that turns one into an item.
+  ///
+  /// Throws, like [generateRecipe] and unlike [choose]: somebody took a photo and
+  /// is watching, and the only honest outcomes are a list or a sentence.
+  Future<List<String>> readFridge({
+    required Uint8List image,
+    String mimeType = 'image/jpeg',
   });
 }
 
@@ -346,6 +373,65 @@ class SupabaseAssistantRepository implements AssistantRepository {
     return buffer.toString();
   }
 
+  @override
+  Future<List<String>> readFridge({
+    required Uint8List image,
+    String mimeType = 'image/jpeg',
+  }) async {
+    try {
+      final supabase.FunctionResponse response = await _client.functions.invoke(
+        _function,
+        body: <String, Object?>{
+          'purpose': 'fridge_scan',
+          'messages': <Map<String, Object?>>[
+            <String, Object?>{'role': 'user', 'content': _fridgePrompt},
+          ],
+          // No context. See the interface — telling the model what is already in
+          // the kitchen would hand it the answer it is being asked to find.
+          'image': base64Encode(image),
+          'imageMimeType': mimeType,
+        },
+      );
+
+      if (response.data case final Map<String, dynamic> data) {
+        final String text = (data['text'] as String? ?? '').trim();
+        final List<String> names = FridgeReading.parse(text);
+
+        AppLog.debug(
+          'Fridge read.',
+          name: _logName,
+          // The names, not the reply and never the photo. This is the one AI call
+          // whose input must not reach a log at any level.
+          data: <String, Object?>{'found': names.length},
+        );
+
+        return names;
+      }
+
+      throw const ServerException(
+        message: 'The assistant sent something we could not read.',
+      );
+    } on supabase.FunctionException catch (error) {
+      throw _mapFunctionError(error);
+    }
+  }
+
+  /// What the model is asked about the photo.
+  ///
+  /// **Short, and it forbids prose.** Everything this parser has to defend against
+  /// is a model being conversational — "I can see the following items" arriving as
+  /// an ingredient is the failure mode — so the instruction spends its words on the
+  /// shape rather than on the task, which is obvious from the picture.
+  ///
+  /// "Only what you can actually see" is the other half. A model asked what is in a
+  /// fridge will happily add milk, because fridges have milk.
+  static const String _fridgePrompt =
+      'List the food you can see in this picture. Only what is actually '
+      'visible — do not add anything you would expect to be there.\n\n'
+      'One ingredient per line. Two or three words at most per line, everyday '
+      'names, no quantities, no brands, no headings, no other text.\n\n'
+      'If there is no food in the picture, reply with the single word NONE.';
+
   /// Turns the function's named error codes into something a person reads.
   ///
   /// **The function already writes the sentence** — `rate_limited` comes back with
@@ -386,6 +472,13 @@ class SupabaseAssistantRepository implements AssistantRepository {
       'misconfigured' => const ServerException(
         message: 'The assistant is not set up yet.',
         detail: 'ai-assistant is missing its provider keys',
+      ),
+      // The photo was bigger than the function will forward (Sprint 49). Its own
+      // case because it is the one failure here somebody can act on themselves,
+      // and the function's sentence says how.
+      'image_too_large' => ServerException(
+        message:
+            message ?? 'That photo is too big. Try taking it again.',
       ),
       'unavailable' => ServerException(
         message:
@@ -444,6 +537,17 @@ class UnavailableAssistantRepository implements AssistantRepository {
   }) async {
     throw const ServerException(
       message: 'Writing a recipe needs a connection.',
+      detail: 'no Supabase backend configured',
+    );
+  }
+
+  @override
+  Future<List<String>> readFridge({
+    required Uint8List image,
+    String mimeType = 'image/jpeg',
+  }) async {
+    throw const ServerException(
+      message: 'Reading a photo needs a connection.',
       detail: 'no Supabase backend configured',
     );
   }

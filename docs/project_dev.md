@@ -91,7 +91,7 @@ reason to ship something broken to the two people who have to live with it.
 | 8 | 39–41 | Pantry | ✅ Done |
 | 9 | 42–43 | Grocery | ✅ Done |
 | 10 | 45–46 | Restaurant Roulette | ✅ Done |
-| 11 | 47–50 | AI | ▶ 47, 48 done |
+| 11 | 47–50 | AI | ▶ 47–49 done |
 | 12 | 51–52 | Hardening & Shipping | |
 
 ---
@@ -413,6 +413,39 @@ Implement:
 
 Image recognition is wrong often enough that trusting it would poison the pantry,
 and a poisoned pantry poisons the roulette.
+
+**Delivered.** `/pantry/scan`, reached from the camera circle in the Kitchen
+header — the header you are looking at while standing in front of the thing being
+photographed. `image_picker` downscales to 1280 px and 80% quality *on the
+platform*, so a twelve-megapixel photo never becomes a twelve-megapixel
+`Uint8List`, and the send is a tenth of the bytes for the same answer.
+
+**Nothing is uploaded and nothing is stored.** No Storage bucket, no row, no log
+line: the photo goes into one request, on to whichever provider answers, and then
+nowhere. That is also why there is no "recent scans" list — there is nothing to
+list. The iOS usage strings say so in the permission prompt, because "needs
+camera access" is the prompt people decline.
+
+**The confirmation list is the feature.** Every line can be unticked or corrected
+in place; `addKept()` is only ever called by a button, and it is sequential and
+tolerant, so one unrecognisable name costs that name rather than the other seven
+("six of eight added" is the honest sentence). No quantities are guessed — a
+photo establishes *that* there is rice, which is exactly what the pantry's null
+quantity already means.
+
+**No aisles are asked for either.** A vision model guessing "kangkong is a
+vegetable" would let the list group itself, but `IngredientCategory` already
+records the decision: guessing "bagoong" is a condiment is not easy, and a wrong
+aisle is worse than no aisle. The catalogue owns the aisle; a photo does not get a
+vote. **No context is sent with the photo**, unlike every other purpose — a model
+told what is already in the kitchen and then shown a picture has been handed the
+answer, and it will find chicken.
+
+The provider chain gained vision: `ChatRequest.image`, a per-provider vision model
+(`GROQ_VISION_MODEL` and friends — Groq's text default cannot see at all), and
+providers with none configured are skipped rather than sent a picture they reject
+with a 400, which does not fail over. **`ai-assistant` needs redeploying** for any
+of that to exist.
 
 ---
 

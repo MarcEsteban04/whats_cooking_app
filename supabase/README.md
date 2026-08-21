@@ -241,6 +241,26 @@ overridable without touching the code:
 | `GEMINI_MODEL` | `gemini-2.0-flash` |
 | `OPENAI_MODEL` | `gpt-4o-mini` |
 
+#### Vision (Sprint 49)
+
+Reading a fridge photo needs a model that can see, and `GROQ_MODEL`'s default
+cannot — so vision gets its own variable per provider rather than reusing the
+text one. That also means vision can be turned off per provider by setting the
+variable to an empty string: a provider with no vision model is **skipped** for
+image requests instead of being sent a picture it will reject with a 400, which
+does not fail over.
+
+| Variable | Default |
+| -------- | ------- |
+| `GROQ_VISION_MODEL` | `meta-llama/llama-4-scout-17b-16e-instruct` |
+| `GEMINI_VISION_MODEL` | `gemini-2.0-flash` |
+| `OPENAI_VISION_MODEL` | `gpt-4o-mini` |
+
+The photo is forwarded and never stored — no bucket, no row, no log line. The
+function caps it at 1.5 MB of base64 (`413 image_too_large`); the app downscales
+to 1280 px before sending, so that ceiling is a guard against a bad client rather
+than a limit anybody meets.
+
 ### Checking it works
 
 Deployed functions need a real user token, so the quickest check is from a signed
