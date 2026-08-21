@@ -47,10 +47,22 @@ String numberFieldKey(String label) => 'number-$label';
 /// flat column is a wall; the same twelve under five headings is a form whose
 /// shape you can see.
 class MealFormScreen extends ConsumerStatefulWidget {
-  const MealFormScreen({this.mealId, super.key});
+  const MealFormScreen({this.mealId, this.initialDraft, super.key});
 
   /// The meal being rewritten, or null when writing a new one.
   final String? mealId;
+
+  /// What the form opens filled in with, when something else wrote it.
+  ///
+  /// **This is the confirmation step for a generated recipe** (Sprint 48). The
+  /// assistant can write a meal, and nothing it writes reaches the library without
+  /// passing through this screen — which means it also passes through
+  /// [MealDraft.validate] and the one create path, exactly like a meal somebody
+  /// typed. There is no second way in to keep in step.
+  ///
+  /// Ignored when [mealId] is set: a stored meal is the truth about itself, and a
+  /// draft arriving alongside it could only overwrite what is already there.
+  final MealDraft? initialDraft;
 
   bool get isEditing => mealId != null;
 
@@ -184,7 +196,11 @@ class _MealFormScreenState extends ConsumerState<MealFormScreen> {
         }
       }
     } else {
-      _draft ??= _blank;
+      // A generated recipe counts as *started*, so backing out asks before
+      // throwing it away — it took a round trip and somebody chose to keep it.
+      // That falls out of comparing against `_blank`, which is why the seed goes
+      // into `_draft` and never into `_original`.
+      _draft ??= widget.initialDraft ?? _blank;
     }
 
     final MealDraft draft = _draft!;
@@ -202,7 +218,16 @@ class _MealFormScreenState extends ConsumerState<MealFormScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
                 _Header(
-                  title: widget.isEditing ? 'Edit meal' : 'Add a meal',
+                  // Three verbs, because the job is different in each case. A
+                  // generated recipe says "check" rather than "add": the fields
+                  // are already filled and what is being asked for is a read, not
+                  // a write.
+                  title: switch ((widget.isEditing, widget.initialDraft)) {
+                    (true, _) => 'Edit meal',
+                    (false, final MealDraft? seed) when seed != null =>
+                      'Check this over',
+                    _ => 'Add a meal',
+                  },
                   onCancel: _isSaving ? null : _cancel,
                 ),
                 Expanded(

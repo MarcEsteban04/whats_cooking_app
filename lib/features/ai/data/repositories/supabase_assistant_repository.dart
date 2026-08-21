@@ -3,10 +3,11 @@ import 'package:whats_cooking/core/errors/app_exception.dart';
 import 'package:whats_cooking/core/utils/logger.dart';
 import 'package:whats_cooking/features/ai/domain/entities/assistant_choice.dart';
 import 'package:whats_cooking/features/ai/domain/entities/assistant_message.dart';
+import 'package:whats_cooking/features/ai/domain/entities/generated_recipe.dart';
 
 /// Asking the assistant something (Sprint 47).
 ///
-/// **One method, and it is not streaming.** The roadmap asked for "streaming where
+/// **Nothing here streams.** The roadmap asked for "streaming where
 /// the provider supports it", and building it would break the thing that makes the
 /// AI work at all: `ai-assistant` tries three providers in turn, and a chain like
 /// that is fundamentally at odds with streaming. Once the first provider has sent
@@ -47,6 +48,23 @@ abstract interface class AssistantRepository {
     required List<ChoiceOption> options,
     Map<String, Object?> context,
     Duration? timeout,
+  });
+
+  /// Writes a recipe around [ingredients] (Sprint 48).
+  ///
+  /// The one place in this app where the model produces something that gets
+  /// *stored* rather than said. Which is why it does not get stored from here:
+  /// what comes back is a [GeneratedRecipe], the screen shows it, and saving it
+  /// goes through the ordinary meal form with a person's finger on the button.
+  ///
+  /// **Throws, unlike [choose].** A choice that fails still has the engine's pick
+  /// behind it, so silence is an answer. This has nothing behind it — somebody
+  /// asked for a recipe and is watching a spinner, and the only honest outcomes
+  /// are a recipe or a sentence saying why not.
+  Future<GeneratedRecipe> generateRecipe({
+    required List<String> ingredients,
+    String? note,
+    Map<String, Object?> context,
   });
 }
 
@@ -204,6 +222,130 @@ class SupabaseAssistantRepository implements AssistantRepository {
     return buffer.toString();
   }
 
+  @override
+  Future<GeneratedRecipe> generateRecipe({
+    required List<String> ingredients,
+    String? note,
+    Map<String, Object?> context = const <String, Object?>{},
+  }) async {
+    // Not retried, for the same reason `ask` is not: the function has already
+    // tried three providers, and a fourth attempt from here is a second bill for
+    // the same answer.
+    try {
+      final supabase.FunctionResponse response = await _client.functions.invoke(
+        _function,
+        body: <String, Object?>{
+          'purpose': 'recipe',
+          'messages': <Map<String, Object?>>[
+            <String, Object?>{
+              'role': 'user',
+              'content': _recipePrompt(ingredients, note),
+            },
+          ],
+          'context': context,
+        },
+      );
+
+      if (response.data case final Map<String, dynamic> data) {
+        final String text = (data['text'] as String? ?? '').trim();
+
+        if (GeneratedRecipe.parse(text) case final GeneratedRecipe recipe) {
+          return recipe;
+        }
+
+        // A 200 the parser could not use. Logged with the reply, because this is
+        // the one failure mode that is a *prompt* problem rather than an outage,
+        // and it is invisible without the text that caused it.
+        AppLog.warning(
+          'Recipe reply unusable.',
+          name: _logName,
+          data: <String, Object?>{'length': text.length},
+        );
+        AppLog.debug(
+          'Recipe reply.',
+          name: _logName,
+          data: <String, Object?>{'reply': text},
+        );
+
+        throw const ServerException(
+          message: 'That came back in a shape we could not read. Try again.',
+        );
+      }
+
+      throw const ServerException(
+        message: 'The assistant sent something we could not read.',
+      );
+    } on supabase.FunctionException catch (error) {
+      throw _mapFunctionError(error);
+    }
+  }
+
+  /// What the model is asked for a recipe.
+  ///
+  /// **A labelled block, and the format is given as a filled-in example.** Telling
+  /// a model the shape it should answer in works; showing it the shape works
+  /// better, and this reply has ten fields to get right rather than one. See
+  /// [GeneratedRecipe] for why the shape is labelled lines rather than JSON.
+  ///
+  /// The counts are deliberate. The function caps output at 700 tokens, so "at
+  /// most ten ingredients and eight steps" is not a style preference — it is the
+  /// difference between a recipe that ends and one that is cut off mid-sentence
+  /// where the steps should be.
+  static String _recipePrompt(List<String> ingredients, String? note) {
+    final String have = ingredients
+        .map((String name) => name.trim())
+        .where((String name) => name.isNotEmpty)
+        .join(', ');
+
+    final StringBuffer buffer = StringBuffer()
+      ..writeln(
+        have.isEmpty
+            ? 'Invent a dinner this household could cook tonight.'
+            : 'Write one recipe using mostly: $have.',
+      );
+
+    if (note != null && note.trim().isNotEmpty) {
+      // Somebody's own words, and they go in as a *request* rather than as part
+      // of the instruction — the same reason the Edge Function renders context as
+      // facts. A line typed into a text field is not allowed to redefine the
+      // reply format.
+      buffer.writeln('They also said: "${note.trim()}"');
+    }
+
+    buffer
+      ..writeln()
+      ..writeln(
+        'It has to be something a Filipino household can actually cook. Assume '
+        'salt, oil, garlic, onion, soy sauce and vinegar are already there. You '
+        'may add up to three cheap things they would have to buy.',
+      )
+      ..writeln()
+      ..writeln('Reply in exactly this shape and nothing else:')
+      ..writeln()
+      ..writeln('NAME: Chicken and egg rice bowl')
+      ..writeln('CUISINE: filipino')
+      ..writeln('CATEGORY: dinner')
+      ..writeln('DIFFICULTY: easy')
+      ..writeln('TIME: 25')
+      ..writeln('COST: 180')
+      ..writeln('SERVINGS: 2')
+      ..writeln('INGREDIENTS:')
+      ..writeln('- 300 g chicken thigh')
+      ..writeln('- 2 pc egg')
+      ..writeln('- 2 cup rice')
+      ..writeln('STEPS:')
+      ..writeln('- Season the chicken and fry it until brown.')
+      ..writeln('- Scramble the eggs in the same pan.')
+      ..writeln()
+      ..writeln(
+        'TIME is whole minutes. COST is pesos for the whole dish, not per head. '
+        'Quantities use only g, ml, pc, tbsp, tsp or cup. At most ten '
+        'ingredients and eight steps.',
+      );
+
+    return buffer.toString();
+  }
+
   /// Turns the function's named error codes into something a person reads.
   ///
   /// **The function already writes the sentence** — `rate_limited` comes back with
@@ -292,5 +434,17 @@ class UnavailableAssistantRepository implements AssistantRepository {
     // so; a spin with no backend simply keeps the engine's pick, which is the
     // right answer and needs no telling.
     return null;
+  }
+
+  @override
+  Future<GeneratedRecipe> generateRecipe({
+    required List<String> ingredients,
+    String? note,
+    Map<String, Object?> context = const <String, Object?>{},
+  }) async {
+    throw const ServerException(
+      message: 'Writing a recipe needs a connection.',
+      detail: 'no Supabase backend configured',
+    );
   }
 }

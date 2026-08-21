@@ -104,6 +104,13 @@ enum AppRoute {
   myMeals(path: '/meals/mine'),
   mealCreate(path: '/meals/new'),
 
+  /// Asking the assistant to write one (Sprint 48).
+  ///
+  /// Under `/meals` rather than under `/ask`, because what it produces is a meal
+  /// and where it lands is the library. The chat is a different feature that
+  /// happens to use the same provider.
+  inventMeal(path: '/meals/invent'),
+
   /// Hero transition from any card.
   mealDetail(path: '/meals/:id'),
 

@@ -78,6 +78,13 @@ abstract final class AppIcons {
   static const IconData cuisine = Icons.public_rounded;
   static const IconData household = Icons.favorite_outline_rounded;
   static const IconData assistant = Icons.auto_awesome_outlined;
+
+  /// Asking the assistant to *write* something, rather than to answer (Sprint 48).
+  ///
+  /// Its own glyph because the two sit side by side in the Meals header, and two
+  /// sparkles that do different things is worse than no icon at all. A wand reads
+  /// as "make me one" where sparkles read as "help me".
+  static const IconData invent = Icons.auto_fix_high_outlined;
   static const IconData camera = Icons.photo_camera_outlined;
   static const IconData notifications = Icons.notifications_none_rounded;
   static const IconData settings = Icons.settings_outlined;

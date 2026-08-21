@@ -10,6 +10,7 @@ import 'package:whats_cooking/core/router/router_guards.dart';
 import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
 import 'package:whats_cooking/core/widgets/placeholder_screen.dart';
 import 'package:whats_cooking/features/ai/presentation/screens/assistant_screen.dart';
+import 'package:whats_cooking/features/ai/presentation/screens/recipe_generator_screen.dart';
 import 'package:whats_cooking/features/auth/domain/entities/app_session.dart';
 import 'package:whats_cooking/features/auth/presentation/providers/session_provider.dart';
 import 'package:whats_cooking/features/auth/presentation/screens/forgot_password_screen.dart';
@@ -24,6 +25,7 @@ import 'package:whats_cooking/features/history/presentation/screens/decided_scre
 import 'package:whats_cooking/features/history/presentation/screens/meal_history_screen.dart';
 import 'package:whats_cooking/features/home/presentation/screens/home_screen.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal.dart';
+import 'package:whats_cooking/features/meals/domain/entities/meal_draft.dart';
 import 'package:whats_cooking/features/meals/presentation/screens/disliked_meals_screen.dart';
 import 'package:whats_cooking/features/meals/presentation/screens/favorites_screen.dart';
 import 'package:whats_cooking/features/meals/presentation/screens/meal_detail_screen.dart';
@@ -107,6 +109,7 @@ GoRouter appRouter(Ref ref) {
       // it, /meals/new would resolve to a meal whose id is "new".
       _mealCreateRoute,
       _mealEditRoute,
+      _mealInventRoute,
       _shellRoute,
       ..._fullScreenRoutes,
       ..._coupleRoutes,
@@ -430,8 +433,29 @@ final GoRoute _mealCreateRoute = GoRoute(
   path: AppRoute.mealCreate.path,
   name: AppRoute.mealCreate.routeName,
   parentNavigatorKey: rootNavigatorKey,
+  pageBuilder: (BuildContext context, GoRouterState state) => AppSlideUpPage<void>(
+    // A generated recipe arrives as `extra` (Sprint 48), which is why this is the
+    // same route rather than a second one: what opens is the same form doing the
+    // same job, with some of the fields already filled in. Null on a deep link or
+    // a cold start, and a blank form is the right answer to both.
+    child: MealFormScreen(
+      initialDraft: state.extra is MealDraft ? state.extra as MealDraft : null,
+    ),
+  ),
+);
+
+/// Asking for a recipe (Sprint 48).
+///
+/// Beside [_mealCreateRoute] and *before* the shell for the same reason it is:
+/// `/meals/invent` declared after `/meals/:id` would resolve to a meal whose id is
+/// "invent". On the root navigator because it hands off to the meal form, and a
+/// hand-off that starts under the bottom navigation ends under it too.
+final GoRoute _mealInventRoute = GoRoute(
+  path: AppRoute.inventMeal.path,
+  name: AppRoute.inventMeal.routeName,
+  parentNavigatorKey: rootNavigatorKey,
   pageBuilder: (BuildContext context, GoRouterState state) =>
-      const AppSlideUpPage<void>(child: MealFormScreen()),
+      const AppSlideUpPage<void>(child: RecipeGeneratorScreen()),
 );
 
 /// Rewriting one (Sprint 26).

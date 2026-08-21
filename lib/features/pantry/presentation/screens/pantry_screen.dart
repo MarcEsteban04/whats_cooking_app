@@ -379,6 +379,16 @@ class _Loaded extends ConsumerWidget {
                     onTap: () =>
                         context.pushNamed(AppRoute.pantryAdd.routeName),
                   ),
+                  // The strongest entry point this feature has (Sprint 48). It
+                  // belongs on the pantry rather than only on Meals, because
+                  // "what do I do with these three things" is a question you ask
+                  // while looking at the three things.
+                  DashboardAction(
+                    label: 'Invent',
+                    icon: AppIcons.invent,
+                    onTap: () =>
+                        context.pushNamed(AppRoute.inventMeal.routeName),
+                  ),
                   DashboardAction(
                     label: 'Cook',
                     icon: AppIcons.spin,

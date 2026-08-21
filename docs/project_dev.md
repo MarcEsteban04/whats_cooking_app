@@ -87,11 +87,11 @@ reason to ship something broken to the two people who have to live with it.
 | 4 | 16–20 | Authentication & Onboarding | ✅ Done |
 | 5 | 21–27 | Meal System | ✅ Done |
 | 6 | 28–36 | Roulette, Recommendations & Mood | ✅ Done |
-| 7 | 37 | Our Library | ▶ Next |
-| 8 | 39–41 | Pantry | |
-| 9 | 42–43 | Grocery | |
-| 10 | 45–46 | Restaurant Roulette | |
-| 11 | 47–50 | AI | |
+| 7 | 37 | Our Library | ✅ Done |
+| 8 | 39–41 | Pantry | ✅ Done |
+| 9 | 42–43 | Grocery | ✅ Done |
+| 10 | 45–46 | Restaurant Roulette | ✅ Done |
+| 11 | 47–50 | AI | ▶ 47, 48 done |
 | 12 | 51–52 | Hardening & Shipping | |
 
 ---
@@ -378,6 +378,27 @@ cost.
 
 **Saveable to our library**, which is how the library grows without typing — and
 the reason this ranks above the fridge scanner.
+
+**Delivered.** `/meals/invent`. The pantry supplies the ingredients as chips —
+whatever needs using first, pre-ticked — plus a free-text line for "nothing
+fried". The reply is a labelled block rather than JSON (`GeneratedRecipe`), so a
+cut-off answer still yields a name, a time and four steps instead of nothing; a
+brace-balance failure is all-or-nothing and this is the one AI feature whose
+output gets *stored*.
+
+**Nothing is saved by the AI.** The recipe is shown to be read, and "Keep it"
+opens the ordinary meal form pre-filled — the same form, the same
+`MealDraft.validate`, the same single create path as a meal typed by hand. Two
+steps rather than one on purpose: a form is a bad way to read a recipe, and
+rejecting one there costs a "discard this meal?" dialog where the button on the
+generator just says try another.
+
+Entry points: the pantry's action row (`Invent`, beside Add) and the Meals
+header, which is where somebody runs out of ideas. The household context that
+feeds it was lifted out of the chat controller into `householdAiContext` so both
+purposes honour the same dietary needs — two copies would have drifted, and the
+drift would have shown up as an allergy respected in the chat and forgotten in a
+recipe.
 
 ---
 

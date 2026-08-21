@@ -217,6 +217,23 @@ class _MealsScreenState extends ConsumerState<MealsScreen> {
                                 AppRoute.assistant.routeName,
                               ),
                             ),
+                            // Inventing one (Sprint 48). A circle rather than a
+                            // sixth tile in the panel's action row below: that row
+                            // already carries four labels, and a fifth would put
+                            // this feature's name at the width that truncated
+                            // "Browse" into "Brows e".
+                            //
+                            // Here for the same reason Ask is: this is the screen
+                            // where somebody scrolls a catalogue and does not find
+                            // it, which is exactly when a recipe written around
+                            // what is in the kitchen beats another filter.
+                            _CircleAction(
+                              icon: AppIcons.invent,
+                              label: 'Invent a meal',
+                              onPressed: () => context.pushNamed(
+                                AppRoute.inventMeal.routeName,
+                              ),
+                            ),
                           ],
                         ),
                         const SizedBox(height: AppSpacing.space4),
