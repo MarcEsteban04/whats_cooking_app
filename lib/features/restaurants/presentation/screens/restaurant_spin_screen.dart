@@ -45,6 +45,9 @@ class _RestaurantSpinScreenState extends ConsumerState<RestaurantSpinScreen>
 
   Timer? _revealTimer;
   Timer? _poolTimer;
+
+  /// Holds the reveal while the assistant is still deciding (Sprint 50).
+  Timer? _graceTimer;
   bool _isReducedMotion = false;
 
   @override
@@ -107,6 +110,7 @@ class _RestaurantSpinScreenState extends ConsumerState<RestaurantSpinScreen>
   void dispose() {
     _revealTimer?.cancel();
     _poolTimer?.cancel();
+    _graceTimer?.cancel();
     _controller
       ..removeStatusListener(_onStatus)
       ..removeListener(_onTick)
@@ -146,10 +150,39 @@ class _RestaurantSpinScreenState extends ConsumerState<RestaurantSpinScreen>
     _revealTimer = Timer(AppRouletteMotion.reveal, _maybeReveal);
   }
 
+  /// Goes to the result, once the reel has stopped and the pick has arrived.
   void _maybeReveal() {
     if (_hasRevealed || !_isReelStopped || !mounted) {
       return;
     }
+
+    // **The grace window** (Sprint 50), the same one the meal roulette has. The
+    // engine's answer is already here and already planted, so nothing is waiting
+    // on a network call — but the reel takes about two seconds and a model usually
+    // takes longer, so revealing the instant the reel stops would mean the
+    // assistant almost never got to matter.
+    //
+    // It only ever *delays* a reveal that is already correct, so a slow evening
+    // costs a moment rather than an answer.
+    if (ref.read(restaurantSpinControllerProvider)
+        case RestaurantSpinSettled(isAwaitingAssistant: true)) {
+      _graceTimer ??= Timer(_assistantGrace, () {
+        _graceTimer = null;
+        _reveal();
+      });
+      return;
+    }
+
+    _reveal();
+  }
+
+  /// Goes, without asking again whether to wait.
+  void _reveal() {
+    if (_hasRevealed || !_isReelStopped || !mounted) {
+      return;
+    }
+    _graceTimer?.cancel();
+    _graceTimer = null;
 
     if (ref.read(restaurantSpinControllerProvider)
         case RestaurantSpinSettled(:final Restaurant place)) {
@@ -246,6 +279,9 @@ class _RestaurantSpinScreenState extends ConsumerState<RestaurantSpinScreen>
                     animation: _controller,
                     pool: _reelPool ?? const <Restaurant>[],
                     isStopped: _isReelStopped,
+                    isAsking:
+                        state is RestaurantSpinSettled &&
+                        state.isAwaitingAssistant,
                   ),
                 },
               ),
@@ -257,6 +293,12 @@ class _RestaurantSpinScreenState extends ConsumerState<RestaurantSpinScreen>
   }
 
   static const Duration _maxPoolWait = Duration(seconds: 2);
+
+  /// How long the reveal waits for the assistant (Sprint 50).
+  ///
+  /// The same second and a half the meal roulette holds. Long enough that most
+  /// answers land, short enough that the worst case is under four seconds.
+  static const Duration _assistantGrace = Duration(milliseconds: 1500);
 
   static final double _decelerationBegins =
       (AppRouletteMotion.windUp + AppRouletteMotion.fastCycle).inMilliseconds /
@@ -272,11 +314,15 @@ class _Spinning extends StatelessWidget {
     required this.animation,
     required this.pool,
     required this.isStopped,
+    required this.isAsking,
   });
 
   final Animation<double> animation;
   final List<Restaurant> pool;
   final bool isStopped;
+
+  /// Whether the assistant is still deciding (Sprint 50).
+  final bool isAsking;
 
   @override
   Widget build(BuildContext context) {
@@ -285,10 +331,13 @@ class _Spinning extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         Text(
-          switch ((pool.isEmpty, isStopped)) {
-            (true, _) => 'LOOKING AT WHERE WE COULD GO',
-            (false, true) => 'ALMOST',
-            (false, false) => '${pool.length} PLACES ON THE LIST',
+          switch ((pool.isEmpty, isStopped, isAsking)) {
+            (true, _, _) => 'LOOKING AT WHERE WE COULD GO',
+            // Says what the pause is, on the one screen where a pause without a
+            // reason reads as a stall.
+            (false, true, true) => 'ASKING THE ASSISTANT',
+            (false, true, false) => 'ALMOST',
+            (false, false, _) => '${pool.length} PLACES ON THE LIST',
           },
           style: context.text.overline,
           textAlign: TextAlign.center,

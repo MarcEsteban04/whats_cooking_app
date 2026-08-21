@@ -20,6 +20,7 @@ import 'package:whats_cooking/features/meals/presentation/providers/disliked_ing
 import 'package:whats_cooking/features/meals/presentation/providers/dislikes_controller.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/favorites_controller.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/meal_repository_provider.dart';
+import 'package:whats_cooking/features/pantry/domain/entities/pantry_item.dart';
 import 'package:whats_cooking/features/pantry/presentation/providers/pantry_controller.dart';
 import 'package:whats_cooking/features/profile/presentation/providers/profile_controller.dart';
 import 'package:whats_cooking/features/roulette/domain/entities/spin_filters.dart';
@@ -550,9 +551,18 @@ class SpinController extends _$SpinController {
   /// Deliberately smaller than the chat screen's context. The shortlist already
   /// encodes the budget, the time limit, the dietary needs and the repetition
   /// window — every option in it passed all of them — so repeating them would be
-  /// tokens spent restating a filter that has already run. What the model cannot
-  /// see from the list is what the household has eaten lately and what is in the
-  /// kitchen, so that is what it gets.
+  /// tokens spent restating a filter that has already run.
+  ///
+  /// What the model cannot see from the list is what the household has eaten
+  /// lately and **what needs using up**, so those are what it gets. The second one
+  /// was missing until Sprint 50, and it is the line that most changes which of
+  /// twelve perfectly valid meals gets picked — a model that knows there is fish
+  /// to use tonight both chooses differently and has something worth saying about
+  /// why.
+  ///
+  /// The whole kitchen is still left out. Twenty ingredient names on every spin is
+  /// tokens spent on a pantry bonus the scorer has already applied; the urgent
+  /// shelf is short by definition and is the part the score cannot express.
   Map<String, Object?> _assistantContext() {
     final List<MealHistoryEntry> history =
         ref.read(mealHistoryProvider).value ?? const <MealHistoryEntry>[];
@@ -562,11 +572,23 @@ class SpinController extends _$SpinController {
         if (entry.meal?.name case final String name) name,
     ];
 
+    final DateTime now = DateTime.now();
+    final List<String> urgent = <String>[
+      for (final PantryItem item
+          in ref.read(pantryControllerProvider).value ?? const <PantryItem>[])
+        if (item.statusAsOf(now).needsAttention) item.name,
+    ];
+
     return <String, Object?>{
       if (recent.isNotEmpty) 'eaten_recently': recent.join(', '),
+      if (urgent.isNotEmpty)
+        'going_off_soon': urgent.take(_urgentForPrompt).join(', '),
       'deciding_for': 'tonight',
     };
   }
+
+  /// A shelf, not an inventory. Past this, "soon" has stopped meaning anything.
+  static const int _urgentForPrompt = 6;
 
   /// Records a no-match and hands the state straight back.
   ///

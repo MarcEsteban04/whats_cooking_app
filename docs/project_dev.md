@@ -91,7 +91,7 @@ reason to ship something broken to the two people who have to live with it.
 | 8 | 39–41 | Pantry | ✅ Done |
 | 9 | 42–43 | Grocery | ✅ Done |
 | 10 | 45–46 | Restaurant Roulette | ✅ Done |
-| 11 | 47–50 | AI | ▶ 47–49 done |
+| 11 | 47–50 | AI | ✅ Done |
 | 12 | 51–52 | Hardening & Shipping | |
 
 ---
@@ -456,6 +456,52 @@ pantry, the restaurant list, and previous conversations.
 
 Bounded deliberately. Context is tokens and tokens are money, so what goes in is
 chosen rather than dumped.
+
+**Delivered.** `householdAiContext` gained five lines, and the theme of all five
+is *observed* rather than *stated*:
+
+* `usually_spends_per_head` beside `budget_per_head_pesos` — what somebody typed
+  once, next to what actually happens. A household with a ₱200 budget that spends
+  ₱90 is not asking for a ₱200 dinner.
+* `recent_cuisines` — the real thirty-day mix with counts. The heart of the
+  sprint: when the stated favourites and the eaten mix disagree, the second one is
+  true.
+* `going_off_soon` — the urgent shelf, on its own line. Buried in twenty pantry
+  names it was invisible.
+* `this_week` — cooked against eaten out, so "you have already been out twice" is
+  a sentence the model can say.
+* `places_we_go` — the restaurant list, so "we cannot face cooking" gets real
+  names.
+
+All read **through `homeDashboard`** rather than recomputed. Home already turns
+history and spend into exactly these numbers, and a second implementation of
+"what we usually spend" would drift from the chart that shows it — the assistant
+and the chart would then disagree about the same household.
+
+**A latent truncation bug went with it.** Values were capped by item count and
+the Edge Function slices each at 300 characters, so twenty pantry names arrived
+cut mid-word — "chicken thigh, spring onio" teaches the model an ingredient
+nobody has. `_capped` now stops on an item boundary inside a 280-character
+budget.
+
+**Previous conversations** are delivered as continuity rather than as a context
+line: the chat is persisted on the device (`AssistantMemory`, seven-day TTL,
+`cache.` prefix so the sign-out sweep clears it without knowing it exists). A
+transcript table would be a migration, a policy and a browsing screen for a
+household of two. Summarising old turns into a line was rejected too — it would
+cost a second AI call to produce what the transcript already says.
+
+**And the eat-out roulette finally asks.** The meal spin got the
+assistant-chooses-from-a-vetted-shortlist path at 47c and the night out did not,
+which made "the AI decides" half true. Eating out is the decision where a model
+has *more* to add: the shortlist cannot see that you were at the ramen place on
+Friday. Same shape throughout — engine pick first, index from a pre-filtered
+twelve, four-second budget, 1.5-second grace on the reveal, rate limit rests the
+session — so the two roulettes cannot drift.
+
+The meal spin's own prompt gained `going_off_soon` as well. It is the line that
+most changes which of twelve valid meals wins, and it gives the reason under the
+answer something real to say.
 
 ---
 

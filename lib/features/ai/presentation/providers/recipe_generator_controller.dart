@@ -84,7 +84,7 @@ class RecipeGenerator extends _$RecipeGenerator {
           .generateRecipe(
             ingredients: ingredients,
             note: note,
-            context: householdAiContext(ref),
+            context: await householdAiContext(ref),
           );
 
       state = RecipeIdea(recipe: recipe, attempts: state.attempts + 1);

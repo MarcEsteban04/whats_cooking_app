@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
@@ -11,6 +12,8 @@ import 'package:whats_cooking/core/errors/error_mapper.dart';
 import 'package:whats_cooking/core/network/backend_health.dart';
 import 'package:whats_cooking/core/network/supabase_bootstrap.dart';
 import 'package:whats_cooking/core/utils/logger.dart';
+import 'package:whats_cooking/features/ai/domain/entities/assistant_choice.dart';
+import 'package:whats_cooking/features/ai/presentation/providers/assistant_controller.dart';
 import 'package:whats_cooking/features/profile/presentation/providers/profile_controller.dart';
 import 'package:whats_cooking/features/restaurants/data/repositories/supabase_restaurant_history_repository.dart';
 import 'package:whats_cooking/features/restaurants/domain/entities/restaurant.dart';
@@ -44,6 +47,8 @@ class RestaurantSpinSettled extends RestaurantSpinState {
     required this.place,
     required this.pool,
     this.reason,
+    this.isAwaitingAssistant = false,
+    this.chosenByAssistant = false,
   });
 
   final Restaurant place;
@@ -54,6 +59,33 @@ class RestaurantSpinSettled extends RestaurantSpinState {
 
   /// Why this one, in a phrase, or null when there is nothing worth saying.
   final String? reason;
+
+  /// True while the assistant is still deciding whether to improve on this pick
+  /// (Sprint 50).
+  ///
+  /// **The state is settled anyway**, exactly as it is for the meal roulette: the
+  /// engine's pick is emitted immediately so the reel can start rolling with a
+  /// real winner planted at its landing slot. The assistant is an *upgrade* that
+  /// may or may not arrive, not a thing the spin waits on.
+  final bool isAwaitingAssistant;
+
+  /// Whether the place here came from the assistant rather than the weighted draw.
+  final bool chosenByAssistant;
+
+  RestaurantSpinSettled copyWith({
+    Restaurant? place,
+    String? reason,
+    bool? isAwaitingAssistant,
+    bool? chosenByAssistant,
+  }) {
+    return RestaurantSpinSettled(
+      place: place ?? this.place,
+      pool: pool,
+      reason: reason ?? this.reason,
+      isAwaitingAssistant: isAwaitingAssistant ?? this.isAwaitingAssistant,
+      chosenByAssistant: chosenByAssistant ?? this.chosenByAssistant,
+    );
+  }
 }
 
 /// Nothing to offer, and which of the reasons it was.
@@ -206,6 +238,13 @@ class RestaurantSpinController extends _$RestaurantSpinController {
 
   int _spinsThisSession = 0;
 
+  /// Set once the assistant has been rate-limited, so the rest of the session
+  /// stops asking. Mirrors the meal roulette, including the reasoning: skipping
+  /// the assistant on Try Again instead would make the *second* spin worse than
+  /// the first on every evening, to solve a problem that only happens on a heavy
+  /// one.
+  bool _assistantRestedForSession = false;
+
   @override
   RestaurantSpinState build() => const RestaurantSpinIdle();
 
@@ -268,6 +307,11 @@ class RestaurantSpinController extends _$RestaurantSpinController {
         return;
       }
 
+      // Hoisted out of the scoring context (Sprint 50), because the assistant
+      // wants the same history the scorer does — and fetching it twice for one
+      // spin would be a second read of the same rows.
+      final List<RecentVisit> recent = await _recentVisits();
+
       final RestaurantOutcome outcome = RestaurantScorer.score(
         pool: matching,
         context: RestaurantScoringContext(
@@ -278,7 +322,7 @@ class RestaurantSpinController extends _$RestaurantSpinController {
                   ?.preferences
                   .favouriteCuisines ??
               const <Cuisine>{},
-          recent: await _recentVisits(),
+          recent: recent,
           budgetPerHead: filters.maxCostPerHead,
           mood: filters.mood,
         ),
@@ -324,16 +368,156 @@ class RestaurantSpinController extends _$RestaurantSpinController {
         ),
       );
 
+      final bool willAsk = _shouldAskAssistant(outcome.candidates);
+
       state = RestaurantSpinSettled(
         place: scored.restaurant,
         pool: outcome.candidates
             .map((ScoredRestaurant candidate) => candidate.restaurant)
             .toList(growable: false),
         reason: scored.highlight?.label,
+        isAwaitingAssistant: willAsk,
       );
+
+      if (willAsk) {
+        // Not awaited. The spin is already settled and the reel is already
+        // rolling; this either improves the answer before the reveal or it does
+        // not, and either way nothing waited on it.
+        // The names of the last few places, resolved here because this is the
+        // only scope holding both the visits and the list they point at — a
+        // `RecentVisit` carries an id and a cuisine, not a name.
+        final Map<String, String> nameOf = <String, String>{
+          for (final Restaurant place in all) place.id: place.name,
+        };
+
+        unawaited(
+          _askAssistant(outcome.candidates, scored, <String>[
+            for (final RecentVisit visit in recent.take(_recentNamesForPrompt))
+              if (nameOf[visit.restaurantId] case final String name) name,
+          ]),
+        );
+      }
     } on Object catch (error, stackTrace) {
       state = RestaurantSpinFailed(ErrorMapper.map(error, stackTrace));
     }
+  }
+
+  /// Whether to ask the assistant to improve on the draw (Sprint 50).
+  ///
+  /// The meal roulette got this at Sprint 47c and the night out did not, which
+  /// made "the AI decides" half true — and eating out is the decision where a
+  /// model has *more* to add, not less: the shortlist cannot see that you were at
+  /// the ramen place on Friday and have been eating Japanese all month, and the
+  /// reason under the answer is the whole product.
+  ///
+  /// Not with one candidate: choosing between one option is a round trip and a
+  /// bill to be told the only answer. And not at all once the hour's rate limit
+  /// has been hit — see [_assistantRestedForSession].
+  bool _shouldAskAssistant(List<ScoredRestaurant> candidates) =>
+      candidates.length > 1 && !_assistantRestedForSession;
+
+  /// Asks the assistant to pick from the shortlist, and takes its answer if it
+  /// arrives in time (Sprint 50).
+  ///
+  /// **The engine's pick is already on screen and already planted in the reel**, so
+  /// this is strictly an upgrade path — the same three outcomes as the meal spin:
+  /// a different place before the reel stops, the same place with a better reason,
+  /// or nothing and the flag clears.
+  Future<void> _askAssistant(
+    List<ScoredRestaurant> candidates,
+    ScoredRestaurant drawn,
+    List<String> beenToRecently,
+  ) async {
+    final List<ScoredRestaurant> shortlist = candidates
+        .take(_shortlistSize)
+        .toList(growable: false);
+
+    AssistantChoice? choice;
+    try {
+      choice = await ref.read(assistantRepositoryProvider).choose(
+        options: <ChoiceOption>[
+          for (final ScoredRestaurant candidate in shortlist)
+            ChoiceOption(
+              id: candidate.restaurant.id,
+              name: candidate.restaurant.name,
+              detail: _describePlace(candidate.restaurant),
+            ),
+        ],
+        context: _assistantContext(beenToRecently),
+        timeout: _assistantBudget,
+      );
+    } on RateLimitException {
+      // The rest of the hour would fail the same way, so stop asking rather than
+      // spending a round trip per spin to be told again.
+      _assistantRestedForSession = true;
+      AppLog.info(
+        'Assistant rate-limited — the engine is choosing for the rest of the '
+        'session.',
+        name: 'restaurant-spin',
+      );
+    }
+
+    // The spin may have been left, restarted, or accepted while this was in
+    // flight. Anything other than the state this call was started for is a state
+    // this answer is no longer about.
+    if (state case final RestaurantSpinSettled current
+        when current.place.id == drawn.restaurant.id &&
+            current.isAwaitingAssistant) {
+      final AssistantChoice? answered = choice;
+      if (answered == null) {
+        state = current.copyWith(isAwaitingAssistant: false);
+        return;
+      }
+
+      final ScoredRestaurant? chosen = shortlist
+          .where(
+            (ScoredRestaurant candidate) =>
+                candidate.restaurant.id == answered.id,
+          )
+          .firstOrNull;
+
+      if (chosen == null) {
+        state = current.copyWith(isAwaitingAssistant: false);
+        return;
+      }
+
+      // The session's exclusions follow the place that is actually offered, or
+      // Try Again could bring it straight back round.
+      _seenThisSession
+        ..remove(drawn.restaurant.id)
+        ..add(chosen.restaurant.id);
+
+      state = current.copyWith(
+        place: chosen.restaurant,
+        reason: answered.reason,
+        isAwaitingAssistant: false,
+        chosenByAssistant: true,
+      );
+    }
+  }
+
+  /// One line the model can reason over.
+  String _describePlace(Restaurant place) => <String>[
+    place.cuisine.label,
+    '₱${place.costPerHead.round()} a head',
+    place.proximity.label.toLowerCase(),
+    if (place.delivers) 'delivers',
+  ].join(', ');
+
+  /// What the assistant is told, for a choice rather than a conversation.
+  ///
+  /// Deliberately smaller than the chat screen's context, for the same reason the
+  /// meal spin's is: the shortlist already encodes the budget, the distance limit
+  /// and the repetition window — every option in it passed all of them — so
+  /// repeating those would be tokens spent restating a filter that has run. What
+  /// the model cannot see from the list is where this household has been lately,
+  /// so that is what it gets.
+  Map<String, Object?> _assistantContext(List<String> beenToRecently) {
+    return <String, Object?>{
+      if (beenToRecently.isNotEmpty)
+        'been_to_recently': beenToRecently.join(', '),
+      'deciding_for': 'tonight, eating out',
+    };
   }
 
   /// Records the decision and ends the session.
@@ -492,4 +676,17 @@ class RestaurantSpinController extends _$RestaurantSpinController {
   /// Forty nights out. Comfortably past the thirty-day taper, and far more than a
   /// household produces in a month.
   static const int _historyLookback = 40;
+
+  /// How many of the scored places the assistant is shown (Sprint 50).
+  ///
+  /// The same twelve the meal roulette uses, and for the same reason: an index
+  /// between 1 and 12 is a number every model gets right, and a longer list buys
+  /// nothing once the scorer has already ranked it.
+  static const int _shortlistSize = 12;
+
+  /// How long the assistant gets before the engine's pick simply stands.
+  static const Duration _assistantBudget = Duration(seconds: 4);
+
+  /// How many recent places go into the prompt. Five nights out is a month here.
+  static const int _recentNamesForPrompt = 5;
 }
