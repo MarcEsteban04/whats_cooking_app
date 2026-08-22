@@ -43,6 +43,7 @@ import 'package:whats_cooking/features/profile/presentation/screens/appearance_s
 import 'package:whats_cooking/features/profile/presentation/screens/budget_settings_screen.dart';
 import 'package:whats_cooking/features/profile/presentation/screens/preferences_screen.dart';
 import 'package:whats_cooking/features/profile/presentation/screens/profile_screen.dart';
+import 'package:whats_cooking/features/profile/presentation/screens/settings_screen.dart';
 import 'package:whats_cooking/features/restaurants/domain/entities/restaurant.dart';
 import 'package:whats_cooking/features/restaurants/presentation/screens/restaurant_form_screen.dart';
 import 'package:whats_cooking/features/restaurants/presentation/screens/restaurant_result_screen.dart';
@@ -383,10 +384,7 @@ final StatefulShellRoute _shellRoute = StatefulShellRoute.indexedStack(
               path: _relative(AppRoute.settings, AppRoute.profile),
               name: AppRoute.settings.routeName,
               builder: (BuildContext context, GoRouterState state) =>
-                  const PlaceholderScreen(
-                    title: 'Settings',
-                    sprint: 'Sprint 20',
-                  ),
+                  const SettingsScreen(),
               routes: <RouteBase>[
                 _child(
                   AppRoute.notificationSettings,

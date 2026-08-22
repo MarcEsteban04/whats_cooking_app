@@ -168,10 +168,15 @@ class _MealsScreenState extends ConsumerState<MealsScreen> {
   /// are not what somebody is doing mid-selection, and four circles is the
   /// width that broke this header once already.
   List<Widget> _selectionActions() => <Widget>[
+    // Coloured, because these two are the whole point of the selection mode and
+    // a row of identical grey circles gives no clue which one is destructive.
+    // The tones match the swipe panels on the kitchen and shopping lists, so
+    // "blue means change it, red means it goes" holds across the app.
     if (_selected.length == 1)
       _CircleAction(
         icon: AppIcons.edit,
         label: 'Edit this meal',
+        tint: context.colors.info.color,
         onPressed: _isDeleting ? null : _editSelected,
       ),
     _CircleAction(
@@ -179,6 +184,7 @@ class _MealsScreenState extends ConsumerState<MealsScreen> {
       label: _selected.length == 1
           ? 'Delete this meal'
           : 'Delete ${_selected.length} meals',
+      tint: context.colors.error.color,
       onPressed: _isDeleting ? null : _deleteSelected,
     ),
     _CircleAction(
@@ -612,10 +618,18 @@ class _CircleAction extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onPressed,
+    this.tint,
   });
 
   final IconData icon;
   final String label;
+
+  /// Colours the glyph and its ring.
+  ///
+  /// Null for the browse controls, which are meant to be quiet. Set for the
+  /// selection controls, where a row of identical grey circles gives no clue
+  /// which one is destructive.
+  final Color? tint;
 
   /// Null disables it — which the selection controls need while a delete is in
   /// flight, so a second tap cannot start the batch twice.
@@ -629,16 +643,25 @@ class _CircleAction extends StatelessWidget {
       decoration: BoxDecoration(
         color: colors.surface,
         shape: BoxShape.circle,
-        border: Border.all(color: colors.outline),
+        // The ring picks up the tint at low alpha rather than at full strength: a
+        // solid red circle on a white header is a warning, and these are controls
+        // somebody is meant to use.
+        border: Border.all(
+          color: tint?.withValues(alpha: _tintedRing) ?? colors.outline,
+        ),
       ),
       child: AppIconButton(
         icon: icon,
         semanticLabel: label,
         iconSize: AppIconSize.sm,
+        color: tint,
         onPressed: onPressed,
       ),
     );
   }
+
+  /// Enough to read as coloured without becoming a badge.
+  static const double _tintedRing = 0.45;
 }
 
 /// The hero panel: the match count, then three shares of the catalogue.

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -14,6 +16,7 @@ import 'package:whats_cooking/core/widgets/feedback/app_skeleton.dart';
 import 'package:whats_cooking/core/widgets/feedback/empty_state.dart';
 import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
 import 'package:whats_cooking/core/widgets/press_feedback.dart';
+import 'package:whats_cooking/core/widgets/swipe_action.dart';
 import 'package:whats_cooking/features/grocery/domain/entities/grocery_item.dart';
 import 'package:whats_cooking/features/grocery/presentation/providers/grocery_controller.dart';
 
@@ -323,24 +326,37 @@ class _GroceryRow extends ConsumerWidget {
 
     return Dismissible(
       key: ValueKey<String>('dismiss-${item.id}'),
-      direction: DismissDirection.endToStart,
-      background: DecoratedBox(
-        decoration: BoxDecoration(
-          color: colors.error.color,
-          borderRadius: AppRadius.borderMd,
-        ),
-        child: Align(
-          alignment: Alignment.centerRight,
-          child: Padding(
-            padding: const EdgeInsets.only(right: AppSpacing.space4),
-            child: Icon(
-              AppIcons.delete,
-              color: colors.error.onColor,
-              size: AppIconSize.sm,
-            ),
-          ),
-        ),
+      // **Both ways now: right to edit, left to delete.**
+      //
+      // It was left-to-delete only, and a one-way row teaches the wrong lesson —
+      // once somebody knows a row swipes, they try the other direction, and
+      // nothing happening reads as a broken gesture rather than as a gesture that
+      // was never offered.
+      //
+      // Edit is a swipe that does *not* dismiss: `confirmDismiss` opens the sheet
+      // and returns false, so the row springs back. That is the honest shape for
+      // it — the row is still there afterwards, because editing does not remove
+      // anything.
+      direction: DismissDirection.horizontal,
+      background: AppSwipeAction(
+        alignment: Alignment.centerLeft,
+        icon: AppIcons.edit,
+        tone: colors.info,
       ),
+      secondaryBackground: AppSwipeAction(
+        alignment: Alignment.centerRight,
+        icon: AppIcons.delete,
+        tone: colors.error,
+      ),
+      confirmDismiss: (DismissDirection direction) async {
+        if (direction == DismissDirection.startToEnd) {
+          unawaited(
+            context.pushNamed(AppRoute.groceryAdd.routeName, extra: item),
+          );
+          return false;
+        }
+        return true;
+      },
       onDismissed: (_) async {
         final AppException? failure = await ref
             .read(groceryControllerProvider.notifier)

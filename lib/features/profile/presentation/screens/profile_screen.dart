@@ -8,12 +8,9 @@ import 'package:whats_cooking/core/errors/error_presenter.dart';
 import 'package:whats_cooking/core/router/app_routes.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/utils/formatters.dart';
-import 'package:whats_cooking/core/widgets/app_badge.dart';
-import 'package:whats_cooking/core/widgets/avatar.dart';
-import 'package:whats_cooking/core/widgets/cards/icon_list_row.dart';
-import 'package:whats_cooking/core/widgets/cards/stat_card.dart';
+import 'package:whats_cooking/core/widgets/buttons/circle_action.dart';
+import 'package:whats_cooking/core/widgets/dashboard/dashboard.dart';
 import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
-import 'package:whats_cooking/core/widgets/section_header.dart';
 import 'package:whats_cooking/features/profile/domain/entities/user_profile.dart';
 import 'package:whats_cooking/features/profile/presentation/providers/profile_controller.dart';
 
@@ -89,70 +86,155 @@ class _ProfileBody extends ConsumerWidget {
             bottom: AppLayout.scrollBottomPadding,
           ),
           children: <Widget>[
-            _ProfileHeader(profile: profile),
-
-            const SectionHeader(title: 'My preferences'),
-            IconListCard(
-              rows: <Widget>[
-                IconListRow(
-                  title: 'Food preferences',
-                  icon: AppIcons.meals,
-                  value: _preferencesSummary(preferences),
-                  onTap: () => context.goNamed(AppRoute.preferences.routeName),
-                ),
-                IconListRow(
-                  title: 'Budget',
-                  icon: AppIcons.budget,
-                  value: preferences.budget == null
-                      ? 'No budget set'
-                      : '${AppFormat.peso(preferences.budget!)} a meal',
-                  onTap: () =>
-                      context.goNamed(AppRoute.budgetSettings.routeName),
-                ),
-              ],
-            ),
-
-            const SectionHeader(title: 'Household'),
-            IconListCard(
-              rows: <Widget>[
-                IconListRow(
-                  title: profile.householdName ?? 'Our Kitchen',
-                  icon: AppIcons.household,
-                  value: profile.hasHousehold
-                      ? 'Cooking together'
-                      : 'Set up a shared kitchen',
-                  onTap: () => context.goNamed(
-                    profile.hasHousehold
-                        ? AppRoute.couple.routeName
-                        : AppRoute.householdSetup.routeName,
-                  ),
-                ),
-              ],
-            ),
-
-            const SectionHeader(title: 'Settings'),
-            IconListCard(
-              rows: <Widget>[
-                IconListRow(
-                  title: 'Appearance',
+            // **The house vocabulary, at last.** This screen was the last one
+            // still built from `SectionHeader` + `IconListCard` + `StatCardRow`,
+            // which is where the whole app started — every other tab moved to
+            // `DashboardHeader`/`DashboardPanel`/`StatTrio` and this one did not,
+            // so opening Profile felt like leaving the app. Nothing here is a new
+            // idea; it is the same three components Home, Meals and the Kitchen
+            // already use.
+            DashboardHeader(
+              title: profile.displayName.isEmpty
+                  ? 'You'
+                  : profile.displayName,
+              subtitle: _kitchenLine(profile),
+              actions: <Widget>[
+                AppCircleAction(
                   icon: AppIcons.settings,
-                  onTap: () =>
-                      context.goNamed(AppRoute.appearanceSettings.routeName),
-                ),
-                IconListRow(
-                  title: 'Account',
-                  icon: AppIcons.profile,
-                  value: 'Password, sign out, delete',
-                  onTap: () =>
-                      context.goNamed(AppRoute.accountSettings.routeName),
+                  label: 'Settings',
+                  onTap: () => context.pushNamed(AppRoute.settings.routeName),
                 ),
               ],
+            ),
+            const SizedBox(height: AppSpacing.space5),
+
+            // The figures, as a panel rather than three floating cards.
+            //
+            // `StatCardRow` staggered one card forward, which was the reference's
+            // *marketing* trio and reads as decoration in a settings context — and
+            // it left the three counts with no headline above them. A `BigFigure`
+            // gives the panel something to say first, and the trio underneath is
+            // the same shape every other panel uses.
+            DashboardPanel(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  BigFigure(
+                    label: 'Usually cooking for',
+                    value: '${preferences.preferredServings}',
+                    unit: preferences.preferredServings == 1
+                        ? 'person'
+                        : 'people',
+                  ),
+                  const SizedBox(height: AppSpacing.space5),
+                  StatTrio(
+                    columns: <StatColumnData>[
+                      StatColumnData(
+                        label: 'Cuisines you like',
+                        value: '${preferences.favouriteCuisines.length}',
+                        onTap: () =>
+                            context.pushNamed(AppRoute.preferences.routeName),
+                      ),
+                      StatColumnData(
+                        label: 'Foods you avoid',
+                        value: '${preferences.dislikedFoods.length}',
+                        onTap: () =>
+                            context.pushNamed(AppRoute.preferences.routeName),
+                      ),
+                      StatColumnData(
+                        label: 'Dietary needs',
+                        value: '${preferences.dietaryTags.length}',
+                        onTap: () =>
+                            context.pushNamed(AppRoute.preferences.routeName),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: AppSpacing.space4),
+
+            // What actually changes the spin, and the values are on the rows so
+            // the panel can be read without opening anything.
+            DashboardPanel(
+              title: 'What the roulette knows',
+              icon: AppIcons.meals,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  DashboardRow(
+                    title: 'Food preferences',
+                    subtitle: 'CUISINES, AVOIDED FOODS, DIETARY NEEDS',
+                    value: _preferencesSummary(preferences),
+                    trailing: const Icon(
+                      AppIcons.forward,
+                      size: AppIconSize.xs,
+                    ),
+                    onTap: () =>
+                        context.pushNamed(AppRoute.preferences.routeName),
+                  ),
+                  const DashboardRule(),
+                  DashboardRow(
+                    title: 'Budget',
+                    subtitle: 'A HEAD, NOT PER POT',
+                    value: preferences.budget == null
+                        ? 'Any'
+                        : AppFormat.peso(preferences.budget!),
+                    trailing: const Icon(
+                      AppIcons.forward,
+                      size: AppIconSize.xs,
+                    ),
+                    onTap: () =>
+                        context.pushNamed(AppRoute.budgetSettings.routeName),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: AppSpacing.space4),
+            DashboardPanel(
+              child: DashboardActionRow(
+                actions: <DashboardAction>[
+                  DashboardAction(
+                    label: 'Recent',
+                    icon: AppIcons.plannerActive,
+                    onTap: () =>
+                        context.pushNamed(AppRoute.mealHistory.routeName),
+                  ),
+                  DashboardAction(
+                    label: 'Yours',
+                    icon: AppIcons.meals,
+                    onTap: () => context.pushNamed(AppRoute.myMeals.routeName),
+                  ),
+                  DashboardAction(
+                    label: 'Settings',
+                    icon: AppIcons.settings,
+                    onTap: () => context.pushNamed(AppRoute.settings.routeName),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
       ),
     );
   }
+
+  /// The line under the name.
+  ///
+  /// **The household, stated rather than offered.** This used to be a "Household"
+  /// section with a row leading to `/couple` — invite a partner, join a kitchen,
+  /// vote when you cannot agree. That feature was cut at Sprint 37, when the app
+  /// became two people in one house on one phone: there is nobody to invite and
+  /// nothing to agree about. A section pointing at it was a door to a room that no
+  /// longer exists.
+  ///
+  /// The kitchen's *name* is still worth a word, because it is the thing every
+  /// row in the database belongs to — so it says so here, in one line, and leads
+  /// nowhere.
+  static String _kitchenLine(UserProfile profile) =>
+      profile.householdName ?? 'Our Kitchen';
 
   /// A one-line summary of the preference fields.
   ///
@@ -183,93 +265,3 @@ class _ProfileBody extends ConsumerWidget {
   static const int _summaryCuisines = 2;
 }
 
-/// Avatar, name, badge and the floating stat row.
-///
-/// Follows the reference's *detail* screen rather than a plain settings header:
-/// centred avatar, name, a badge on the line beneath, then floating figure cards.
-/// That arrangement is what makes the reference read as a page about a person
-/// rather than a list of links.
-class _ProfileHeader extends StatelessWidget {
-  const _ProfileHeader({required this.profile});
-
-  final UserProfile profile;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: <Widget>[
-        const SizedBox(height: AppSpacing.space5),
-        Avatar(
-          name: profile.displayName,
-          imageUrl: profile.avatarUrl,
-          size: AvatarSize.large,
-        ),
-        const SizedBox(height: AppSpacing.space4),
-        Text(
-          profile.displayName.isEmpty ? 'You' : profile.displayName,
-          style: context.text.headlineMedium,
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: AppSpacing.space2),
-        Wrap(
-          alignment: WrapAlignment.center,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: AppSpacing.space2,
-          children: <Widget>[
-            // §25 shows "Food Explorer · 32 meals". The meal count needs the
-            // history feature (Sprint 31), so this says only what is true rather
-            // than a zero that reads as a broken counter.
-            Text('Food explorer', style: context.text.metadata),
-            if (profile.hasHousehold)
-              const AppBadge(
-                label: 'Cooking together',
-                icon: Icons.favorite_rounded,
-                tone: AppBadgeTone.success,
-              ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.space5),
-        _ProfileStats(preferences: profile.preferences),
-      ],
-    );
-  }
-}
-
-/// The floating figures from docs/design_ui.md §26.
-///
-/// Only what is knowable today. §26 asks for meals tried, average cost and couple
-/// match; all three need meal history (Sprint 31) or the couple engine
-/// (Sprint 46), and rendering them as zeroes would read as a broken counter. So
-/// the row states what the app genuinely knows — the shape of the user's
-/// preferences, which is what this screen is about anyway.
-class _ProfileStats extends StatelessWidget {
-  const _ProfileStats({required this.preferences});
-
-  final FoodPreferences preferences;
-
-  @override
-  Widget build(BuildContext context) {
-    return StatCardRow(
-      cards: <StatCard>[
-        StatCard(
-          icon: AppIcons.meals,
-          value: '${preferences.favouriteCuisines.length}',
-          label: 'Cuisines you like',
-        ),
-        StatCard(
-          icon: AppIcons.dislike,
-          value: '${preferences.dislikedFoods.length}',
-          label: 'Foods you avoid',
-          // The one raised card in the row, following the reference's staggered
-          // trio where a single card sits in front (docs/design_ui.md §35).
-          isRaised: true,
-        ),
-        StatCard(
-          icon: AppIcons.servings,
-          value: '${preferences.preferredServings}',
-          label: 'Usually cooking for',
-        ),
-      ],
-    );
-  }
-}

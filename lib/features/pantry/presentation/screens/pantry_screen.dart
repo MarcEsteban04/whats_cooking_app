@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -14,6 +16,7 @@ import 'package:whats_cooking/core/widgets/feedback/empty_state.dart';
 import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
 import 'package:whats_cooking/core/widgets/inputs/app_text_field.dart';
 import 'package:whats_cooking/core/widgets/press_feedback.dart';
+import 'package:whats_cooking/core/widgets/swipe_action.dart';
 import 'package:whats_cooking/features/pantry/domain/entities/pantry_item.dart';
 import 'package:whats_cooking/features/pantry/presentation/providers/pantry_controller.dart';
 
@@ -633,26 +636,38 @@ class _PantryRow extends ConsumerWidget {
 
     return Dismissible(
       key: ValueKey<String>('dismiss-${item.id}'),
-      // One direction only. A list you can flick either way is a list where a
-      // horizontal scroll gesture deletes your dinner plans.
-      direction: DismissDirection.endToStart,
-      background: DecoratedBox(
-        decoration: BoxDecoration(
-          color: context.colors.error.color,
-          borderRadius: AppRadius.borderMd,
-        ),
-        child: Align(
-          alignment: Alignment.centerRight,
-          child: Padding(
-            padding: const EdgeInsets.only(right: AppSpacing.space4),
-            child: Icon(
-              AppIcons.delete,
-              color: context.colors.error.onColor,
-              size: AppIconSize.sm,
-            ),
-          ),
-        ),
+      // **Right to edit, left to delete.**
+      //
+      // This used to say "one direction only — a list you can flick either way is
+      // a list where a horizontal scroll gesture deletes your dinner plans". The
+      // worry was right and the conclusion was not: the destructive direction is
+      // still the deliberate one, and the other way now opens the sheet rather
+      // than removing anything. Nothing on this list is destroyed by a swipe
+      // rightward, so there is nothing to be careless with.
+      //
+      // Edit does not dismiss — `confirmDismiss` opens the sheet and returns
+      // false, so the row springs back, which is the truthful animation for an
+      // action that leaves the row where it was.
+      direction: DismissDirection.horizontal,
+      background: AppSwipeAction(
+        alignment: Alignment.centerLeft,
+        icon: AppIcons.edit,
+        tone: context.colors.info,
       ),
+      secondaryBackground: AppSwipeAction(
+        alignment: Alignment.centerRight,
+        icon: AppIcons.delete,
+        tone: context.colors.error,
+      ),
+      confirmDismiss: (DismissDirection direction) async {
+        if (direction == DismissDirection.startToEnd) {
+          unawaited(
+            context.pushNamed(AppRoute.pantryAdd.routeName, extra: item),
+          );
+          return false;
+        }
+        return true;
+      },
       onDismissed: (_) async {
         final AppException? failure = await ref
             .read(pantryControllerProvider.notifier)
@@ -744,10 +759,16 @@ class _PantryRow extends ConsumerWidget {
               // a chevron promises a detail screen, and this opens a sheet that
               // changes the amount.
               const SizedBox(width: AppSpacing.space2),
+              // **Coloured, not grey.** `textTertiary` is the colour this app
+              // uses for things that are barely there — a date, a unit, a hint —
+              // so a pencil in it read as decoration rather than as a control,
+              // and the row still looked untappable. `info` is the same tone the
+              // swipe-right panel behind this row uses, so the glyph and the
+              // gesture say the same thing in the same colour.
               Icon(
                 AppIcons.edit,
                 size: AppIconSize.xs,
-                color: context.colors.textTertiary,
+                color: context.colors.info.color,
               ),
             ],
           ),
