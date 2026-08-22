@@ -678,6 +678,8 @@ class _PantryRow extends ConsumerWidget {
         onTap: () =>
             context.pushNamed(AppRoute.pantryAdd.routeName, extra: item),
         semanticLabel: item.name,
+        // What a tap does, for a reader who cannot see the pencil beside it.
+        semanticHint: 'Change the amount or the date',
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.space3),
           child: Row(
@@ -734,6 +736,19 @@ class _PantryRow extends ConsumerWidget {
               ),
               const SizedBox(width: AppSpacing.space3),
               _AmountFigure(item: item),
+
+              // **Says the row can be tapped.** Tapping already opened the edit
+              // sheet — the route has taken an item since Sprint 39 — but nothing
+              // on the row said so, so the feature was there and invisible, which
+              // is the same as not being there. A pencil rather than a chevron:
+              // a chevron promises a detail screen, and this opens a sheet that
+              // changes the amount.
+              const SizedBox(width: AppSpacing.space2),
+              Icon(
+                AppIcons.edit,
+                size: AppIconSize.xs,
+                color: context.colors.textTertiary,
+              ),
             ],
           ),
         ),

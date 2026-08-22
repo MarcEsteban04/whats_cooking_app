@@ -218,10 +218,29 @@ class AppButton extends StatelessWidget {
   }
 
   TextStyle _textStyle(BuildContext context) {
+    // The brand button is the exception, and it is the reason its label is white
+    // at all (see [_paletteFor]). 18px at weight 700 is WCAG's "large text",
+    // which needs 3:1 rather than 4.5:1 — and white on the terracotta accent is
+    // 3.36:1. It is also the signature action in the app, so the loudest label is
+    // the right one on merit as well as on contrast.
+    if (variant == AppButtonVariant.brand) {
+      return context.text.label.copyWith(
+        fontSize: _brandLabelSize,
+        fontWeight: FontWeight.w700,
+      );
+    }
+
     return size == AppButtonSize.small
         ? context.text.labelSmall
         : context.text.label;
   }
+
+  /// WCAG's large-text floor for bold type, which is what lets the brand button
+  /// carry a white label on the accent. Anything smaller would need 4.5:1.
+  static const double _brandLabelSize = 18.66;
+
+  /// White, in both themes, deliberately not a theme token — see [_paletteFor].
+  static const Color _brandLabelColor = Color(0xFFFFFFFF);
 
   _ButtonPalette _paletteFor(AppColorScheme colors) {
     if (!_isEnabled) {
@@ -252,9 +271,25 @@ class AppButton extends StatelessWidget {
         background: colors.error.color,
         foreground: colors.error.onColor,
       ),
+      // **White, in both themes, and not from a token.**
+      //
+      // It used to take `onPrimaryBrand`, which is near-black in light and a dark
+      // brown in dark — chosen because dark ink on terracotta measures 5.16:1 and
+      // clears WCAG AA comfortably. White measures 3.36:1 on the same background,
+      // which is *below* AA for text at this size.
+      //
+      // So the size moves instead of the colour: see [_textStyle], where the
+      // brand variant is set large and bold enough to qualify as WCAG "large
+      // text", whose threshold is 3:1. White then clears it, the accent stays
+      // exactly the brand orange, and the app's loudest button reads as loud.
+      //
+      // A literal rather than a theme colour, because "white whatever the theme"
+      // is the requirement — a token would invite a dark-mode override that
+      // quietly puts the old ink back.
       AppButtonVariant.brand => _ButtonPalette(
+        // The accent stays a theme colour — it is the same terracotta in both.
         background: colors.primaryBrand,
-        foreground: colors.onPrimaryBrand,
+        foreground: _brandLabelColor,
         hasShadow: true,
       ),
       AppButtonVariant.inverse => _ButtonPalette(
