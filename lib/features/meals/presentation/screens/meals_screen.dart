@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:whats_cooking/core/domain/food_taxonomy.dart';
 import 'package:whats_cooking/core/errors/app_exception.dart';
+import 'package:whats_cooking/core/errors/error_mapper.dart';
 import 'package:whats_cooking/core/errors/error_presenter.dart';
 import 'package:whats_cooking/core/router/app_routes.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
@@ -16,10 +17,14 @@ import 'package:whats_cooking/core/widgets/feedback/empty_state.dart';
 import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
 import 'package:whats_cooking/core/widgets/inputs/app_select.dart';
 import 'package:whats_cooking/core/widgets/inputs/search_field.dart';
+import 'package:whats_cooking/core/widgets/overlays/confirmation_dialog.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal_query.dart';
+import 'package:whats_cooking/features/meals/presentation/providers/meal_repository_provider.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/meals_controller.dart';
+import 'package:whats_cooking/features/meals/presentation/providers/my_meals_controller.dart';
 import 'package:whats_cooking/features/meals/presentation/widgets/meal_table_row.dart';
+import 'package:whats_cooking/features/meals/presentation/widgets/selectable_meal_row.dart';
 import 'package:whats_cooking/features/pantry/domain/entities/pantry_match.dart';
 import 'package:whats_cooking/features/pantry/presentation/providers/pantry_controller.dart';
 import 'package:whats_cooking/features/restaurants/presentation/screens/restaurants_screen.dart';
@@ -89,6 +94,196 @@ class MealsScreen extends ConsumerStatefulWidget {
 
 class _MealsScreenState extends ConsumerState<MealsScreen> {
   MealsLibrary _library = MealsLibrary.cook;
+
+  /// The ids picked out for a bulk action, or empty when not selecting.
+  ///
+  /// **On the whole feed, catalogue rows included** (Sprint 53f). It started on
+  /// "Yours" only, because `delete own meals` was author-scoped and the sixty
+  /// seeded rows carry no author — so offering it here would have been offering
+  /// an action the server refuses. Migration 0028 widened the policy, on the
+  /// grounds that a catalogue you can only add to fills up with food this
+  /// household does not eat and the sixty are a starting point rather than a
+  /// canon.
+  ///
+  /// One refusal survives and is not a bug: `meal_history.meal_id` is
+  /// `on delete restrict`, so a meal that has been eaten cannot be deleted by
+  /// anybody. [_deleteSelected] counts those separately and says so.
+  final Set<String> _selected = <String>{};
+
+  bool _isDeleting = false;
+
+  /// The header controls when nothing is selected.
+  List<Widget> _browseActions(MealsController controller) => <Widget>[
+          _CircleAction(
+            icon: _isSearching
+                ? AppIcons.clear
+                : AppIcons.search,
+            label: _isSearching
+                ? 'Close search'
+                : 'Search meals',
+            onPressed: () {
+              setState(() => _isSearching = !_isSearching);
+              if (!_isSearching) {
+                controller.search('');
+              }
+            },
+          ),
+          // The one exception to "everything else lives in the
+          // panel's action row": the assistant.
+          //
+          // It belongs here because this is the screen where
+          // somebody runs out of ideas — scrolling a catalogue
+          // and not finding it is exactly when asking in words
+          // beats another filter. And it gives Ask a second way
+          // in: Home is the only other one, which for a feature
+          // this new is one route too few.
+          _CircleAction(
+            icon: AppIcons.assistant,
+            label: 'Ask about dinner',
+            onPressed: () => context.pushNamed(
+              AppRoute.assistant.routeName,
+            ),
+          ),
+          // **Two circles, not three.** Sprint 48 put an
+          // "Invent a meal" circle here on the argument that
+          // the row had room. It did not: the logo, three
+          // 40-pixel circles and their gaps leave about 124dp
+          // for the title and the context line on a normal
+          // phone, and "the catalogue and yours" needs more —
+          // so the subtitle ran under the buttons. Fixing the
+          // constraint in `DashboardHeader` stops the overlap
+          // and turns it into a truncation, which is correct
+          // and still not worth reading.
+          //
+          // Inventing a meal keeps its labelled tile on the
+          // Kitchen action row, which was always the stronger
+          // entry point anyway — "what do I do with these three
+          // things" is a question you ask in front of the three
+          // things.
+  ];
+
+  /// The header controls while selecting.
+  ///
+  /// Replacing the browse controls rather than joining them: search and Ask
+  /// are not what somebody is doing mid-selection, and four circles is the
+  /// width that broke this header once already.
+  List<Widget> _selectionActions() => <Widget>[
+    if (_selected.length == 1)
+      _CircleAction(
+        icon: AppIcons.edit,
+        label: 'Edit this meal',
+        onPressed: _isDeleting ? null : _editSelected,
+      ),
+    _CircleAction(
+      icon: AppIcons.delete,
+      label: _selected.length == 1
+          ? 'Delete this meal'
+          : 'Delete ${_selected.length} meals',
+      onPressed: _isDeleting ? null : _deleteSelected,
+    ),
+    _CircleAction(
+      icon: AppIcons.clear,
+      label: 'Stop selecting',
+      onPressed: _isDeleting ? null : () => setState(_selected.clear),
+    ),
+  ];
+
+  /// Picks a meal out, or puts it back.
+  void _toggle(String id) => setState(() {
+    if (!_selected.remove(id)) {
+      _selected.add(id);
+    }
+  });
+
+  /// Opens the one selected meal in the form.
+  void _editSelected() {
+    final String id = _selected.first;
+    setState(_selected.clear);
+    context.pushNamed(
+      AppRoute.mealEdit.routeName,
+      pathParameters: <String, String>{'id': id},
+    );
+  }
+
+  /// Deletes everything picked out.
+  ///
+  /// **Three outcomes, not two.** A meal that has been eaten is refused by
+  /// `meal_history`'s `on delete restrict`, which is correct and permanent —
+  /// history is a record of what happened, and a recipe going should not rewrite
+  /// the nights it was cooked. Counting those as "failures" alongside a real
+  /// error would make a working constraint look like a broken app, so they are
+  /// counted apart and named.
+  Future<void> _deleteSelected() async {
+    final int count = _selected.length;
+
+    final bool confirmed = await ConfirmationDialog.show(
+      context,
+      title: count == 1 ? 'Delete this meal?' : 'Delete $count meals?',
+      body: 'The recipe goes. Anything you have already eaten stays in your '
+          'history — and those meals cannot be deleted at all.',
+      confirmLabel: 'Delete',
+      cancelLabel: 'Keep them',
+      isDestructive: true,
+      icon: AppIcons.delete,
+    );
+
+    if (!confirmed || !mounted) {
+      return;
+    }
+
+    setState(() => _isDeleting = true);
+
+    int gone = 0;
+    int eaten = 0;
+    AppException? failure;
+
+    for (final String id in _selected.toList()) {
+      try {
+        await ref.read(mealRepositoryProvider).delete(id);
+        gone += 1;
+      } on Object catch (error, stackTrace) {
+        final AppException mapped = ErrorMapper.map(error, stackTrace);
+        // `23503` foreign key, which here can only be `meal_history`.
+        if (mapped is ValidationException) {
+          eaten += 1;
+        } else {
+          failure ??= mapped;
+        }
+      }
+    }
+
+    ref.invalidate(myMealsProvider);
+    await ref.read(mealsControllerProvider.notifier).refresh();
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _selected.clear();
+      _isDeleting = false;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          switch ((gone, eaten, failure)) {
+            (0, 0, final AppException e) => e.displayMessage ?? e.message,
+            (0, final int n, _) when n > 0 =>
+              n == 1
+                  ? 'You have eaten that one, so it stays.'
+                  : 'You have eaten those $n, so they stay.',
+            (0, _, _) => 'Nothing was deleted.',
+            (final int n, 0, null) =>
+              n == 1 ? 'The meal is gone.' : '$n meals are gone.',
+            (final int n, final int kept, _) when kept > 0 =>
+              '$n gone — $kept you have eaten stay.',
+            (final int n, _, _) => '$n gone — the rest could not be.',
+          },
+        ),
+      ),
+    );
+  }
 
   /// The switch, handed to whichever library is showing so it can place it under
   /// its own header.
@@ -182,59 +377,24 @@ class _MealsScreenState extends ConsumerState<MealsScreen> {
                     sliver: SliverList.list(
                       children: <Widget>[
                         DashboardHeader(
-                          title: 'Meals',
-                          subtitle: _countLine(current),
-                          onSubtitleTap: (current?.query.hasFilters ?? false)
+                          // The count takes over the title while selecting,
+                          // rather than sitting beside it — two headlines
+                          // competing is how a selection mode ends up looking
+                          // like a different screen.
+                          title: _selected.isEmpty
+                              ? 'Meals'
+                              : '${_selected.length} selected',
+                          subtitle: _selected.isEmpty
+                              ? _countLine(current)
+                              : 'Long-press a row to pick more',
+                          onSubtitleTap:
+                              _selected.isEmpty &&
+                                  (current?.query.hasFilters ?? false)
                               ? controller.clearFilters
                               : null,
-                          actions: <Widget>[
-                            _CircleAction(
-                              icon: _isSearching
-                                  ? AppIcons.clear
-                                  : AppIcons.search,
-                              label: _isSearching
-                                  ? 'Close search'
-                                  : 'Search meals',
-                              onPressed: () {
-                                setState(() => _isSearching = !_isSearching);
-                                if (!_isSearching) {
-                                  controller.search('');
-                                }
-                              },
-                            ),
-                            // The one exception to "everything else lives in the
-                            // panel's action row": the assistant.
-                            //
-                            // It belongs here because this is the screen where
-                            // somebody runs out of ideas — scrolling a catalogue
-                            // and not finding it is exactly when asking in words
-                            // beats another filter. And it gives Ask a second way
-                            // in: Home is the only other one, which for a feature
-                            // this new is one route too few.
-                            _CircleAction(
-                              icon: AppIcons.assistant,
-                              label: 'Ask about dinner',
-                              onPressed: () => context.pushNamed(
-                                AppRoute.assistant.routeName,
-                              ),
-                            ),
-                            // **Two circles, not three.** Sprint 48 put an
-                            // "Invent a meal" circle here on the argument that
-                            // the row had room. It did not: the logo, three
-                            // 40-pixel circles and their gaps leave about 124dp
-                            // for the title and the context line on a normal
-                            // phone, and "the catalogue and yours" needs more —
-                            // so the subtitle ran under the buttons. Fixing the
-                            // constraint in `DashboardHeader` stops the overlap
-                            // and turns it into a truncation, which is correct
-                            // and still not worth reading.
-                            //
-                            // Inventing a meal keeps its labelled tile on the
-                            // Kitchen action row, which was always the stronger
-                            // entry point anyway — "what do I do with these three
-                            // things" is a question you ask in front of the three
-                            // things.
-                          ],
+                          actions: _selected.isEmpty
+                              ? _browseActions(controller)
+                              : _selectionActions(),
                         ),
                         const SizedBox(height: AppSpacing.space4),
                         _switcher,
@@ -367,6 +527,9 @@ class _MealsScreenState extends ConsumerState<MealsScreen> {
             // filter tap makes an instant interaction feel like a page load.
             opacity: current.isReloading ? _reloadingOpacity : 1,
             child: _MealTable(
+              selected: _selected,
+              isBusy: _isDeleting,
+              onToggle: _toggle,
               feed: current,
               onSortChanged: (MealSort sort) =>
                   controller.applyQuery(current.query.copyWith(sort: sort)),
@@ -453,7 +616,10 @@ class _CircleAction extends StatelessWidget {
 
   final IconData icon;
   final String label;
-  final VoidCallback onPressed;
+
+  /// Null disables it — which the selection controls need while a delete is in
+  /// flight, so a second tap cannot start the batch twice.
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -784,11 +950,19 @@ class _MealTable extends StatelessWidget {
     required this.feed,
     required this.onSortChanged,
     required this.onRetryPage,
+    required this.selected,
+    required this.isBusy,
+    required this.onToggle,
   });
 
   final MealFeed feed;
   final ValueChanged<MealSort> onSortChanged;
   final Future<void> Function() onRetryPage;
+
+  /// The ids picked out for a bulk action, or empty when not selecting.
+  final Set<String> selected;
+  final bool isBusy;
+  final ValueChanged<String> onToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -814,7 +988,14 @@ class _MealTable extends StatelessWidget {
           const _TableHead(),
           for (final (int index, Meal meal) in feed.meals.indexed) ...<Widget>[
             DashboardRule(inset: index == 0 ? 0 : MealTableRow.ruleInset),
-            MealTableRow(key: ValueKey<String>(meal.id), meal: meal),
+            SelectableMealRow(
+              key: ValueKey<String>(meal.id),
+              meal: meal,
+              isSelected: selected.contains(meal.id),
+              isSelecting: selected.isNotEmpty,
+              isBusy: isBusy,
+              onToggle: () => onToggle(meal.id),
+            ),
           ],
           const SizedBox(height: AppSpacing.space4),
           const DashboardRule(),
