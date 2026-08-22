@@ -101,10 +101,16 @@ interface Provider {
 /**
  * The chain, in order.
  *
- * Groq first because it is the fastest of the three by a wide margin, and this
- * sits in front of a user waiting for dinner advice. Gemini second on cost.
- * OpenAI last as the one most likely to be up when the other two are not —
- * which is exactly what you want from a last resort rather than a first choice.
+ * **Groq and Gemini are the two that work; OpenAI is the backup.** Groq first
+ * because it is the fastest of the three by a wide margin, and this sits in front
+ * of somebody waiting for dinner advice. Gemini second: comparable quality, and
+ * the only one of the three that reads a PDF.
+ *
+ * OpenAI is last on purpose and stays last in every ordering, including the vision
+ * one below. It is the paid fallback — the provider that answers when the other
+ * two are rate-limited or down, which is what you want from a last resort rather
+ * than from a first choice. A chain that reached for it routinely would be a chain
+ * that costs money to answer "what's for dinner".
  *
  * Model names are read from the environment with these as defaults, because
  * model identifiers get retired on a schedule nobody tells you about, and
@@ -273,20 +279,30 @@ export async function chat(request: ChatRequest): Promise<ChainResult> {
 /**
  * Where a provider sits when the request carries a file. Lower goes first.
  *
- * Ordered by how well each reads a dense photograph of handwriting or a phone
- * screenshot, which is a different question from how fast it answers a text
- * prompt. Gemini leads on OCR by a wide margin and takes documents as well;
- * OpenAI is solid; Groq's vision model is the weakest of the three at this and is
- * kept as a last resort rather than dropped, because one working provider beats
- * none.
+ * **Gemini, then Groq, then OpenAI** — the same shape as the text chain, and for
+ * the same reason: OpenAI is the paid backup rather than a peer, and it should
+ * answer only when the other two cannot. Gemini leads here rather than Groq
+ * because it reads a dense photograph far better and is the only one that takes a
+ * PDF at all.
+ *
+ * **The known cost of putting Groq second.** This chain fails over on errors, not
+ * on bad answers, and Groq's vision model is genuinely weak at OCR — it read six
+ * lines off a twenty-seven line shopping list, succeeded, and nothing failed over.
+ * So if Gemini is rate-limited or down, a photo import can come back short rather
+ * than reaching OpenAI.
+ *
+ * That is a deliberate trade and it has a switch: setting `GROQ_VISION_MODEL` to
+ * an empty string skips Groq for anything with a file, which makes vision
+ * Gemini → OpenAI while leaving Groq first for every text request. Reach for it if
+ * short imports come back.
  */
 function visionRank(provider: Provider): number {
   switch (provider.name) {
     case "gemini":
       return 0;
-    case "openai":
-      return 1;
     case "groq":
+      return 1;
+    case "openai":
       return 2;
   }
 }

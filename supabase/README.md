@@ -264,6 +264,28 @@ does not fail over, so guessing wrong would end the request rather than move it
 along. **Without a Gemini key, importing a grocery list from a PDF fails and
 photos and `.txt` still work.**
 
+### The order, and the one switch worth knowing
+
+| Request | Order |
+| ------- | ----- |
+| Text | Groq → Gemini → OpenAI |
+| Image | Gemini → Groq → OpenAI |
+| PDF | Gemini only |
+
+**Groq and Gemini are the two that work; OpenAI is the paid backup** and is last
+in every ordering. It answers when the other two are rate-limited or down, which
+is what a last resort is for.
+
+The chain fails over on **errors, not on bad answers**, and that matters in one
+place: Groq's vision model is genuinely weak at OCR — it read six lines off a
+twenty-seven line shopping list, succeeded, and nothing failed over. So with
+Gemini unavailable, a photo import can come back short rather than reaching
+OpenAI.
+
+The switch for that is `GROQ_VISION_MODEL=""`. An empty value skips Groq for
+anything carrying a file, making image requests Gemini → OpenAI, while leaving
+Groq first for every text request. Reach for it if short imports come back.
+
 The photo is forwarded and never stored — no bucket, no row, no log line. The
 function caps it at 1.5 MB of base64 (`413 image_too_large`); the app downscales
 to 1280 px before sending, so that ceiling is a guard against a bad client rather
