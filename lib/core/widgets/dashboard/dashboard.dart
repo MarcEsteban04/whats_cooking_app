@@ -663,24 +663,38 @@ class DashboardRow extends StatelessWidget {
           ),
           if (value case final String figure) ...<Widget>[
             const SizedBox(width: AppSpacing.space3),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Text(
-                  figure,
-                  style: text.titleMedium.copyWith(
-                    fontFeatures: const <FontFeature>[
-                      FontFeature.tabularFigures(),
-                    ],
+            // **`Flexible`, or the value starves the title.**
+            //
+            // This was a bare `Column`, which in a `Row` is a non-flex child and
+            // therefore takes its full intrinsic width — leaving the `Expanded`
+            // title whatever is left. With a short figure like "₱84" that is
+            // invisible; with a long one it is brutal. "Food preferences" beside
+            // "Filipino, Japanese · 1 avoided" rendered as "Food pr / efere…",
+            // two characters a line.
+            //
+            // Loose flex, so a short figure still takes only what it needs and the
+            // title keeps the rest — the common case is unchanged.
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Text(
+                    figure,
+                    style: text.titleMedium.copyWith(
+                      fontFeatures: const <FontFeature>[
+                        FontFeature.tabularFigures(),
+                      ],
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 1,
-                ),
-                if (unit case final String suffix) ...<Widget>[
-                  const SizedBox(height: 2),
-                  Text(suffix, style: text.overline, maxLines: 1),
+                  if (unit case final String suffix) ...<Widget>[
+                    const SizedBox(height: 2),
+                    Text(suffix, style: text.overline, maxLines: 1),
+                  ],
                 ],
-              ],
+              ),
             ),
           ],
         ],

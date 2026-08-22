@@ -82,10 +82,12 @@ class _PantryItemSheetState extends ConsumerState<PantryItemSheet> {
 
   @override
   Widget build(BuildContext context) {
-    // Only asked for while adding. Editing already has its ingredient resolved,
-    // and offering to change the name would be offering to turn the chicken row
-    // into a rice row — which is a delete and an add, not an edit.
-    final AsyncValue<List<IngredientSuggestion>> suggestions = _isEditing
+    // Offered on an edit too, now that the name is editable — a rename is
+    // exactly when somebody wants the vocabulary's spelling rather than their
+    // own. Empty until the field is touched, so opening the sheet on an existing
+    // item does not fire a query for a name that has not changed.
+    final AsyncValue<List<IngredientSuggestion>> suggestions =
+        _isEditing && _term.isEmpty
         ? const AsyncData<List<IngredientSuggestion>>(
             <IngredientSuggestion>[],
           )
@@ -136,7 +138,7 @@ class _PantryItemSheetState extends ConsumerState<PantryItemSheet> {
                       // ingredient's own name, which is the one thing the sheet
                       // previously never said.
                       _isEditing
-                          ? 'Change how much, or when it goes off.'
+                          ? 'Fix the name, the amount, or when it goes off.'
                           : 'Anything in the kitchen. The amount is optional.',
                       style: context.text.metadata,
                     ),
@@ -155,36 +157,41 @@ class _PantryItemSheetState extends ConsumerState<PantryItemSheet> {
           ),
           const SizedBox(height: AppSpacing.space5),
 
-          // Hidden while editing rather than shown disabled. The heading now
-          // carries the name, so a greyed-out copy of it underneath was a second
-          // statement of the same fact taking up the most valuable row in the
-          // sheet.
-          if (!_isEditing) ...<Widget>[
-            AppTextField(
-              controller: _name,
-              label: 'Ingredient',
-              hint: 'Chicken, soy sauce, kangkong',
-              autofocus: true,
-              textCapitalization: TextCapitalization.none,
-              onChanged: (String value) => setState(() => _term = value),
-            ),
-            const SizedBox(height: AppSpacing.space3),
-            _Suggestions(
-              suggestions: suggestions,
-              onPicked: (IngredientSuggestion picked) {
-                setState(() {
-                  _name.text = picked.name;
-                  _term = picked.name;
-                  // Only pre-filled when empty, so a unit already typed is never
-                  // overwritten by a tap meant to fix a spelling.
-                  if (_unit.text.trim().isEmpty) {
-                    _unit.text = picked.defaultUnit;
-                  }
-                });
-                AppHaptics.reelTick();
-              },
-            ),
-          ],
+          // **The name is editable now, on an edit as well as an add.**
+          //
+          // It used to be hidden while editing, on the argument that the heading
+          // already said the name so a field underneath was the same fact twice.
+          // The fact was right and the conclusion was wrong: a heading is not a
+          // control, and there was no way at all to fix "Garlick" short of
+          // deleting the row and adding it again.
+          //
+          // Not autofocused on an edit. Somebody who opened this sheet from a
+          // swipe or a tap is usually here for the amount, and a keyboard over
+          // the quantity field is the wrong opening move.
+          AppTextField(
+            controller: _name,
+            label: 'Ingredient',
+            hint: 'Chicken, soy sauce, kangkong',
+            autofocus: !_isEditing,
+            textCapitalization: TextCapitalization.none,
+            onChanged: (String value) => setState(() => _term = value),
+          ),
+          const SizedBox(height: AppSpacing.space3),
+          _Suggestions(
+            suggestions: suggestions,
+            onPicked: (IngredientSuggestion picked) {
+              setState(() {
+                _name.text = picked.name;
+                _term = picked.name;
+                // Only pre-filled when empty, so a unit already typed is never
+                // overwritten by a tap meant to fix a spelling.
+                if (_unit.text.trim().isEmpty) {
+                  _unit.text = picked.defaultUnit;
+                }
+              });
+              AppHaptics.reelTick();
+            },
+          ),
 
           const SizedBox(height: AppSpacing.space4),
           Row(
@@ -287,16 +294,36 @@ class _PantryItemSheetState extends ConsumerState<PantryItemSheet> {
       pantryControllerProvider.notifier,
     );
 
-    final AppException? failure = switch (widget.existing) {
-      final PantryItem existing => await controller.updateAmount(
-        existing,
+    final PantryItem? existing = widget.existing;
+
+    // Whether this edit changed which *ingredient* the row points at.
+    //
+    // `pantry_items` is one row per `(household, ingredient)`, so a rename is not
+    // an update — it is a different ingredient, resolved or created in the shared
+    // vocabulary. Done as **add then remove**, in that order: `add` is idempotent
+    // by name and carries the amount over, so if it fails nothing has been lost
+    // and the original row is still there.
+    final bool isRename =
+        existing != null &&
+        name.toLowerCase() != existing.name.toLowerCase();
+
+    final AppException? failure = switch ((existing, isRename)) {
+      (final PantryItem row, true) => await controller.rename(
+        row,
+        name: name,
+        quantity: quantity,
+        unit: _unit.text.trim(),
+        expiresOn: _expiresOn,
+      ),
+      (final PantryItem row, false) => await controller.updateAmount(
+        row,
         quantity: quantity,
         unit: _unit.text.trim(),
         expiresOn: _expiresOn,
         clearQuantity: clearQuantity || quantity == null,
         clearExpiry: _expiresOn == null,
       ),
-      null => await controller.add(
+      _ => await controller.add(
         name: name,
         quantity: quantity,
         unit: _unit.text.trim(),

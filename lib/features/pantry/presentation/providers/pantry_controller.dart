@@ -67,6 +67,41 @@ class PantryController extends _$PantryController {
     );
   }
 
+  /// Points a row at a different ingredient, keeping its amount.
+  ///
+  /// **A rename is not an update.** `pantry_items` is unique on
+  /// `(household_id, ingredient_id)`, so "Garlick" becoming "Garlic" is a
+  /// different ingredient — resolved against the shared vocabulary, or added to
+  /// it — rather than a column change. Before this there was no way to fix a
+  /// spelling at all short of deleting the row and typing it again.
+  ///
+  /// **Add first, then remove.** `add` is idempotent by name, so if it fails
+  /// nothing has happened and the original row is untouched; the other order
+  /// would leave a household with neither on a bad connection.
+  Future<AppException?> rename(
+    PantryItem item, {
+    required String name,
+    double? quantity,
+    String unit = '',
+    DateTime? expiresOn,
+  }) async {
+    final AppException? failure = await add(
+      name: name,
+      quantity: quantity,
+      unit: unit,
+      expiresOn: expiresOn,
+    );
+
+    if (failure != null) {
+      return failure;
+    }
+
+    // The old row goes last. A failure here leaves both on the list, which is
+    // visible and fixable — unlike a failure that had already removed the only
+    // copy.
+    return remove(item);
+  }
+
   /// Changes an amount.
   Future<AppException?> updateAmount(
     PantryItem item, {

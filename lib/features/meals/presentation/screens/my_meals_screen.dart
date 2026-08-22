@@ -90,6 +90,8 @@ class _MyMealsScreenState extends ConsumerState<MyMealsScreen> {
                                     selected: _selected,
                                     isBusy: _isDeleting,
                                     onToggle: _toggle,
+                                    onEdit: _editOne,
+                                    onDelete: _deleteOne,
                                   ),
                           AsyncError<List<Meal>>(:final Object error) =>
                             _OwnError(
@@ -123,6 +125,23 @@ class _MyMealsScreenState extends ConsumerState<MyMealsScreen> {
       _selected.add(id);
     }
   });
+
+  /// A swipe right on one row.
+  void _editOne(String id) => context.pushNamed(
+    AppRoute.mealEdit.routeName,
+    pathParameters: <String, String>{'id': id},
+  );
+
+  /// A swipe left on one row, through the batch path so the confirmation and the
+  /// wording are the same for one as for five.
+  Future<void> _deleteOne(String id) async {
+    setState(() {
+      _selected
+        ..clear()
+        ..add(id);
+    });
+    await _deleteSelected();
+  }
 
   /// Opens the one selected meal in the form.
   ///
@@ -320,12 +339,19 @@ class _OwnList extends StatelessWidget {
     required this.selected,
     required this.isBusy,
     required this.onToggle,
+    required this.onEdit,
+    required this.onDelete,
   });
 
   final List<Meal> meals;
   final Set<String> selected;
   final bool isBusy;
   final ValueChanged<String> onToggle;
+
+  /// Swipe right, swipe left — both through the screen, so a one-row action gets
+  /// the same confirmation and wording as a batch.
+  final ValueChanged<String> onEdit;
+  final ValueChanged<String> onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -389,6 +415,8 @@ class _OwnList extends StatelessWidget {
                   isSelecting: selected.isNotEmpty,
                   isBusy: isBusy,
                   onToggle: () => onToggle(meal.id),
+                  onEdit: () => onEdit(meal.id),
+                  onDelete: () => onDelete(meal.id),
                 ),
               ],
             ],

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:whats_cooking/core/domain/food_preferences.dart';
-import 'package:whats_cooking/core/domain/food_taxonomy.dart';
 import 'package:whats_cooking/core/errors/app_exception.dart';
 import 'package:whats_cooking/core/errors/error_presenter.dart';
 import 'package:whats_cooking/core/router/app_routes.dart';
@@ -106,15 +105,15 @@ class _ProfileBody extends ConsumerWidget {
                 ),
               ],
             ),
-            const SizedBox(height: AppSpacing.space5),
+            const SizedBox(height: AppSpacing.space4),
 
-            // The figures, as a panel rather than three floating cards.
-            //
-            // `StatCardRow` staggered one card forward, which was the reference's
-            // *marketing* trio and reads as decoration in a settings context — and
-            // it left the three counts with no headline above them. A `BigFigure`
-            // gives the panel something to say first, and the trio underneath is
-            // the same shape every other panel uses.
+            // **One panel, not three.** Three cards with their own padding, their
+            // own headers and a gap between each left a settings screen that
+            // scrolled past the fold to say six things, and then ended in a
+            // hand-span of nothing above the navigation. These belong together —
+            // they are all "what the app knows about you" — and inside one panel
+            // the hairlines do the dividing that three separate cards were doing
+            // with whitespace.
             DashboardPanel(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -126,47 +125,41 @@ class _ProfileBody extends ConsumerWidget {
                         ? 'person'
                         : 'people',
                   ),
-                  const SizedBox(height: AppSpacing.space5),
+                  const SizedBox(height: AppSpacing.space4),
                   StatTrio(
                     columns: <StatColumnData>[
                       StatColumnData(
-                        label: 'Cuisines you like',
+                        label: 'Cuisines',
                         value: '${preferences.favouriteCuisines.length}',
                         onTap: () =>
                             context.pushNamed(AppRoute.preferences.routeName),
                       ),
                       StatColumnData(
-                        label: 'Foods you avoid',
+                        label: 'Avoided',
                         value: '${preferences.dislikedFoods.length}',
                         onTap: () =>
                             context.pushNamed(AppRoute.preferences.routeName),
                       ),
                       StatColumnData(
-                        label: 'Dietary needs',
+                        label: 'Dietary',
                         value: '${preferences.dietaryTags.length}',
                         onTap: () =>
                             context.pushNamed(AppRoute.preferences.routeName),
                       ),
                     ],
                   ),
-                ],
-              ),
-            ),
 
-            const SizedBox(height: AppSpacing.space4),
+                  const SizedBox(height: AppSpacing.space4),
+                  const DashboardRule(),
 
-            // What actually changes the spin, and the values are on the rows so
-            // the panel can be read without opening anything.
-            DashboardPanel(
-              title: 'What the roulette knows',
-              icon: AppIcons.meals,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: <Widget>[
+                  // **No value on this row.** It carried
+                  // "Filipino, Japanese · 1 avoided", which is the trio directly
+                  // above it said again in prose — and it was the long value that
+                  // squeezed the title into "Food pr / efere…". The row's job is
+                  // the way in; the numbers are already stated.
                   DashboardRow(
                     title: 'Food preferences',
-                    subtitle: 'CUISINES, AVOIDED FOODS, DIETARY NEEDS',
-                    value: _preferencesSummary(preferences),
+                    subtitle: 'Cuisines, avoided foods, dietary needs',
                     trailing: const Icon(
                       AppIcons.forward,
                       size: AppIconSize.xs,
@@ -177,7 +170,8 @@ class _ProfileBody extends ConsumerWidget {
                   const DashboardRule(),
                   DashboardRow(
                     title: 'Budget',
-                    subtitle: 'A HEAD, NOT PER POT',
+                    subtitle: 'A head, not per pot',
+                    // Short enough to be a figure, which is what `value` is for.
                     value: preferences.budget == null
                         ? 'Any'
                         : AppFormat.peso(preferences.budget!),
@@ -188,29 +182,31 @@ class _ProfileBody extends ConsumerWidget {
                     onTap: () =>
                         context.pushNamed(AppRoute.budgetSettings.routeName),
                   ),
-                ],
-              ),
-            ),
 
-            const SizedBox(height: AppSpacing.space4),
-            DashboardPanel(
-              child: DashboardActionRow(
-                actions: <DashboardAction>[
-                  DashboardAction(
-                    label: 'Recent',
-                    icon: AppIcons.plannerActive,
-                    onTap: () =>
-                        context.pushNamed(AppRoute.mealHistory.routeName),
-                  ),
-                  DashboardAction(
-                    label: 'Yours',
-                    icon: AppIcons.meals,
-                    onTap: () => context.pushNamed(AppRoute.myMeals.routeName),
-                  ),
-                  DashboardAction(
-                    label: 'Settings',
-                    icon: AppIcons.settings,
-                    onTap: () => context.pushNamed(AppRoute.settings.routeName),
+                  const SizedBox(height: AppSpacing.space4),
+                  const DashboardRule(),
+                  const SizedBox(height: AppSpacing.space4),
+                  DashboardActionRow(
+                    actions: <DashboardAction>[
+                      DashboardAction(
+                        label: 'Recent',
+                        icon: AppIcons.plannerActive,
+                        onTap: () =>
+                            context.pushNamed(AppRoute.mealHistory.routeName),
+                      ),
+                      DashboardAction(
+                        label: 'Yours',
+                        icon: AppIcons.meals,
+                        onTap: () =>
+                            context.pushNamed(AppRoute.myMeals.routeName),
+                      ),
+                      DashboardAction(
+                        label: 'Settings',
+                        icon: AppIcons.settings,
+                        onTap: () =>
+                            context.pushNamed(AppRoute.settings.routeName),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -236,32 +232,5 @@ class _ProfileBody extends ConsumerWidget {
   static String _kitchenLine(UserProfile profile) =>
       profile.householdName ?? 'Our Kitchen';
 
-  /// A one-line summary of the preference fields.
-  ///
-  /// Cuisines first, because that is the answer people remember giving; then a
-  /// count of the things they avoid, which is the answer that changes the results
-  /// most.
-  static String _preferencesSummary(FoodPreferences preferences) {
-    final List<String> parts = <String>[
-      if (preferences.favouriteCuisines.isNotEmpty)
-        preferences.favouriteCuisines
-            .take(_summaryCuisines)
-            .map((Cuisine cuisine) => cuisine.label)
-            .join(', '),
-      if (preferences.dislikedFoods.isNotEmpty)
-        '${preferences.dislikedFoods.length} avoided',
-      if (preferences.dietaryTags.isNotEmpty)
-        '${preferences.dietaryTags.length} dietary',
-      // Last, because it is the answer that changes results least — but present,
-      // because a preference the summary never mentions is one somebody forgets
-      // they set and then blames the engine for.
-      if (preferences.maxDifficulty case final Difficulty level)
-        'up to ${level.label.toLowerCase()}',
-    ];
-
-    return parts.isEmpty ? 'Nothing set yet' : parts.join(' · ');
-  }
-
-  static const int _summaryCuisines = 2;
 }
 

@@ -201,6 +201,27 @@ class _MealsScreenState extends ConsumerState<MealsScreen> {
     }
   });
 
+  /// A swipe right on one row.
+  void _editOne(String id) => context.pushNamed(
+    AppRoute.mealEdit.routeName,
+    pathParameters: <String, String>{'id': id},
+  );
+
+  /// A swipe left on one row.
+  ///
+  /// **Routed through the batch path deliberately.** A single delete gets the same
+  /// confirmation and the same "you have eaten that one, so it stays" reporting
+  /// as five — one code path, one set of sentences, and no second place for the
+  /// `meal_history` refusal to be handled differently.
+  Future<void> _deleteOne(String id) async {
+    setState(() {
+      _selected
+        ..clear()
+        ..add(id);
+    });
+    await _deleteSelected();
+  }
+
   /// Opens the one selected meal in the form.
   void _editSelected() {
     final String id = _selected.first;
@@ -536,6 +557,8 @@ class _MealsScreenState extends ConsumerState<MealsScreen> {
               selected: _selected,
               isBusy: _isDeleting,
               onToggle: _toggle,
+              onEdit: _editOne,
+              onDelete: _deleteOne,
               feed: current,
               onSortChanged: (MealSort sort) =>
                   controller.applyQuery(current.query.copyWith(sort: sort)),
@@ -976,6 +999,8 @@ class _MealTable extends StatelessWidget {
     required this.selected,
     required this.isBusy,
     required this.onToggle,
+    required this.onEdit,
+    required this.onDelete,
   });
 
   final MealFeed feed;
@@ -986,6 +1011,12 @@ class _MealTable extends StatelessWidget {
   final Set<String> selected;
   final bool isBusy;
   final ValueChanged<String> onToggle;
+
+  /// Swipe right, swipe left. Both go through the screen so a single-row action
+  /// gets the same confirmation and the same "you have eaten that one" reporting
+  /// as a batch — one code path, one set of messages.
+  final ValueChanged<String> onEdit;
+  final ValueChanged<String> onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -1018,6 +1049,8 @@ class _MealTable extends StatelessWidget {
               isSelecting: selected.isNotEmpty,
               isBusy: isBusy,
               onToggle: () => onToggle(meal.id),
+              onEdit: () => onEdit(meal.id),
+              onDelete: () => onDelete(meal.id),
             ),
           ],
           const SizedBox(height: AppSpacing.space4),
