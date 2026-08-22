@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:whats_cooking/core/analytics/analytics.dart';
+import 'package:whats_cooking/core/domain/meal_moment.dart';
 import 'package:whats_cooking/core/errors/app_exception.dart';
 import 'package:whats_cooking/core/errors/error_mapper.dart';
 import 'package:whats_cooking/core/errors/error_presenter.dart';
@@ -10,7 +11,6 @@ import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/utils/app_haptics.dart';
 import 'package:whats_cooking/core/utils/formatters.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_button.dart';
-import 'package:whats_cooking/core/widgets/chips/metadata_pill.dart';
 import 'package:whats_cooking/core/widgets/feedback/app_skeleton.dart';
 import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
 import 'package:whats_cooking/features/grocery/presentation/providers/grocery_controller.dart';
@@ -321,62 +321,93 @@ class _ResultState extends ConsumerState<_Result> {
   Widget build(BuildContext context) {
     final Meal meal = widget.meal;
 
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        Text(
-          // From the meal's own category rather than from the filter, so it is
-          // right on a deep link and on a spin nobody narrowed.
-          meal.category.pickOverline,
-          style: context.text.overline,
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: AppSpacing.space4),
-        _PickCard(meal: meal, isDecided: false),
-        // design_ui §13's context line — its own example is "⭐ Loved by both of
-        // you". This is the Sprint 32 version, and it is here because a weighted
-        // engine that cannot say *why* it chose something is indistinguishable
-        // from a random one, which throws away the whole point of the weighting.
-        if (_reason case final String reason) ...<Widget>[
-          const SizedBox(height: AppSpacing.space3),
-          Text(
-            reason,
-            style: context.text.metadata,
-            textAlign: TextAlign.center,
-          ),
-        ],
+    // **Anchored, not floated.** This was one centred column, which on a tall
+    // phone left a couple of hundred pixels of nothing above the overline and the
+    // same below the last button — the payoff of the whole app arriving in the
+    // middle of an empty page. The card now sits high, the actions sit at the
+    // bottom where a thumb is, and the slack goes between them instead of around
+    // everything.
+    //
+    // Scrollable rather than flexed, because a three-line meal name plus a
+    // reason, a kitchen line and an error banner genuinely can exceed a short
+    // screen — and the one thing worse than empty space is a clipped button.
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        return SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                const Spacer(flex: _spaceAbove),
+                Text(
+                  // From the meal's own category rather than from the filter, so
+                  // it is right on a deep link and on a spin nobody narrowed.
+                  meal.category.pickOverline,
+                  style: context.text.overline,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: AppSpacing.space4),
+                _PickCard(meal: meal, isDecided: false),
 
-        // What the kitchen is short of (Sprint 41).
-        //
-        // Its own line rather than folded into the reason above, because the two
-        // say different things: the reason is why this meal was chosen, and this
-        // is what standing up and cooking it would take. Somebody deciding whether
-        // to accept wants both, and the second one is the difference between yes
-        // and a trip to the shop.
-        if (_kitchenLine case final String line) ...<Widget>[
-          const SizedBox(height: AppSpacing.space2),
-          Text(
-            line,
-            style: context.text.metadata,
-            textAlign: TextAlign.center,
+                // Why this one — design_ui §13's context line, whose own example
+                // is "⭐ Loved by both of you".
+                //
+                // **Framed as something said, not as a caption.** It was grey
+                // `metadata` centred under the card, which is where an image
+                // credit goes — and this is the single most valuable sentence on
+                // the screen, because a weighted engine that cannot say *why* is
+                // indistinguishable from a random one. Now it is attributed: a
+                // mark, a quiet surface, and body type somebody will actually
+                // read.
+                if (_reason case final String reason) ...<Widget>[
+                  const SizedBox(height: AppSpacing.space4),
+                  _Reason(reason: reason),
+                ],
+
+                // What the kitchen is short of (Sprint 41).
+                //
+                // Its own line rather than folded into the reason above, because
+                // the two say different things: the reason is why this meal was
+                // chosen, and this is what standing up and cooking it would take.
+                // Somebody deciding whether to accept wants both, and the second
+                // one is the difference between yes and a trip to the shop.
+                if (_kitchenLine case final String line) ...<Widget>[
+                  const SizedBox(height: AppSpacing.space3),
+                  Text(
+                    line,
+                    style: context.text.metadata,
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+                if (_failure case final AppException problem) ...<Widget>[
+                  const SizedBox(height: AppSpacing.space4),
+                  // Inline rather than a snackbar. The tap failed and the meal is
+                  // still undecided, so the message belongs beside the button
+                  // that has to be pressed again.
+                  InlineErrorBanner(
+                    message: problem.displayMessage ?? problem.message,
+                    onRetry: _accept,
+                  ),
+                ],
+                const Spacer(flex: _spaceBelow),
+                const SizedBox(height: AppSpacing.space6),
+                ..._pickActions(context, meal),
+              ],
+            ),
           ),
-        ],
-        if (_failure case final AppException problem) ...<Widget>[
-          const SizedBox(height: AppSpacing.space4),
-          // Inline rather than a snackbar. The tap failed and the meal is still
-          // undecided, so the message belongs beside the button that has to be
-          // pressed again.
-          InlineErrorBanner(
-            message: problem.displayMessage ?? problem.message,
-            onRetry: _accept,
-          ),
-        ],
-        const SizedBox(height: AppSpacing.space6),
-        ..._pickActions(context, meal),
-      ],
+        );
+      },
     );
   }
+
+  /// The slack, split unevenly on purpose.
+  ///
+  /// Two parts above the card to one below, so the card lands a little above
+  /// centre — where a title page puts its title — and the actions keep a stable
+  /// distance from the bottom edge rather than drifting with the name's length.
+  static const int _spaceAbove = 2;
+  static const int _spaceBelow = 3;
 
   List<Widget> _pickActions(BuildContext context, Meal meal) {
     return <Widget>[
@@ -392,6 +423,11 @@ class _ResultState extends ConsumerState<_Result> {
         onPressed: _isSaving ? null : _accept,
       ),
       const SizedBox(height: AppSpacing.space3),
+      // **Equal weights on one row.** This paired an outlined pill with a bare
+      // text button at equal widths, which read as one button and one gap — the
+      // eye could not tell whether "Details" was disabled or decoration. Two
+      // secondary buttons make it a choice between two things, which is what it
+      // is: spin again, or go and look properly.
       Row(
         children: <Widget>[
           Expanded(
@@ -406,8 +442,9 @@ class _ResultState extends ConsumerState<_Result> {
           ),
           const SizedBox(width: AppSpacing.space3),
           Expanded(
-            child: AppButton.tertiary(
+            child: AppButton.secondary(
               label: 'Details',
+              leadingIcon: AppIcons.forward,
               onPressed: _isSaving
                   ? null
                   : () => context.pushNamed(
@@ -419,7 +456,10 @@ class _ResultState extends ConsumerState<_Result> {
           ),
         ],
       ),
-      const SizedBox(height: AppSpacing.space2),
+      const SizedBox(height: AppSpacing.space3),
+      // The way out, and the only tertiary on the screen — which is what makes it
+      // legible as the quiet option rather than as a fourth button competing with
+      // the other three.
       Align(
         child: AppButton.tertiary(
           label: 'Not now',
@@ -465,7 +505,12 @@ class _PickCard extends StatelessWidget {
         borderRadius: AppRadius.borderXxxl,
         boxShadow: context.shadows.xl,
       ),
-      padding: const EdgeInsets.all(AppSpacing.space6),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.space6,
+        AppSpacing.space6,
+        AppSpacing.space6,
+        AppSpacing.space5,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
@@ -485,6 +530,10 @@ class _PickCard extends StatelessWidget {
             meal.name,
             style: context.text.displayMedium.copyWith(
               color: isDecided ? context.colors.textOnInverse : null,
+              // Tighter than the display default, which was built for one-line
+              // headings: a three-line meal name at the default leading opens a
+              // visible gap between its lines and stops reading as one title.
+              height: 1.05,
             ),
             textAlign: TextAlign.center,
             maxLines: 3,
@@ -493,36 +542,178 @@ class _PickCard extends StatelessWidget {
           if (isDecided) ...<Widget>[
             const SizedBox(height: AppSpacing.space2),
             Text(
-              "You're eating this tonight.",
+              // Follows the clock like everything else now. It said "tonight" at
+              // every hour, which on a breakfast pick was two lies in one line.
+              "You're eating this ${MealMoment.current.phrase}.",
               style: context.text.bodyMedium.copyWith(
                 color: context.colors.textOnInverse,
               ),
               textAlign: TextAlign.center,
             ),
           ],
-          const SizedBox(height: AppSpacing.space5),
-          // US-B-09: cost, time and servings visible without scrolling.
-          Wrap(
-            alignment: WrapAlignment.center,
-            spacing: AppSpacing.space2,
-            runSpacing: AppSpacing.space2,
-            children: <Widget>[
-              MetadataPill(
-                icon: AppIcons.budget,
-                label: '${AppFormat.peso(meal.costPerServing)} a head',
-              ),
-              MetadataPill(
-                icon: AppIcons.cookingTime,
-                label: AppFormat.cookingTime(meal.cookingTimeMinutes),
-              ),
-              MetadataPill(
-                icon: AppIcons.servings,
-                label: AppFormat.servings(meal.servings),
-              ),
-            ],
-          ),
+          const SizedBox(height: AppSpacing.space6),
+
+          // **Three figures behind hairlines, not three floating pills.**
+          //
+          // The pills were a `Wrap`, so on a normal phone they broke two-and-one
+          // and left "2 servings" centred on a row of its own — which reads as a
+          // layout accident rather than a decision. They were also this screen
+          // inventing its own vocabulary: every panel in this app states its
+          // numbers as a divided trio, so three lozenges here made the payoff
+          // look like a different product's screen.
+          _PickStats(meal: meal, isDecided: isDecided, accent: accent),
         ],
       ),
     );
   }
+}
+
+/// The card's cost, time and servings — divided, not floating.
+///
+/// Its own widget rather than `StatTrio`, and that is the one piece of
+/// duplication worth having here: `StatTrio` reads its label and divider colours
+/// from the theme, and this card **inverts to near-black** on acceptance, where
+/// theme-derived greys vanish. Parameterising the shared widget for one caller's
+/// inversion would put a colour override into every dashboard that does not want
+/// one.
+class _PickStats extends StatelessWidget {
+  const _PickStats({
+    required this.meal,
+    required this.isDecided,
+    required this.accent,
+  });
+
+  final Meal meal;
+  final bool isDecided;
+  final AppAccent accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppColorScheme colors = context.colors;
+
+    // Explicit rather than themed, so the whole block survives the flip to ink.
+    // `accent.foreground` is the pastel's paired ink, which the overline above
+    // already uses — so the card has one ink rather than two.
+    final Color figure = isDecided ? colors.textOnInverse : colors.textPrimary;
+    final Color label = isDecided
+        ? colors.textOnInverse.withValues(alpha: _quiet)
+        : accent.foreground;
+    final Color divider = isDecided
+        ? colors.textOnInverse.withValues(alpha: _hairline)
+        : accent.foreground.withValues(alpha: _hairline);
+
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          for (final (int index, (String, String) column) in _columns.indexed)
+            ...<Widget>[
+              if (index > 0)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.space2,
+                  ),
+                  child: SizedBox(width: 1, child: ColoredBox(color: divider)),
+                ),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Text(
+                      column.$1,
+                      style: context.text.overline.copyWith(color: label),
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: AppSpacing.space1),
+                    Text(
+                      column.$2,
+                      style: context.text.titleMedium.copyWith(color: figure),
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+        ],
+      ),
+    );
+  }
+
+  /// Label over figure, which is the order every other panel uses — the caps line
+  /// says what the number is before the eye reaches it.
+  List<(String, String)> get _columns => <(String, String)>[
+    ('A HEAD', AppFormat.peso(meal.costPerServing)),
+    ('READY IN', AppFormat.cookingTime(meal.cookingTimeMinutes)),
+    ('SERVES', '${meal.servings}'),
+  ];
+
+  static const double _quiet = 0.7;
+  static const double _hairline = 0.2;
+}
+
+/// Why this meal, attributed.
+///
+/// **The best sentence on the screen was styled like a photo credit.** It was
+/// grey `metadata`, centred, floating under the card — and it is the one thing
+/// that distinguishes a recommendation from a coin toss. When the assistant chose,
+/// it is genuinely somebody's reasoning ("you have the chicken and have not had it
+/// in weeks"); when the engine chose, it is the scorer explaining its own
+/// highlight. Either way it deserves to look said rather than annotated.
+///
+/// A quiet inset surface with a mark, not a speech bubble: a chat bubble here
+/// would imply a conversation to reply to, and there is none on this screen.
+class _Reason extends StatelessWidget {
+  const _Reason({required this.reason});
+
+  final String reason;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppColorScheme colors = context.colors;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.surfaceMuted,
+        borderRadius: AppRadius.borderXl,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.space4,
+          vertical: AppSpacing.space3,
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Padding(
+              // Nudged to sit on the first line's baseline rather than its box.
+              padding: const EdgeInsets.only(top: _markDrop),
+              child: Icon(
+                AppIcons.assistant,
+                size: AppIconSize.xs,
+                color: colors.textTertiary,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.space3),
+            Expanded(
+              child: Text(
+                // Sentence-cased. The model answers in lower case more often than
+                // not, and a lower-case opening under a display-size name reads as
+                // a fragment rather than a sentence.
+                AppFormat.sentenceCase(reason),
+                style: context.text.bodySmall.copyWith(
+                  color: colors.textSecondary,
+                ),
+                maxLines: 3,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static const double _markDrop = 2;
 }

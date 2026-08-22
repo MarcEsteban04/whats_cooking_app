@@ -267,7 +267,16 @@ class SupabaseAssistantRepository implements AssistantRepository {
         'Reply with the number, a pipe, and one short reason of at most twelve '
         'words. No other text.',
       )
-      ..writeln('Example: 3 | you have the chicken and have not had it in weeks');
+      ..writeln('Example: 3 | you have the chicken and have not had it in weeks')
+      // **Do not name the meal or the hour.** The screen already prints both, and
+      // the model got it wrong: a lunch pick came back with "a simple, comforting
+      // Filipino dish for tonight" printed directly under a heading that said
+      // LUNCH PICK. The reason is for the *why*, and the why is never the clock —
+      // `deciding_for` in the context is what tells it which meal this is.
+      ..writeln(
+        'Do not mention the time of day, the meal name, or the cuisine. Say '
+        'only why this one, using what you know about this household.',
+      );
 
     return buffer.toString();
   }
