@@ -6,6 +6,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:whats_cooking/core/analytics/analytics.dart';
 import 'package:whats_cooking/core/domain/food_preferences.dart';
 import 'package:whats_cooking/core/domain/food_taxonomy.dart';
+import 'package:whats_cooking/core/domain/meal_moment.dart';
 import 'package:whats_cooking/core/errors/app_exception.dart';
 import 'package:whats_cooking/core/errors/error_mapper.dart';
 import 'package:whats_cooking/core/utils/logger.dart';
@@ -628,9 +629,10 @@ class SpinController extends _$SpinController {
       if (urgent.isNotEmpty)
         'going_off_soon': urgent.take(_urgentForPrompt).join(', '),
       'deciding_for': switch (categories.length) {
-        // Nothing narrowed. "Tonight" is the honest default: it is the meal this
-        // app was built for and the one somebody opens it at.
-        0 => 'tonight',
+        // Nothing narrowed, so the clock decides. It used to say "tonight"
+        // whatever the hour, which asked the model to pick dinner at eight in the
+        // morning.
+        0 => MealMoment.current.mealName,
         1 => categories.first.label.toLowerCase(),
         _ => categories
             .map((MealCategory category) => category.label.toLowerCase())

@@ -14,6 +14,7 @@ import 'package:whats_cooking/features/restaurants/domain/entities/restaurant.da
 import 'package:whats_cooking/features/restaurants/domain/entities/restaurant_filters.dart';
 import 'package:whats_cooking/features/restaurants/presentation/providers/restaurant_spin_controller.dart';
 import 'package:whats_cooking/features/roulette/presentation/widgets/meal_reel.dart';
+import 'package:whats_cooking/features/roulette/presentation/widgets/picking_card.dart';
 
 /// The night-out spin (Sprint 46).
 ///
@@ -291,6 +292,9 @@ class _RestaurantSpinScreenState extends ConsumerState<RestaurantSpinScreen>
                   final RestaurantSpinNoMatch noMatch => _NoMatch(
                     state: noMatch,
                   ),
+                  // The same hold, and the same reason — `SpinScreen` carries it.
+                  _ when _isAwaitingAssistant && !_isReelStopped =>
+                    const PickingCard(),
                   _ => _Spinning(
                     animation: _controller,
                     pool: _reelPool ?? const <Restaurant>[],

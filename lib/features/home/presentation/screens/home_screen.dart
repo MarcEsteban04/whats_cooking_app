@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:whats_cooking/core/constants/app_constants.dart';
+import 'package:whats_cooking/core/domain/meal_moment.dart';
 import 'package:whats_cooking/core/domain/mood.dart';
 import 'package:whats_cooking/core/router/app_routes.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
@@ -110,7 +111,9 @@ class HomeScreen extends ConsumerWidget {
               ),
               children: <Widget>[
                 DashboardHeader(
-                  title: 'Tonight',
+                  // Follows the clock. It read "Tonight" at three in the
+                  // morning, which is where somebody noticed.
+                  title: MealMoment.current.heading,
                   subtitle: _kitchenLine(profile.value),
                   onSubtitleTap: () =>
                       context.goNamed(AppRoute.profile.routeName),
@@ -404,7 +407,7 @@ class _SpinPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           Text(
-            'What are we eating tonight?',
+            'What are we eating ${MealMoment.current.phrase}?',
             style: context.text.displayMedium,
           ),
           const SizedBox(height: AppSpacing.space2),

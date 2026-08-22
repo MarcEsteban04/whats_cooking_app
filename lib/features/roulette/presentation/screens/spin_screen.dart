@@ -14,6 +14,7 @@ import 'package:whats_cooking/features/meals/domain/entities/meal.dart';
 import 'package:whats_cooking/features/roulette/domain/entities/spin_filters.dart';
 import 'package:whats_cooking/features/roulette/presentation/providers/spin_controller.dart';
 import 'package:whats_cooking/features/roulette/presentation/widgets/meal_reel.dart';
+import 'package:whats_cooking/features/roulette/presentation/widgets/picking_card.dart';
 
 /// The spin (docs/design_ui.md §12, docs/DESIGN_SYSTEM.md §7).
 ///
@@ -398,6 +399,15 @@ class _SpinScreenState extends ConsumerState<SpinScreen>
                         : null,
                   ),
                   final SpinNoMatch noMatch => _NoMatch(state: noMatch),
+                  // **Nothing nameable until there is something to name.**
+                  //
+                  // While the assistant is choosing, the reel has not started —
+                  // and rendering it anyway drew its pool at offset zero, which
+                  // put a meal in the landing slot looking exactly like a result
+                  // for up to four seconds. Usually the engine's pick, which the
+                  // assistant was in the middle of overruling.
+                  _ when _isAwaitingAssistant && !_isReelStopped =>
+                    const PickingCard(),
                   _ => _Spinning(
                     animation: _controller,
                     pool: _reelPool ?? const <Meal>[],
