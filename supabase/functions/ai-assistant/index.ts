@@ -46,6 +46,14 @@ const MAX_MESSAGES = 12;
 const MAX_MESSAGE_CHARS = 2_000;
 const MAX_OUTPUT_TOKENS = 700;
 
+/// The ceiling when the request carries a file to read out (Sprint 53d).
+///
+/// Copying a shopping list is not answering a question: the length of the reply
+/// is decided by the length of the list, not by how much the model has to say. A
+/// forty-line shop needs roughly four times the advice budget, and running out
+/// truncates somebody's list without a word.
+const MAX_OUTPUT_TOKENS_READING = 2_500;
+
 /**
  * The biggest photo this will forward, as base64 characters (Sprint 49).
  *
@@ -151,7 +159,14 @@ Deno.serve(async (request: Request): Promise<Response> => {
     const result = await chat({
       system: systemPrompt(body.context ?? {}),
       messages,
-      maxOutputTokens: MAX_OUTPUT_TOKENS,
+      // A file is usually a *list*, and a list is longer than advice.
+      //
+      // 700 tokens is about thirty short lines. A weekly shop runs past that, and
+      // the failure is silent: the reply simply stops and the tail of somebody's
+      // list is missing with nothing to say so.
+      maxOutputTokens: attachment === undefined
+          ? MAX_OUTPUT_TOKENS
+          : MAX_OUTPUT_TOKENS_READING,
       // Low. This app wants food somebody can actually cook for the money they
       // actually have, and a creative answer to "what is under ₱150" is a wrong
       // answer with confidence.

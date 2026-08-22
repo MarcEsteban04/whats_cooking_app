@@ -529,11 +529,23 @@ class SupabaseAssistantRepository implements AssistantRepository {
   /// "Here are the items from your list:" arriving as something to buy is the
   /// failure mode.
   static const String _listPrompt =
-      'This is a shopping list. Copy out the things to buy, one per line.\n\n'
+      'This is a shopping list. Copy out EVERY line of it, one per line.\n\n'
+      // **The word "every", and then again three ways.** The first version said
+      // "copy out the things to buy" and got six items off a twenty-seven line
+      // screenshot — which is a reasonable reading of a prompt that never asked
+      // for all of them. A model given a long list and no instruction about
+      // completeness will summarise, because summarising is usually what is
+      // wanted.
+      'Copy them ALL. Do not stop early, do not skip lines, do not summarise, '
+      'do not merge two lines into one, and do not decide something is not worth '
+      'including. A list can run to forty lines or more; go to the very bottom '
+      'of it.\n\n'
+      'Copy the words as written, even brand names, misspellings and words that '
+      'are not English. Do not translate or correct them.\n\n'
       'Keep any quantity and unit that is written, at the front of the line, '
       'like "2 kg rice" or "3 pcs onion". Leave them out when the list does not '
       'say. Only what is actually on the list — do not add anything you would '
-      'expect. No headings, no prices, no totals, no other text.\n\n'
+      'expect. No headings, no prices, no totals, no numbering, no other text.\n\n'
       'If there is no shopping list here, reply with the single word NONE.';
 
   /// How much of a text file is sent.

@@ -181,7 +181,24 @@ export async function chat(request: ChatRequest): Promise<ChainResult> {
   const seeing = attachment !== undefined;
   const isDocument = seeing && !attachment.mimeType.startsWith("image/");
 
-  const available = PROVIDERS.filter((p) => {
+  // **Reading a file reorders the chain.**
+  //
+  // `PROVIDERS` is ordered fastest-first, which is right for dinner advice: the
+  // reader is waiting and any of the three gives a reasonable answer. It is wrong
+  // for reading a picture, because the chain only fails over on *errors* — a
+  // provider that answers badly still answers, and the better one behind it is
+  // never tried.
+  //
+  // That is not hypothetical. A screenshot of a 27-line shopping list came back
+  // with six items: Groq's vision model succeeded, poorly, and Gemini never saw
+  // it. Accuracy is the whole job here and a fast wrong answer is worse than a
+  // slower right one, so anything with an attachment goes to the strongest reader
+  // first and keeps the others as the fallback they should be.
+  const ordered = seeing
+    ? [...PROVIDERS].sort((a, b) => visionRank(a) - visionRank(b))
+    : PROVIDERS;
+
+  const available = ordered.filter((p) => {
     if ((Deno.env.get(p.keyEnv) ?? "") === "") {
       return false;
     }
@@ -253,6 +270,27 @@ export async function chat(request: ChatRequest): Promise<ChainResult> {
  * which is the switch to reach for when one of them starts charging differently
  * for it. `null` in the table means the provider never had it.
  */
+/**
+ * Where a provider sits when the request carries a file. Lower goes first.
+ *
+ * Ordered by how well each reads a dense photograph of handwriting or a phone
+ * screenshot, which is a different question from how fast it answers a text
+ * prompt. Gemini leads on OCR by a wide margin and takes documents as well;
+ * OpenAI is solid; Groq's vision model is the weakest of the three at this and is
+ * kept as a last resort rather than dropped, because one working provider beats
+ * none.
+ */
+function visionRank(provider: Provider): number {
+  switch (provider.name) {
+    case "gemini":
+      return 0;
+    case "openai":
+      return 1;
+    case "groq":
+      return 2;
+  }
+}
+
 function visionModelFor(provider: Provider): string {
   if (provider.visionModelEnv === null) {
     return provider.defaultVisionModel ?? "";

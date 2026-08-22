@@ -51,7 +51,15 @@ abstract final class ImportedList {
       // Prose rather than an item. A model that opens with "Here are the items
       // from your list:" is being helpful, and the helpfulness is what would end
       // up in an aisle as something to buy.
-      if (line.length > _maxLineChars || line.split(' ').length > _maxWords) {
+      //
+      // A trailing colon is the giveaway and costs nothing to check — no shopping
+      // line ends in one — which lets the length limits stay loose enough for a
+      // real item. "Downy sachet pampabango ng damit" is five words and "Surf
+      // powder green panglaba 1 kilo" is seven; a six-word cap was quietly
+      // dropping the longer half of a Filipino grocery list.
+      if (line.endsWith(':') ||
+          line.length > _maxLineChars ||
+          line.split(' ').length > _maxWords) {
         continue;
       }
 
@@ -140,10 +148,11 @@ abstract final class ImportedList {
     'dozen', 'tray', 'trays',
   };
 
-  /// Long enough for "spring onions, two bundles", short enough to exclude a
-  /// sentence.
-  static const int _maxLineChars = 60;
-  static const int _maxWords = 6;
+  /// Long enough for a brand, a descriptor and a quantity — "Smart calamansi
+  /// paste dishwashing 2 pcs" — and short enough to exclude a sentence, which the
+  /// trailing-colon check catches anyway.
+  static const int _maxLineChars = 80;
+  static const int _maxWords = 9;
 
   /// A weekly shop, generously. Past this the confirmation list is longer than
   /// anybody reads, and the tail gets added unread.
