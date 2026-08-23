@@ -18,6 +18,7 @@ import 'package:whats_cooking/features/meals/domain/entities/meal_draft.dart';
 class GeneratedRecipe {
   const GeneratedRecipe({
     required this.name,
+    this.description = '',
     this.cuisine = Cuisine.filipino,
     this.category = MealCategory.dinner,
     this.difficulty = Difficulty.easy,
@@ -29,6 +30,22 @@ class GeneratedRecipe {
   });
 
   final String name;
+
+  /// One line about the dish, or empty when the model did not say (Sprint 56).
+  ///
+  /// **This used to be deliberately left blank**, on the argument that a blurb
+  /// invented about a dish nobody has cooked yet is pure decoration. That was
+  /// wrong about what the field is for. "Fill in the rest" fills eleven fields
+  /// and left the twelfth alone, so the one field somebody had to write by hand
+  /// was the one with nothing to look up — and a description is not decoration on
+  /// a screen where it is the line under the name on the meal detail.
+  ///
+  /// Asked for as *what the dish is*, not what is nice about it. "Braised in soy
+  /// and vinegar until the sauce clings" is worth reading; "a delicious family
+  /// favourite everyone will love" is the thing the old comment was right to
+  /// refuse, and the prompt says so.
+  final String description;
+
   final Cuisine cuisine;
   final MealCategory category;
   final Difficulty difficulty;
@@ -64,9 +81,7 @@ class GeneratedRecipe {
   /// path as one typed by hand — no second way in to keep in step.
   MealDraft toDraft() => MealDraft(
     name: name.trim(),
-    // No description. The model was asked for a recipe, and a blurb it invented
-    // about a dish nobody has cooked yet is the one field here that would be
-    // pure decoration.
+    description: description.trim(),
     cuisine: cuisine,
     category: category,
     difficulty: difficulty,
@@ -92,6 +107,7 @@ class GeneratedRecipe {
         .toList();
 
     String name = '';
+    String description = '';
     Cuisine cuisine = Cuisine.filipino;
     MealCategory category = MealCategory.dinner;
     Difficulty difficulty = Difficulty.easy;
@@ -117,18 +133,29 @@ class GeneratedRecipe {
         section = _Section.none;
         continue;
       }
+      // `ABOUT:` rather than `DESCRIPTION:`, and the label is doing work: models
+      // hear "description" as an invitation to sell the dish, and hear "about" as
+      // a request to say what it is. Both spellings are accepted anyway, because
+      // one of the three providers will use the obvious word whatever it is told.
+      if (upper.startsWith('ABOUT:') || upper.startsWith('DESCRIPTION:')) {
+        description = _after(line);
+        section = _Section.none;
+        continue;
+      }
       if (upper.startsWith('CUISINE:')) {
         cuisine = Cuisine.fromValue(_after(line).toLowerCase()) ?? cuisine;
         section = _Section.none;
         continue;
       }
       if (upper.startsWith('MEAL:') || upper.startsWith('CATEGORY:')) {
-        category = MealCategory.fromValue(_after(line).toLowerCase()) ?? category;
+        category =
+            MealCategory.fromValue(_after(line).toLowerCase()) ?? category;
         section = _Section.none;
         continue;
       }
       if (upper.startsWith('DIFFICULTY:')) {
-        difficulty = Difficulty.fromValue(_after(line).toLowerCase()) ?? difficulty;
+        difficulty =
+            Difficulty.fromValue(_after(line).toLowerCase()) ?? difficulty;
         section = _Section.none;
         continue;
       }
@@ -173,6 +200,13 @@ class GeneratedRecipe {
 
     final GeneratedRecipe recipe = GeneratedRecipe(
       name: name,
+      // Cut rather than trusted, like the time and the cost above it. A model
+      // that answers with a paragraph is not misbehaving, but the meal detail
+      // shows this under the name at body size and the form field is three lines
+      // tall — so a run-on arrives looking like the parser broke.
+      description: description.length > _maxDescription
+          ? description.substring(0, _maxDescription).trimRight()
+          : description,
       cuisine: cuisine,
       category: category,
       difficulty: difficulty,
@@ -196,9 +230,8 @@ class GeneratedRecipe {
   }
 
   /// A list line with its bullet or number removed.
-  static String _bullet(String line) => line
-      .replaceFirst(RegExp(r'^\s*(?:[-*•]|\d{1,2}[.)])\s*'), '')
-      .trim();
+  static String _bullet(String line) =>
+      line.replaceFirst(RegExp(r'^\s*(?:[-*•]|\d{1,2}[.)])\s*'), '').trim();
 
   /// `500 g chicken`, `2 pc egg`, `soy sauce`.
   ///
@@ -211,9 +244,8 @@ class GeneratedRecipe {
       return null;
     }
 
-    final RegExpMatch? match = RegExp(
-      r'^([\d.,/]+)\s*([A-Za-z]+)?\s+(.+)$',
-    ).firstMatch(text);
+    final RegExpMatch? match = RegExp(r'^([\d.,/]+)\s*([A-Za-z]+)?\s+(.+)$')
+        .firstMatch(text);
 
     if (match == null) {
       return DraftIngredient(name: text, quantity: 1, unit: 'pc');
@@ -240,13 +272,17 @@ class GeneratedRecipe {
   }
 
   static double? _firstDouble(String value) {
-    final RegExpMatch? match = RegExp(
-      r'(\d+(?:\.\d+)?)',
-    ).firstMatch(value.replaceAll(',', ''));
+    final RegExpMatch? match = RegExp(r'(\d+(?:\.\d+)?)')
+        .firstMatch(value.replaceAll(',', ''));
     return match == null ? null : double.tryParse(match.group(1)!);
   }
 
   /// Caps, matching what the meal form will accept.
+  /// About one full sentence. Longer than the prompt asks for, so a model that
+  /// writes a slightly generous line keeps all of it, and short enough that a
+  /// paragraph is cut rather than shown.
+  static const int _maxDescription = 160;
+
   static const int _maxIngredients = 20;
   static const int _maxSteps = 15;
 

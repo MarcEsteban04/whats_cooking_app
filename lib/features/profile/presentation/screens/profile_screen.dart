@@ -93,9 +93,7 @@ class _ProfileBody extends ConsumerWidget {
             // idea; it is the same three components Home, Meals and the Kitchen
             // already use.
             DashboardHeader(
-              title: profile.displayName.isEmpty
-                  ? 'You'
-                  : profile.displayName,
+              title: profile.displayName.isEmpty ? 'You' : profile.displayName,
               subtitle: _kitchenLine(profile),
               actions: <Widget>[
                 AppCircleAction(
@@ -231,6 +229,4 @@ class _ProfileBody extends ConsumerWidget {
   /// nowhere.
   static String _kitchenLine(UserProfile profile) =>
       profile.householdName ?? 'Our Kitchen';
-
 }
-

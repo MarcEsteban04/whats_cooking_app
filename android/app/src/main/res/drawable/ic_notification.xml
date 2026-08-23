@@ -1,0 +1,38 @@
+<!--
+  The status-bar icon for the evening reminder (Sprint 56).
+
+  A vector rather than a PNG, and a silhouette rather than the launcher icon.
+  Android draws a notification's small icon as a *mask*: it throws away every
+  colour and keeps the alpha channel, so passing @mipmap/ic_launcher — the usual
+  shortcut — puts a solid white square in the status bar. The launcher mark is a
+  dark green roundel under a white dome, which masks to a featureless blob.
+
+  So this is the pot, in pure white on transparent, at the 24dp the platform
+  expects. It reads at status-bar size because it is four shapes and no detail.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- The knob on the lid. -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M10.75,2.5h2.5v2h-2.5z" />
+
+    <!-- The lid. -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M3.5,5.5h17v2.25h-17z" />
+
+    <!-- The two handles. -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M1.5,9.5h2.5v4h-2.5z M20,9.5h2.5v4h-2.5z" />
+
+    <!-- The pot. -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M4.5,8.75h15v8.5a3.25,3.25 0 0,1 -3.25,3.25h-8.5a3.25,3.25 0 0,1 -3.25,-3.25z" />
+</vector>

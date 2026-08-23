@@ -809,6 +809,83 @@ list is treated as measured, which is the safe direction. The caveat is printed:
 the cost and time above did not move, and a screen that quietly rescaled half its
 numbers would be worse than one that rescaled none.
 
+## Sprint 56 — Being The Reason The App Gets Opened
+
+> "1. the fill in the rest in meals doesn't populate description, also change the
+> placeholder because when i add meal sometimes its common and not mine.
+> 2. do "The app cannot remind anyone it exists""
+
+**"Fill in the rest" filled eleven fields and skipped the twelfth.** The
+description was left blank on a written argument — a blurb invented about a dish
+nobody has cooked is decoration — which was wrong about what the field is for: it
+is the line under the name on the meal detail, and it was the one field with
+nothing to look up. Now `ABOUT:` in the recipe block, placed **second** so a
+reply the function truncates loses a late step rather than this, and asked for as
+*what the dish is* rather than what is nice about it. The prompt forbids
+"delicious", "family favourite" and "everyone will love" by name.
+
+**And both placeholders assumed the meal was somebody's own.** "Tita Baby adobo"
+on the name and "What makes it yours?" on the description — a personal example on
+the first field of the form reads as an instruction, and most meals added here are
+ordinary dishes going into the common list, which is what the toggle already
+defaults to. "What makes it yours?" has no answer for sinigang.
+
+## The reminder
+
+**The app could not tell anyone it existed.** `/profile/settings/notifications`
+had been a `PlaceholderScreen` marked "Sprint 49 (P2)" for two sprints, there was
+no notification package in `pubspec.yaml`, and `SettingsScreen` deliberately
+omitted the tile with a comment explaining that a tile leading to a placeholder
+teaches people tiles do not work. Meanwhile every feature in the app answers a
+question that arrives at half five, in a kitchen, from somebody who is hungry and
+is not thinking *let me open an app*.
+
+**A short queue, not a repeating alarm, and not one-at-a-time.** Both obvious
+designs fail. A daily repeat has fixed text, so it says the same nine words all
+year and fires on evenings dinner was decided at four. Scheduling only the *next*
+one fails more quietly: the reminder arrives, nobody opens the app because they
+already decided out loud, and there is never another — a feature that switches
+itself off after one use. So `MealReminder.replaceAll` lays down a week from a
+fixed block of ids, clearing the block first, and every app open replaces the
+whole queue.
+
+* **Only the first one carries facts.** "2 things to use up" is true this evening
+  and a guess by Thursday. The rest carry the plain invitation.
+* **It skips an evening that is already settled**, through Sprint 55's
+  `decidedNow`. A reminder that asks a question already answered is the last one
+  somebody leaves switched on.
+* **It follows the clock.** `MealMoment.at(when).mealName`, so a reminder set for
+  eleven asks about lunch — the same vocabulary as Home's heading.
+* **Permission is asked when the switch is turned on**, never at startup, and the
+  switch does not move on a refusal.
+* **Off by default.** A notification nobody asked for is the fastest route to
+  every notification from this app being blocked at the OS, which cannot be undone
+  from inside it.
+
+Inexact alarms on purpose: `SCHEDULE_EXACT_ALARM` is restricted by Google Play to
+apps needing alarm-clock precision, and "around half five" is the whole
+requirement.
+
+Three Android things that are each silent when wrong. `RECEIVE_BOOT_COMPLETED`
+plus the plugin's two receivers, which it ships as classes and not as
+declarations — without them the feature compiles, installs, schedules and shows
+nothing, and a reboot or a sideloaded APK clears every pending alarm.
+`isCoreLibraryDesugaringEnabled` in the *app* module, since the plugin is compiled
+against `java.time` and `minSdk` is 24. And `ic_notification.xml`, because Android
+masks a small icon to its alpha channel — the usual `@mipmap/ic_launcher` shortcut
+puts a solid white square in the status bar.
+
+The setting lives in `SharedPreferences` beside the appearance one, not in the
+household row: the permission is granted per device and the alarm is held by that
+device's OS.
+
+**Zone handling is deliberately small.** No tz database and no second plugin to
+read the device's zone name — a fixed-offset `tz.Location` built from
+`DateTime.now().timeZoneOffset`, which is exactly right for the horizon being
+scheduled and self-corrects on the next open. The failure mode is one reminder an
+hour out for a household that crosses a daylight-saving boundary and does not open
+the app for a day. The Philippines has not observed daylight saving since 1978.
+
 ---
 
 # 🚦 Definition of Done

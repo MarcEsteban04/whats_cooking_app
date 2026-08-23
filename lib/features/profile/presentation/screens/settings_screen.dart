@@ -6,6 +6,7 @@ import 'package:whats_cooking/core/network/backend_health.dart';
 import 'package:whats_cooking/core/router/app_routes.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/widgets/dashboard/dashboard.dart';
+import 'package:whats_cooking/features/profile/presentation/providers/reminder_controller.dart';
 import 'package:whats_cooking/features/profile/presentation/providers/theme_mode_controller.dart';
 
 /// Settings.
@@ -15,10 +16,12 @@ import 'package:whats_cooking/features/profile/presentation/providers/theme_mode
 /// was never to invent settings but to stop the only door to them being a page
 /// that said "Sprint 20".
 ///
-/// **Notifications are not listed.** The route exists so a deep link resolves,
-/// but nothing in this app sends one, so a tile would lead to a placeholder — and
-/// a labelled tile leading to a placeholder is worse than no tile: it teaches
-/// people that tiles do not work. It goes in when there is something to notify.
+/// **Notifications are listed now** (Sprint 56). They were deliberately left off
+/// for two sprints, on the rule that a labelled tile leading to a placeholder is
+/// worse than no tile — it teaches people that tiles do not work. The condition
+/// that comment set was "when there is something to notify", and there is: the
+/// evening reminder, which is the app's only notification and the one thing that
+/// gets it opened at the hour it is useful.
 ///
 /// Each row shows its current value rather than only a label, which is the one
 /// rule this screen inherits from the old profile list: a settings list you have
@@ -29,6 +32,7 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ThemeMode mode = ref.watch(themeModeControllerProvider);
+    final ReminderSetting reminder = ref.watch(reminderControllerProvider);
 
     return Scaffold(
       backgroundColor: context.colors.background,
@@ -63,6 +67,23 @@ class SettingsScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: <Widget>[
+                      // Listed now (Sprint 56). The comment above this class
+                      // used to explain why it was not: nothing in the app sent a
+                      // notification, so the tile would have led to a
+                      // placeholder. It sends one.
+                      DashboardRow(
+                        title: 'Reminders',
+                        subtitle: 'BEING ASKED WHAT TO EAT',
+                        value: reminder.isOn ? reminder.label : 'Off',
+                        trailing: const Icon(
+                          AppIcons.forward,
+                          size: AppIconSize.xs,
+                        ),
+                        onTap: () => context.pushNamed(
+                          AppRoute.notificationSettings.routeName,
+                        ),
+                      ),
+                      const DashboardRule(),
                       DashboardRow(
                         title: 'Appearance',
                         subtitle: 'LIGHT, DARK OR WHATEVER THE PHONE IS',
@@ -151,7 +172,11 @@ class _About extends ConsumerWidget {
           DashboardRow(
             title: 'Backend',
             value: backend.$1,
-            trailing: Icon(AppIcons.success, size: AppIconSize.xs, color: backend.$2),
+            trailing: Icon(
+              AppIcons.success,
+              size: AppIconSize.xs,
+              color: backend.$2,
+            ),
             onTap: () => ref.invalidate(backendStatusProvider),
           ),
           const DashboardRule(),

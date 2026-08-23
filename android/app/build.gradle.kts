@@ -38,6 +38,13 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
+        // Required by flutter_local_notifications (Sprint 56). The plugin is
+        // compiled against `java.time`, which does not exist below API 26 — so
+        // without desugaring the build fails outright on a `minSdk` of 24. The
+        // plugin desugars its own module; this is the app module, and the app
+        // module has to opt in for itself.
+        isCoreLibraryDesugaringEnabled = true
+
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -163,6 +170,14 @@ kotlin {
     compilerOptions {
         jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
     }
+}
+
+dependencies {
+    // The back-port that `isCoreLibraryDesugaringEnabled` above needs to have
+    // something to desugar *to*. Pinned to the version flutter_local_notifications
+    // itself uses, because two versions of the same shim in one APK is a duplicate
+    // class error at merge time rather than a warning.
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
 
 flutter {

@@ -11,6 +11,7 @@ import 'package:whats_cooking/core/network/supabase_bootstrap.dart';
 import 'package:whats_cooking/core/router/app_router.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/utils/logger.dart';
+import 'package:whats_cooking/features/profile/presentation/providers/reminder_controller.dart';
 import 'package:whats_cooking/features/profile/presentation/providers/theme_mode_controller.dart';
 
 Future<void> main() async {
@@ -92,12 +93,34 @@ class _WhatsCookingAppState extends ConsumerState<WhatsCookingApp> {
   void initState() {
     super.initState();
 
+    // Brings the reminder controller to life (Sprint 56).
+    //
+    // A read rather than a call, and that is the whole point: the controller is
+    // `keepAlive` but still *lazy*, so before this line nothing constructed it and
+    // its `build` — which restores the saved setting and re-asserts the schedule —
+    // had never run. The reminder would have worked until the first reboot and
+    // then silently stopped, because Android drops every pending alarm on restart
+    // and the boot receiver only restores what was outstanding at the time.
+    //
+    // The value is deliberately unused. Nothing on this screen depends on it.
+    ref.read(reminderControllerProvider);
+
     // [AppLifecycleListener] rather than [WidgetsBindingObserver]: it reports the
     // transitions by name, so "hidden, then paused, then detached" on the way to
     // the background does not have to be reconstructed from a state enum here.
     _lifecycle = AppLifecycleListener(
       onPause: () => ref.read(analyticsProvider).appBackgrounded(),
-      onResume: () => ref.read(analyticsProvider).appResumed(),
+      onResume: () {
+        ref.read(analyticsProvider).appResumed();
+
+        // Refills the reminder queue with what is true now. `ReminderController`
+        // lays down a week of notifications rather than a repeating alarm, and
+        // only the first carries anything current — so coming back is what keeps
+        // them fresh and keeps the queue from running out. Here rather than on
+        // Home, because a resume onto any tab is still a resume. Free when the
+        // reminder is off: `apply` cancels and returns.
+        unawaited(ref.read(reminderControllerProvider.notifier).apply());
+      },
       // The last call the framework makes. A flush here is best-effort — the
       // process may not survive long enough for the request — which is why
       // `onPause` above flushes too rather than relying on this.

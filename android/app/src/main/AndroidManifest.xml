@@ -24,6 +24,25 @@
          than by asking Android what kind of radio is on. -->
     <uses-permission android:name="android.permission.INTERNET"/>
 
+    <!-- The evening reminder has to survive a reboot (Sprint 56).
+         ===================================================================
+         A scheduled alarm is held by the system, not by this app, and Android
+         drops every one of them when the device restarts. Without this the
+         reminder works perfectly until the first reboot and then silently never
+         fires again — which is the worst possible failure for a feature whose
+         entire job is to be remembered on a day nobody opened the app.
+
+         POST_NOTIFICATIONS and VIBRATE are not here on purpose: the plugin
+         declares both in its own manifest and the merger brings them in.
+
+         No SCHEDULE_EXACT_ALARM or USE_EXACT_ALARM either, and that is a
+         deliberate trade rather than an omission. Those grant alarms that fire
+         to the second, at the cost of a permission Google Play restricts to apps
+         that genuinely need alarm-clock precision. "Around half five" is the
+         whole requirement here, so the schedule is inexact and Android is free to
+         batch it with whatever else it was going to wake up for. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+
     <application
         android:label="What's Cooking?"
         android:name="${applicationName}"
@@ -90,6 +109,31 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- flutter_local_notifications' own receivers (Sprint 56).
+             The plugin ships the classes but not the declarations, so an app that
+             forgets these compiles, installs, schedules — and shows nothing. The
+             first delivers a scheduled notification; the second re-registers every
+             pending alarm after a restart or an app update, which is what the
+             RECEIVE_BOOT_COMPLETED permission above is for.
+
+             MY_PACKAGE_REPLACED matters as much as BOOT_COMPLETED here: installing
+             a new APK over the old one also clears the alarms, and this household
+             sideloads every build. The two QUICKBOOT actions are for the handset
+             makers who send those instead of the standard one. -->
+        <receiver
+            android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
+        <receiver
+            android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+                <action android:name="android.intent.action.QUICKBOOT_POWERON"/>
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
+            </intent-filter>
+        </receiver>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

@@ -135,7 +135,8 @@ class _MealFormScreenState extends ConsumerState<MealFormScreen> {
       final bool replace = await ConfirmationDialog.show(
         context,
         title: 'Fill this in again?',
-        body: 'Everything except the name will be replaced by what the '
+        body:
+            'Everything except the name will be replaced by what the '
             'assistant writes.',
         confirmLabel: 'Replace',
         cancelLabel: 'Keep mine',
@@ -354,242 +355,256 @@ class _MealFormScreenState extends ConsumerState<MealFormScreen> {
                   child: KeyedSubtree(
                     key: ValueKey<int>(_fillGeneration),
                     child: ListView(
-                    padding: const EdgeInsets.fromLTRB(
-                      AppLayout.screenMargin,
-                      AppSpacing.space4,
-                      AppLayout.screenMargin,
-                      AppSpacing.space6,
-                    ),
-                    children: <Widget>[
-                      if (_failure case final AppException failure) ...<Widget>[
-                        InlineErrorBanner(message: failure.message),
-                        const SizedBox(height: AppSpacing.space4),
-                      ],
-
-                      _FormSection(
-                        title: 'What is it?',
-                        children: <Widget>[
-                          AppTextField(
-                            label: 'Name',
-                            hint: 'Tita Baby adobo',
-                            // `initialValue`, not `controller`: the field owns
-                            // its text and the draft owns the value, so an edit
-                            // opens filled in without the two fighting over the
-                            // cursor on every keystroke.
-                            initialValue: draft.name,
-                            textCapitalization: TextCapitalization.words,
-                            isEnabled: !_isSaving && !_isFilling,
-                            onChanged: (String value) =>
-                                _update(draft.copyWith(name: value)),
-                          ),
-
-                          // **Fill the other eleven fields from the name.**
-                          //
-                          // Directly under the name, because that is the field it
-                          // reads and the moment it is useful — a control for this
-                          // at the bottom of the form is a control nobody finds
-                          // until they have already typed everything it would have
-                          // written.
-                          //
-                          // Enabled on three characters. Disabled-with-a-reason
-                          // rather than hidden, so it is discoverable before there
-                          // is a name to use it on: a button that appears out of
-                          // nowhere mid-typing is a button somebody misses.
-                          const SizedBox(height: AppSpacing.space3),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: AppButton.secondary(
-                              label: _isFilling
-                                  ? 'Writing it'
-                                  : 'Fill in the rest',
-                              size: AppButtonSize.small,
-                              leadingIcon: AppIcons.invent,
-                              isLoading: _isFilling,
-                              onPressed:
-                                  _isSaving ||
-                                      draft.name.trim().length < _minNameToFill
-                                  ? null
-                                  : () => _fillFromName(draft),
-                            ),
-                          ),
-                          const SizedBox(height: AppSpacing.space2),
-                          Text(
-                            _isFilling
-                                // Says what is happening and roughly how long,
-                                // because three providers may be tried in turn
-                                // and a silent four seconds reads as a stall.
-                                ? 'Working out the cuisine, the time, the cost, '
-                                      'the ingredients and the steps.'
-                                : 'Type a name and the assistant writes '
-                                      'everything below it. You can change any '
-                                      'of it afterwards.',
-                            style: context.text.metadata,
-                          ),
-
+                      padding: const EdgeInsets.fromLTRB(
+                        AppLayout.screenMargin,
+                        AppSpacing.space4,
+                        AppLayout.screenMargin,
+                        AppSpacing.space6,
+                      ),
+                      children: <Widget>[
+                        if (_failure
+                            case final AppException failure) ...<Widget>[
+                          InlineErrorBanner(message: failure.message),
                           const SizedBox(height: AppSpacing.space4),
-                          AppTextField(
-                            label: 'Description',
-                            hint: 'What makes it yours?',
-                            initialValue: draft.description,
-                            maxLines: 3,
-                            isEnabled: !_isSaving,
-                            onChanged: (String value) =>
-                                _update(draft.copyWith(description: value)),
-                          ),
+                        ],
 
-                          // Shared or ours (Sprint 53c).
-                          //
-                          // **Only when adding.** Editing does not move a meal
-                          // between the catalogue and a household: the update
-                          // policy would refuse it, and a control that silently
-                          // relocates a meal is not what "edit" means.
-                          if (!widget.isEditing) ...<Widget>[
-                            const SizedBox(height: AppSpacing.space5),
-                            AppSegmentedControl<bool>(
-                              options: const <(bool, String)>[
-                                (true, 'A common meal'),
-                                (false, 'Just ours'),
-                              ],
-                              selected: draft.isShared,
-                              onSelected: (bool value) =>
-                                  _update(draft.copyWith(isShared: value)),
+                        _FormSection(
+                          title: 'What is it?',
+                          children: <Widget>[
+                            AppTextField(
+                              label: 'Name',
+                              // Plain, and it used to be "Tita Baby adobo".
+                              // A personal example on the first field of the form
+                              // reads as an instruction — and most meals added
+                              // here are ordinary dishes going into the common
+                              // list, which is what the toggle below already
+                              // defaults to. Somebody naming a family recipe does
+                              // not need to be told they may.
+                              hint: 'Chicken adobo',
+                              // `initialValue`, not `controller`: the field owns
+                              // its text and the draft owns the value, so an edit
+                              // opens filled in without the two fighting over the
+                              // cursor on every keystroke.
+                              initialValue: draft.name,
+                              textCapitalization: TextCapitalization.words,
+                              isEnabled: !_isSaving && !_isFilling,
+                              onChanged: (String value) =>
+                                  _update(draft.copyWith(name: value)),
+                            ),
+
+                            // **Fill the other eleven fields from the name.**
+                            //
+                            // Directly under the name, because that is the field it
+                            // reads and the moment it is useful — a control for this
+                            // at the bottom of the form is a control nobody finds
+                            // until they have already typed everything it would have
+                            // written.
+                            //
+                            // Enabled on three characters. Disabled-with-a-reason
+                            // rather than hidden, so it is discoverable before there
+                            // is a name to use it on: a button that appears out of
+                            // nowhere mid-typing is a button somebody misses.
+                            const SizedBox(height: AppSpacing.space3),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: AppButton.secondary(
+                                label: _isFilling
+                                    ? 'Writing it'
+                                    : 'Fill in the rest',
+                                size: AppButtonSize.small,
+                                leadingIcon: AppIcons.invent,
+                                isLoading: _isFilling,
+                                onPressed:
+                                    _isSaving ||
+                                        draft.name.trim().length <
+                                            _minNameToFill
+                                    ? null
+                                    : () => _fillFromName(draft),
+                              ),
                             ),
                             const SizedBox(height: AppSpacing.space2),
                             Text(
-                              draft.isShared
-                                  // Says where it lands rather than what a flag
-                                  // is called. "Public" is a database word and
-                                  // means nothing in a house with two people.
-                                  ? 'Goes in the list with everything else.'
-                                  : 'Kept under Yours, out of the main list.',
+                              _isFilling
+                                  // Says what is happening and roughly how long,
+                                  // because three providers may be tried in turn
+                                  // and a silent four seconds reads as a stall.
+                                  ? 'Working out what it is, the cuisine, the time, the '
+                                        'cost, the ingredients and the steps.'
+                                  : 'Type a name and the assistant writes '
+                                        'everything below it. You can change any '
+                                        'of it afterwards.',
                               style: context.text.metadata,
                             ),
-                          ],
-                        ],
-                      ),
 
-                      _FormSection(
-                        title: 'Where does it belong?',
-                        children: <Widget>[
-                          _ChoiceGroup<Cuisine>(
-                            label: 'Cuisine',
-                            values: Cuisine.values,
-                            selected: draft.cuisine,
-                            name: (Cuisine value) => value.label,
-                            isEnabled: !_isSaving,
-                            onSelected: (Cuisine value) =>
-                                _update(draft.copyWith(cuisine: value)),
-                          ),
-                          const SizedBox(height: AppSpacing.space4),
-                          _ChoiceGroup<MealCategory>(
-                            label: 'Eaten at',
-                            values: MealCategory.values,
-                            selected: draft.category,
-                            name: (MealCategory value) => value.label,
-                            isEnabled: !_isSaving,
-                            onSelected: (MealCategory value) =>
-                                _update(draft.copyWith(category: value)),
-                          ),
-                          const SizedBox(height: AppSpacing.space4),
-                          _ChoiceGroup<Difficulty>(
-                            label: 'Difficulty',
-                            values: Difficulty.values,
-                            selected: draft.difficulty,
-                            name: (Difficulty value) => value.label,
-                            isEnabled: !_isSaving,
-                            onSelected: (Difficulty value) =>
-                                _update(draft.copyWith(difficulty: value)),
-                          ),
-                        ],
-                      ),
+                            const SizedBox(height: AppSpacing.space4),
+                            AppTextField(
+                              label: 'Description',
+                              // An example rather than a question, matching the
+                              // name field above it, and one that does not assume
+                              // the meal belongs to anybody: "What makes it
+                              // yours?" has no answer for sinigang.
+                              hint: 'Braised in soy and vinegar',
+                              initialValue: draft.description,
+                              maxLines: 3,
+                              isEnabled: !_isSaving,
+                              onChanged: (String value) =>
+                                  _update(draft.copyWith(description: value)),
+                            ),
 
-                      _FormSection(
-                        title: 'The numbers',
-                        subtitle:
-                            'Cost is for everyone it feeds, not per plate. The '
-                            'app works out the rest.',
-                        children: <Widget>[
-                          Row(
-                            children: <Widget>[
-                              Expanded(
-                                child: _NumberField(
-                                  label: 'Minutes',
-                                  value: draft.cookingTimeMinutes,
-                                  isEnabled: !_isSaving,
-                                  onChanged: (int? value) => _update(
-                                    draft.copyWith(cookingTimeMinutes: value),
-                                  ),
-                                ),
+                            // Shared or ours (Sprint 53c).
+                            //
+                            // **Only when adding.** Editing does not move a meal
+                            // between the catalogue and a household: the update
+                            // policy would refuse it, and a control that silently
+                            // relocates a meal is not what "edit" means.
+                            if (!widget.isEditing) ...<Widget>[
+                              const SizedBox(height: AppSpacing.space5),
+                              AppSegmentedControl<bool>(
+                                options: const <(bool, String)>[
+                                  (true, 'A common meal'),
+                                  (false, 'Just ours'),
+                                ],
+                                selected: draft.isShared,
+                                onSelected: (bool value) =>
+                                    _update(draft.copyWith(isShared: value)),
                               ),
-                              const SizedBox(width: AppSpacing.space3),
-                              Expanded(
-                                child: _NumberField(
-                                  label: 'Pesos',
-                                  value: draft.estimatedCost,
-                                  isEnabled: !_isSaving,
-                                  onChanged: (int? value) => _update(
-                                    draft.copyWith(estimatedCost: value),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: AppSpacing.space3),
-                              Expanded(
-                                child: _NumberField(
-                                  label: 'Feeds',
-                                  value: draft.servings,
-                                  isEnabled: !_isSaving,
-                                  onChanged: (int? value) => _update(
-                                    draft.copyWith(servings: value ?? 0),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          if (draft.costPerServingLabel case final String each)
-                            Padding(
-                              padding: const EdgeInsets.only(
-                                top: AppSpacing.space3,
-                              ),
-                              child: Text(
-                                // Shown as it is typed, because cost a head is
-                                // what every filter in the app compares and it is
-                                // not the number being entered.
-                                'That is $each',
+                              const SizedBox(height: AppSpacing.space2),
+                              Text(
+                                draft.isShared
+                                    // Says where it lands rather than what a flag
+                                    // is called. "Public" is a database word and
+                                    // means nothing in a house with two people.
+                                    ? 'Goes in the list with everything else.'
+                                    : 'Kept under Yours, out of the main list.',
                                 style: context.text.metadata,
                               ),
+                            ],
+                          ],
+                        ),
+
+                        _FormSection(
+                          title: 'Where does it belong?',
+                          children: <Widget>[
+                            _ChoiceGroup<Cuisine>(
+                              label: 'Cuisine',
+                              values: Cuisine.values,
+                              selected: draft.cuisine,
+                              name: (Cuisine value) => value.label,
+                              isEnabled: !_isSaving,
+                              onSelected: (Cuisine value) =>
+                                  _update(draft.copyWith(cuisine: value)),
                             ),
-                        ],
-                      ),
+                            const SizedBox(height: AppSpacing.space4),
+                            _ChoiceGroup<MealCategory>(
+                              label: 'Eaten at',
+                              values: MealCategory.values,
+                              selected: draft.category,
+                              name: (MealCategory value) => value.label,
+                              isEnabled: !_isSaving,
+                              onSelected: (MealCategory value) =>
+                                  _update(draft.copyWith(category: value)),
+                            ),
+                            const SizedBox(height: AppSpacing.space4),
+                            _ChoiceGroup<Difficulty>(
+                              label: 'Difficulty',
+                              values: Difficulty.values,
+                              selected: draft.difficulty,
+                              name: (Difficulty value) => value.label,
+                              isEnabled: !_isSaving,
+                              onSelected: (Difficulty value) =>
+                                  _update(draft.copyWith(difficulty: value)),
+                            ),
+                          ],
+                        ),
 
-                      _FormSection(
-                        title: 'Ingredients',
-                        subtitle:
-                            'Optional. What decides whether you can cook it '
-                            'tonight — staples like salt and oil are assumed.',
-                        children: <Widget>[
-                          _IngredientEditor(
-                            ingredients: draft.ingredients,
-                            isEnabled: !_isSaving,
-                            onChanged: (List<DraftIngredient> ingredients) =>
-                                _update(
-                                  draft.copyWith(ingredients: ingredients),
+                        _FormSection(
+                          title: 'The numbers',
+                          subtitle:
+                              'Cost is for everyone it feeds, not per plate. The '
+                              'app works out the rest.',
+                          children: <Widget>[
+                            Row(
+                              children: <Widget>[
+                                Expanded(
+                                  child: _NumberField(
+                                    label: 'Minutes',
+                                    value: draft.cookingTimeMinutes,
+                                    isEnabled: !_isSaving,
+                                    onChanged: (int? value) => _update(
+                                      draft.copyWith(cookingTimeMinutes: value),
+                                    ),
+                                  ),
                                 ),
-                          ),
-                        ],
-                      ),
+                                const SizedBox(width: AppSpacing.space3),
+                                Expanded(
+                                  child: _NumberField(
+                                    label: 'Pesos',
+                                    value: draft.estimatedCost,
+                                    isEnabled: !_isSaving,
+                                    onChanged: (int? value) => _update(
+                                      draft.copyWith(estimatedCost: value),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: AppSpacing.space3),
+                                Expanded(
+                                  child: _NumberField(
+                                    label: 'Feeds',
+                                    value: draft.servings,
+                                    isEnabled: !_isSaving,
+                                    onChanged: (int? value) => _update(
+                                      draft.copyWith(servings: value ?? 0),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (draft.costPerServingLabel
+                                case final String each)
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                  top: AppSpacing.space3,
+                                ),
+                                child: Text(
+                                  // Shown as it is typed, because cost a head is
+                                  // what every filter in the app compares and it is
+                                  // not the number being entered.
+                                  'That is $each',
+                                  style: context.text.metadata,
+                                ),
+                              ),
+                          ],
+                        ),
 
-                      _FormSection(
-                        title: 'How to cook it',
-                        subtitle: 'Optional. One step at a time.',
-                        children: <Widget>[
-                          _StepEditor(
-                            steps: draft.instructions,
-                            isEnabled: !_isSaving,
-                            onChanged: (List<String> steps) =>
-                                _update(draft.copyWith(instructions: steps)),
-                          ),
-                        ],
-                      ),
+                        _FormSection(
+                          title: 'Ingredients',
+                          subtitle:
+                              'Optional. What decides whether you can cook it '
+                              'tonight — staples like salt and oil are assumed.',
+                          children: <Widget>[
+                            _IngredientEditor(
+                              ingredients: draft.ingredients,
+                              isEnabled: !_isSaving,
+                              onChanged: (List<DraftIngredient> ingredients) =>
+                                  _update(
+                                    draft.copyWith(ingredients: ingredients),
+                                  ),
+                            ),
+                          ],
+                        ),
+
+                        _FormSection(
+                          title: 'How to cook it',
+                          subtitle: 'Optional. One step at a time.',
+                          children: <Widget>[
+                            _StepEditor(
+                              steps: draft.instructions,
+                              isEnabled: !_isSaving,
+                              onChanged: (List<String> steps) =>
+                                  _update(draft.copyWith(instructions: steps)),
+                            ),
+                          ],
+                        ),
                       ],
                     ),
                   ),
@@ -980,7 +995,6 @@ class _UnitPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[

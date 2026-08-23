@@ -42,6 +42,7 @@ import 'package:whats_cooking/features/pantry/presentation/screens/pantry_used_s
 import 'package:whats_cooking/features/profile/presentation/screens/account_settings_screen.dart';
 import 'package:whats_cooking/features/profile/presentation/screens/appearance_settings_screen.dart';
 import 'package:whats_cooking/features/profile/presentation/screens/budget_settings_screen.dart';
+import 'package:whats_cooking/features/profile/presentation/screens/notification_settings_screen.dart';
 import 'package:whats_cooking/features/profile/presentation/screens/preferences_screen.dart';
 import 'package:whats_cooking/features/profile/presentation/screens/profile_screen.dart';
 import 'package:whats_cooking/features/profile/presentation/screens/settings_screen.dart';
@@ -388,11 +389,14 @@ final StatefulShellRoute _shellRoute = StatefulShellRoute.indexedStack(
               builder: (BuildContext context, GoRouterState state) =>
                   const SettingsScreen(),
               routes: <RouteBase>[
-                _child(
-                  AppRoute.notificationSettings,
-                  AppRoute.settings,
-                  'Notifications',
-                  sprint: 'Sprint 49 (P2)',
+                GoRoute(
+                  path: _relative(
+                    AppRoute.notificationSettings,
+                    AppRoute.settings,
+                  ),
+                  name: AppRoute.notificationSettings.routeName,
+                  builder: (BuildContext context, GoRouterState state) =>
+                      const NotificationSettingsScreen(),
                 ),
                 GoRoute(
                   path: _relative(

@@ -206,8 +206,9 @@ class SupabaseAssistantRepository implements AssistantRepository {
 
       if (response.data case final Map<String, dynamic> data) {
         final String text = (data['text'] as String? ?? '').trim();
-        final ({int index, String reason})? parsed =
-            AssistantChoice.parse(text);
+        final ({int index, String reason})? parsed = AssistantChoice.parse(
+          text,
+        );
 
         // **Bounds are the guarantee, not a nicety.** The index maps back into
         // the caller's own shortlist, so an answer outside it cannot be acted on
@@ -273,7 +274,9 @@ class SupabaseAssistantRepository implements AssistantRepository {
         'Reply with the number, a pipe, and one short reason of at most twelve '
         'words. No other text.',
       )
-      ..writeln('Example: 3 | you have the chicken and have not had it in weeks')
+      ..writeln(
+        'Example: 3 | you have the chicken and have not had it in weeks',
+      )
       // **Do not name the meal or the hour.** The screen already prints both, and
       // the model got it wrong: a lunch pick came back with "a simple, comforting
       // Filipino dish for tonight" printed directly under a heading that said
@@ -370,23 +373,21 @@ class SupabaseAssistantRepository implements AssistantRepository {
     final String? named = dishName?.trim();
 
     final StringBuffer buffer = StringBuffer()
-      ..writeln(
-        switch ((named, have.isEmpty)) {
-          // **A named dish is a different question.** "Invent a dinner" and
-          // "write the recipe for chicken adobo" want opposite things from the
-          // model: one is free to choose, the other must not. Sending a name
-          // through the invent prompt got a *different* dish back, which on a
-          // form somebody had already typed a name into would be worse than
-          // useless.
-          (final String dish, _) when dish.isNotEmpty =>
-            'Write the recipe for a dish called "$dish". Keep that name — do '
-                'not rename it, do not suggest something else, and if you do not '
-                'recognise it, make the most sensible version of what the name '
-                'describes.',
-          (_, true) => 'Invent a dinner this household could cook tonight.',
-          _ => 'Write one recipe using mostly: $have.',
-        },
-      );
+      ..writeln(switch ((named, have.isEmpty)) {
+        // **A named dish is a different question.** "Invent a dinner" and
+        // "write the recipe for chicken adobo" want opposite things from the
+        // model: one is free to choose, the other must not. Sending a name
+        // through the invent prompt got a *different* dish back, which on a
+        // form somebody had already typed a name into would be worse than
+        // useless.
+        (final String dish, _) when dish.isNotEmpty =>
+          'Write the recipe for a dish called "$dish". Keep that name — do '
+              'not rename it, do not suggest something else, and if you do not '
+              'recognise it, make the most sensible version of what the name '
+              'describes.',
+        (_, true) => 'Invent a dinner this household could cook tonight.',
+        _ => 'Write one recipe using mostly: $have.',
+      });
 
     if (named != null && named.isNotEmpty && have.isNotEmpty) {
       buffer.writeln('They have these in: $have.');
@@ -411,6 +412,13 @@ class SupabaseAssistantRepository implements AssistantRepository {
       ..writeln('Reply in exactly this shape and nothing else:')
       ..writeln()
       ..writeln('NAME: Chicken and egg rice bowl')
+      // Second, on purpose. The function caps this reply, and a field placed
+      // after the steps is the field a cut-off answer loses — so the one line
+      // somebody would otherwise have to write themselves goes where it is
+      // certain to arrive.
+      ..writeln(
+        'ABOUT: Fried chicken thigh and soft egg over rice, done in one pan.',
+      )
       ..writeln('CUISINE: filipino')
       ..writeln('CATEGORY: dinner')
       ..writeln('DIFFICULTY: easy')
@@ -426,6 +434,9 @@ class SupabaseAssistantRepository implements AssistantRepository {
       ..writeln('- Scramble the eggs in the same pan.')
       ..writeln()
       ..writeln(
+        'ABOUT is one short sentence saying what the dish is — the main '
+        'ingredients and how it is cooked. Never sell it: no "delicious", no '
+        '"family favourite", no "everyone will love". '
         'TIME is whole minutes. COST is pesos for the whole dish, not per head. '
         'Quantities use only g, ml, pc, tbsp, tsp or cup. At most ten '
         'ingredients and eight steps.',
@@ -662,9 +673,11 @@ class SupabaseAssistantRepository implements AssistantRepository {
       // The function's own `bad_request` message is deliberately vague, so this
       // one does not use it.
       'bad_request' => const ServerException(
-        message: 'The assistant on the server is out of date. It needs '
+        message:
+            'The assistant on the server is out of date. It needs '
             'redeploying before this works.',
-        detail: 'ai-assistant rejected the request as bad_request — most likely '
+        detail:
+            'ai-assistant rejected the request as bad_request — most likely '
             'a purpose or field added after the last deploy',
       ),
       _ => ServerException(
