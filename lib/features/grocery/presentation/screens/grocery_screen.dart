@@ -19,6 +19,7 @@ import 'package:whats_cooking/core/widgets/press_feedback.dart';
 import 'package:whats_cooking/core/widgets/swipe_action.dart';
 import 'package:whats_cooking/features/grocery/domain/entities/grocery_item.dart';
 import 'package:whats_cooking/features/grocery/presentation/providers/grocery_controller.dart';
+import 'package:whats_cooking/features/pantry/presentation/providers/pantry_controller.dart';
 
 /// What we need to buy (Sprint 42, docs/USER_FLOWS.md §13).
 ///
@@ -376,7 +377,7 @@ class _GroceryRow extends ConsumerWidget {
         );
       },
       child: PressFeedback(
-        onTap: () => _toggle(ref),
+        onTap: () => _toggle(context, ref),
         semanticLabel: '${item.name}, ${done ? 'got' : 'still to get'}',
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.space3),
@@ -439,15 +440,59 @@ class _GroceryRow extends ConsumerWidget {
     );
   }
 
-  Future<void> _toggle(WidgetRef ref) async {
+  Future<void> _toggle(BuildContext context, WidgetRef ref) async {
     // Before the request, not after. The tick is optimistic and so is the feel of
     // it — a haptic that waits for a supermarket's connection arrives after the
     // thumb has moved on.
     AppHaptics.reelTick();
 
-    await ref
+    final bool isGetting = !item.isCompleted;
+
+    final AppException? failure = await ref
         .read(groceryControllerProvider.notifier)
-        .setCompleted(item, isCompleted: !item.isCompleted);
+        .setCompleted(item, isCompleted: isGetting);
+
+    if (!context.mounted || failure != null || !isGetting) {
+      return;
+    }
+
+    // **Into the kitchen, in one tap** (Sprint 54).
+    //
+    // The other end of the loop the pantry never had: cooking a meal now takes
+    // things off the shelf, and this is what puts them on. Before it, somebody
+    // bought chicken, ticked it, and the kitchen never heard — so the roulette's
+    // "cook what we have" filter went stale in both directions at once.
+    //
+    // A snackbar action rather than a sheet, and that is the whole judgement: this
+    // happens in a shop, one-handed, twenty times in a row. A confirmation per
+    // item would make ticking the list slower than writing it. Offered and
+    // ignorable; the tick stands either way.
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${AppFormat.sentenceCase(item.name)} — got it'),
+        action: SnackBarAction(
+          label: 'Into the kitchen',
+          onPressed: () => _intoKitchen(ref),
+        ),
+      ),
+    );
+  }
+
+  /// Puts a bought item on the shelf.
+  ///
+  /// Carries the amount across, because the list already holds it and asking again
+  /// in an aisle is asking somebody to retype what they just ticked. `add` is
+  /// idempotent by name, so a second tap merges rather than duplicating.
+  Future<void> _intoKitchen(WidgetRef ref) async {
+    await ref.read(pantryControllerProvider.notifier).add(
+      name: item.name,
+      quantity: item.quantity,
+      unit: item.unit,
+    );
+
+    // The kitchen decides what the roulette can offer, so the match map is now
+    // stale.
+    ref.invalidate(pantryMatchesProvider);
   }
 
   /// Faded, not hidden. Legible enough to check you did not miss anything, faint

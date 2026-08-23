@@ -5,6 +5,7 @@ import 'package:whats_cooking/core/network/remote_call.dart';
 import 'package:whats_cooking/core/network/retry_policy.dart';
 import 'package:whats_cooking/features/pantry/domain/entities/pantry_item.dart';
 import 'package:whats_cooking/features/pantry/domain/entities/pantry_match.dart';
+import 'package:whats_cooking/features/pantry/domain/entities/pantry_use.dart';
 import 'package:whats_cooking/features/pantry/domain/repositories/pantry_repository.dart';
 
 /// [PantryRepository] backed by PostgREST.
@@ -162,6 +163,31 @@ class SupabasePantryRepository implements PantryRepository {
   }
 
   @override
+  Future<List<PantryUse>> usedByMeal(String mealId) {
+    return RemoteCall.guard(
+      () async {
+        final dynamic rows = await _client.rpc<dynamic>(
+          _usedFunction,
+          params: <String, Object?>{'p_meal_id': mealId},
+        );
+
+        return <PantryUse>[
+          if (rows is List)
+            for (final dynamic row in rows)
+              if (row is Map<String, dynamic> && row['pantry_item_id'] is String)
+                PantryUse.fromRow(row),
+        ];
+      },
+      label: 'pantry.usedByMeal',
+      // No retry, for the reason `matches` gives: a missing function is a schema
+      // error rather than a flaky connection, and this runs on the celebration
+      // screen where the cheapest possible failure is the right one.
+      policy: RetryPolicy.none,
+      timeout: AppConstants.requestTimeout,
+    );
+  }
+
+  @override
   Future<List<IngredientSuggestion>> suggest(String query) {
     final String term = query.trim().toLowerCase();
     if (term.isEmpty) {
@@ -284,6 +310,7 @@ class SupabasePantryRepository implements PantryRepository {
 
   /// Migration 0022. Per meal: needed, have, and up to three missing names.
   static const String _matchFunction = 'pantry_match';
+  static const String _usedFunction = 'pantry_used_by_meal';
 
   static const String _table = 'pantry_items';
   static const String _ingredients = 'ingredients';

@@ -8,6 +8,7 @@ import 'package:whats_cooking/features/pantry/data/repositories/in_memory_pantry
 import 'package:whats_cooking/features/pantry/data/repositories/supabase_pantry_repository.dart';
 import 'package:whats_cooking/features/pantry/domain/entities/pantry_item.dart';
 import 'package:whats_cooking/features/pantry/domain/entities/pantry_match.dart';
+import 'package:whats_cooking/features/pantry/domain/entities/pantry_use.dart';
 import 'package:whats_cooking/features/pantry/domain/repositories/pantry_repository.dart';
 
 part 'pantry_controller.g.dart';
@@ -133,6 +134,58 @@ class PantryController extends _$PantryController {
           if (existing.id == item.id) next else existing,
       ],
     );
+  }
+
+  /// Applies what a meal used (Sprint 54).
+  ///
+  /// **Two outcomes per row, and the row decides which.** A known amount in a
+  /// matching unit becomes a subtraction; anything else becomes a removal, because
+  /// there is no honest arithmetic for "we have some" minus 500 g and no honest
+  /// conversion from cups to grams. `PantryUse.remaining` holds that rule.
+  ///
+  /// Sequential and tolerant, like every other batch here: one refusal costs that
+  /// ingredient rather than the other five, and the caller says how many landed.
+  Future<({int changed, AppException? failure})> applyUse(
+    List<PantryUse> uses,
+  ) async {
+    final List<PantryItem> current = state.value ?? const <PantryItem>[];
+    final Map<String, PantryItem> byId = <String, PantryItem>{
+      for (final PantryItem item in current) item.id: item,
+    };
+
+    int changed = 0;
+    AppException? failure;
+
+    for (final PantryUse use in uses) {
+      final PantryItem? item = byId[use.itemId];
+      if (item == null) {
+        // Gone since the sheet was built — somebody deleted it, or another
+        // deduction already emptied it. Not a failure: the shelf agrees with the
+        // intention either way.
+        continue;
+      }
+
+      final AppException? error = switch (use.remaining) {
+        // Emptied, or not worked out at all. Both leave the kitchen without it,
+        // which is what the row said it would do.
+        null => await remove(item),
+        final double left when left <= 0 => await remove(item),
+        final double left => await updateAmount(
+          item,
+          quantity: left,
+          unit: item.unit,
+          expiresOn: item.expiresOn,
+        ),
+      };
+
+      if (error == null) {
+        changed += 1;
+      } else {
+        failure ??= error;
+      }
+    }
+
+    return (changed: changed, failure: failure);
   }
 
   /// Takes something out.

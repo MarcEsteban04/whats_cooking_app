@@ -38,6 +38,7 @@ import 'package:whats_cooking/features/onboarding/presentation/screens/onboardin
 import 'package:whats_cooking/features/pantry/domain/entities/pantry_item.dart';
 import 'package:whats_cooking/features/pantry/presentation/screens/pantry_item_sheet.dart';
 import 'package:whats_cooking/features/pantry/presentation/screens/pantry_screen.dart';
+import 'package:whats_cooking/features/pantry/presentation/screens/pantry_used_sheet.dart';
 import 'package:whats_cooking/features/profile/presentation/screens/account_settings_screen.dart';
 import 'package:whats_cooking/features/profile/presentation/screens/appearance_settings_screen.dart';
 import 'package:whats_cooking/features/profile/presentation/screens/budget_settings_screen.dart';
@@ -488,6 +489,22 @@ final List<RouteBase> _fullScreenRoutes = <RouteBase>[
     parentNavigatorKey: rootNavigatorKey,
     pageBuilder: (BuildContext context, GoRouterState state) =>
         const AppSlideUpPage<void>(child: GroceryImportScreen()),
+  ),
+  // What the meal just cooked took out of the kitchen (Sprint 54). A sheet on the
+  // root navigator — every modal sheet in this app belongs there, or its primary
+  // button ends up behind the floating navigation.
+  GoRoute(
+    path: AppRoute.pantryUsed.path,
+    name: AppRoute.pantryUsed.routeName,
+    parentNavigatorKey: rootNavigatorKey,
+    pageBuilder: (BuildContext context, GoRouterState state) => AppSheetPage<void>(
+      child: PantryUsedSheet(
+        mealId: state.pathParameters['mealId']!,
+        // The name, so the sheet can say which meal without fetching it. Null on
+        // a deep link, where the heading falls back to the generic line.
+        mealName: state.extra is String ? state.extra as String : null,
+      ),
+    ),
   ),
   // Reading the fridge (Sprint 49). Full screen on the root navigator, like every
   // other screen whose primary button must not end up behind the floating bottom

@@ -2,6 +2,7 @@ import 'package:whats_cooking/core/domain/food_taxonomy.dart';
 import 'package:whats_cooking/core/errors/app_exception.dart';
 import 'package:whats_cooking/features/pantry/domain/entities/pantry_item.dart';
 import 'package:whats_cooking/features/pantry/domain/entities/pantry_match.dart';
+import 'package:whats_cooking/features/pantry/domain/entities/pantry_use.dart';
 import 'package:whats_cooking/features/pantry/domain/repositories/pantry_repository.dart';
 
 /// [PantryRepository] with no backend behind it.
@@ -126,6 +127,15 @@ class InMemoryPantryRepository implements PantryRepository {
     // the app runs without credentials — and a spin that threw because it could
     // not compute a bonus would defeat that entirely.
     return const <String, PantryMatch>{};
+  }
+
+  @override
+  Future<List<PantryUse>> usedByMeal(String mealId) async {
+    // Empty, not invented. The in-memory pantry has no meals behind it, and a
+    // plausible-looking list of things to deduct is the one piece of fake data
+    // here that would be *acted on* — the sheet's whole job is changing the
+    // kitchen.
+    return const <PantryUse>[];
   }
 
   @override

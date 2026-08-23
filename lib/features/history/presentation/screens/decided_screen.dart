@@ -201,6 +201,24 @@ class _Decided extends StatelessWidget {
             ),
           ),
         const SizedBox(height: AppSpacing.space3),
+
+        // The other half of the loop (Sprint 54).
+        //
+        // Accepting already fills in the shopping list; this crosses off the
+        // shelf. Offered here rather than done on accept, because the recipe's
+        // amounts are a good guess about what was used and only the cook knows —
+        // and because the celebration should not be interrupted by a form.
+        if (meal != null)
+          AppButton.secondary(
+            label: 'Take it out of the kitchen',
+            leadingIcon: AppIcons.pantry,
+            onPressed: () => context.pushNamed(
+              AppRoute.pantryUsed.routeName,
+              pathParameters: <String, String>{'mealId': meal.id},
+              extra: meal.name,
+            ),
+          ),
+        const SizedBox(height: AppSpacing.space3),
         AppButton.secondary(
           label: 'What we have eaten',
           onPressed: () => context.pushNamed(AppRoute.mealHistory.routeName),

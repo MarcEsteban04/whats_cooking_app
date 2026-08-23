@@ -131,6 +131,13 @@ enum AppRoute {
   /// with the kitchen list open.
   pantryScan(path: '/pantry/scan'),
 
+  /// What cooking a meal took out of the kitchen (Sprint 54).
+  ///
+  /// Reached from the decided screen with the meal's name as `extra`, and a sheet
+  /// rather than a page: it is a confirmation about something that just happened,
+  /// not a place to be.
+  pantryUsed(path: '/pantry/used/:mealId', isSheet: true),
+
   /// Ranked by match percentage.
   ingredientMatches(path: '/pantry/matches'),
 

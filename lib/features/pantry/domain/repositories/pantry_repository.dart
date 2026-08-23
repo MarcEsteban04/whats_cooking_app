@@ -1,5 +1,6 @@
 import 'package:whats_cooking/features/pantry/domain/entities/pantry_item.dart';
 import 'package:whats_cooking/features/pantry/domain/entities/pantry_match.dart';
+import 'package:whats_cooking/features/pantry/domain/entities/pantry_use.dart';
 
 /// What is in the kitchen (Sprint 39).
 ///
@@ -63,6 +64,27 @@ abstract interface class PantryRepository {
   /// must not wait would cost more than the signal is worth. This returns two
   /// integers and at most three names per meal.
   Future<Map<String, PantryMatch>> matches();
+
+  /// What cooking [mealId] would take out of the kitchen (Sprint 54).
+  ///
+  /// The mirror of `addMissingForMeal` on the grocery side, and the missing half
+  /// of the same loop: one call says what to buy, this one says what to cross off
+  /// the shelf.
+  ///
+  /// **Reads only.** It returns the overlap — what the recipe wants and what the
+  /// kitchen has, both amounts — and nothing is changed until somebody confirms.
+  /// Deducting silently would be the worst version of this: a recipe asking for
+  /// 500 g of chicken says nothing about whether that was the last of it, and an
+  /// app that quietly rewrites the kitchen after every meal is an app whose
+  /// kitchen nobody trusts. Which matters more now the roulette *filters* on it.
+  ///
+  /// Server-side for the same reason that one is: the client does not have
+  /// the accepted meal's ingredient list — the spin fetches `meals`-only columns —
+  /// so doing this here would be a fetch to enable a comparison.
+  ///
+  /// Staples and optional ingredients are excluded, matching both `pantry_match()`
+  /// and the grocery half.
+  Future<List<PantryUse>> usedByMeal(String mealId);
 
   /// Names the vocabulary already knows, for the add field.
   ///
