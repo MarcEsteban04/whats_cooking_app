@@ -7,10 +7,12 @@ import 'package:whats_cooking/core/analytics/analytics.dart';
 import 'package:whats_cooking/core/domain/food_preferences.dart';
 import 'package:whats_cooking/core/domain/food_taxonomy.dart';
 import 'package:whats_cooking/core/domain/meal_moment.dart';
+import 'package:whats_cooking/core/domain/mood.dart';
 import 'package:whats_cooking/core/errors/app_exception.dart';
 import 'package:whats_cooking/core/errors/error_mapper.dart';
 import 'package:whats_cooking/core/utils/logger.dart';
 import 'package:whats_cooking/features/ai/domain/entities/assistant_choice.dart';
+import 'package:whats_cooking/features/ai/presentation/providers/ai_context.dart';
 import 'package:whats_cooking/features/ai/presentation/providers/assistant_controller.dart';
 import 'package:whats_cooking/features/history/domain/entities/meal_history_entry.dart';
 import 'package:whats_cooking/features/history/presentation/providers/meal_history_controller.dart';
@@ -21,7 +23,7 @@ import 'package:whats_cooking/features/meals/presentation/providers/disliked_ing
 import 'package:whats_cooking/features/meals/presentation/providers/dislikes_controller.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/favorites_controller.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/meal_repository_provider.dart';
-import 'package:whats_cooking/features/pantry/domain/entities/pantry_item.dart';
+import 'package:whats_cooking/features/pantry/domain/entities/pantry_match.dart';
 import 'package:whats_cooking/features/pantry/presentation/providers/pantry_controller.dart';
 import 'package:whats_cooking/features/profile/presentation/providers/profile_controller.dart';
 import 'package:whats_cooking/features/roulette/domain/entities/spin_filters.dart';
@@ -358,8 +360,19 @@ class SpinController extends _$SpinController {
 
       final SpinFilters filters = ref.read(spinFiltersProvider);
       final List<Meal> eligible = page.meals;
+
+      // The kitchen, if the reader asked for it (Sprint 54).
+      //
+      // **Read here rather than inside `allows`, and it has to be.** A pantry
+      // match is a fact about a meal *and this kitchen* — computed server-side by
+      // `pantry_match()` and keyed by meal id — so the `Meal` does not carry it
+      // and a pure predicate cannot see it. Fetched once for the whole pool,
+      // which is also what the scorer needs a moment later.
+      final Map<String, PantryMatch> pantry = await _pantryMatches();
+
       final List<Meal> matching = eligible
           .where(filters.allows)
+          .where((Meal meal) => _reaches(filters.pantryReach, pantry[meal.id]))
           .toList(growable: false);
 
       if (matching.isEmpty) {
@@ -368,6 +381,7 @@ class SpinController extends _$SpinController {
           _noMatch(
             filters: filters,
             eligible: eligible,
+            pantry: pantry,
             hiddenCount: hidden.length,
             blockedByIngredient: avoided.length,
           ),
@@ -389,6 +403,7 @@ class SpinController extends _$SpinController {
           _noMatch(
             filters: filters,
             eligible: eligible,
+            pantry: pantry,
             hiddenCount: hidden.length,
             blockedByRepetition: scoring.blocked,
             blockedByIngredient: avoided.length,
@@ -404,6 +419,7 @@ class SpinController extends _$SpinController {
           _noMatch(
             filters: filters,
             eligible: eligible,
+            pantry: pantry,
             hiddenCount: hidden.length,
             blockedByRepetition: scoring.blocked,
             blockedByIngredient: avoided.length,
@@ -448,6 +464,45 @@ class SpinController extends _$SpinController {
       }
     } on Object catch (error, stackTrace) {
       state = SpinFailed(ErrorMapper.map(error, stackTrace));
+    }
+  }
+
+  /// Whether [match] clears the bar the reader set.
+  ///
+  /// **A meal with no match at all passes.** Absent from the map means the meal
+  /// has nothing countable — no recorded ingredients, or all of them staples —
+  /// which `PantryRepository.matches` documents as "nothing to be short of"
+  /// rather than as a zero. Treating it as a miss would hide the sixty catalogue
+  /// meals that ship without ingredient rows, which is not what "cook what we
+  /// have" means to anybody.
+  static bool _reaches(PantryReach reach, PantryMatch? match) {
+    if (reach == PantryReach.any || match == null) {
+      return true;
+    }
+    return switch (reach) {
+      PantryReach.complete => match.isComplete,
+      PantryReach.mostly => match.isMostlyIn,
+      PantryReach.any => true,
+    };
+  }
+
+  /// The pantry match for every meal, or an empty map.
+  ///
+  /// A failure is an empty map rather than a failed spin, exactly as the scorer
+  /// treats it: the pantry is an input to a decision, and losing it should cost
+  /// the bonus rather than the dinner. With the filter set that means the pool is
+  /// unfiltered rather than empty — the honest fallback, because refusing to spin
+  /// on a lost side query would be the app blaming the reader for its own outage.
+  Future<Map<String, PantryMatch>> _pantryMatches() async {
+    try {
+      return await ref.read(pantryMatchesProvider.future);
+    } on Object catch (error) {
+      AppLog.warning(
+        'Spinning without the kitchen.',
+        name: 'spin',
+        data: <String, Object?>{'reason': error.runtimeType.toString()},
+      );
+      return const <String, PantryMatch>{};
     }
   }
 
@@ -512,7 +567,7 @@ class SpinController extends _$SpinController {
               detail: _describe(candidate.meal),
             ),
         ],
-        context: _assistantContext(),
+        context: await _assistantContext(),
         timeout: _assistantBudget,
       );
     } on RateLimitException {
@@ -586,48 +641,47 @@ class SpinController extends _$SpinController {
 
   /// What the assistant is told, for a choice rather than a conversation.
   ///
-  /// Deliberately smaller than the chat screen's context. The shortlist already
-  /// encodes the budget, the time limit, the dietary needs and the repetition
-  /// window — every option in it passed all of them — so repeating them would be
-  /// tokens spent restating a filter that has already run.
+  /// **Everything the app knows, now.** This used to be three lines on the
+  /// argument that the shortlist already encodes the budget, the time limit, the
+  /// dietary needs and the repetition window — every option in it passed all of
+  /// them — so restating those was tokens spent on a filter that had run.
   ///
-  /// What the model cannot see from the list is what the household has eaten
-  /// lately and **what needs using up**, so those are what it gets. The second one
-  /// was missing until Sprint 50, and it is the line that most changes which of
-  /// twelve perfectly valid meals gets picked — a model that knows there is fish
-  /// to use tonight both chooses differently and has something worth saying about
-  /// why.
+  /// That reasoning holds for the *filters* and was wrong about the rest. Once the
+  /// model is the thing actually choosing rather than an optional upgrade, the
+  /// question stops being "does this option qualify" and becomes "which of these
+  /// twelve suits this household tonight" — and that is answered by the things the
+  /// shortlist cannot express: what they have actually been eating rather than what
+  /// they once said they liked, what a week normally costs them, what is in the
+  /// kitchen, where they eat out. `householdAiContext` already assembles exactly
+  /// that for the chat and the recipe writer, capped and deduplicated, so the spin
+  /// uses the same definition rather than a private subset that drifts.
   ///
-  /// The whole kitchen is still left out. Twenty ingredient names on every spin is
-  /// tokens spent on a pantry bonus the scorer has already applied; the urgent
-  /// shelf is short by definition and is the part the score cannot express.
-  Map<String, Object?> _assistantContext() {
-    final List<MealHistoryEntry> history =
-        ref.read(mealHistoryProvider).value ?? const <MealHistoryEntry>[];
-
-    final List<String> recent = <String>[
-      for (final MealHistoryEntry entry in history.take(5))
-        if (entry.meal?.name case final String name) name,
-    ];
-
-    final DateTime now = DateTime.now();
-    final List<String> urgent = <String>[
-      for (final PantryItem item
-          in ref.read(pantryControllerProvider).value ?? const <PantryItem>[])
-        if (item.statusAsOf(now).needsAttention) item.name,
-    ];
+  /// About three hundred tokens a spin. That is the price of the AI deciding
+  /// instead of decorating, and it is the same context the assistant screen has
+  /// been sending per message all along.
+  Future<Map<String, Object?>> _assistantContext() async {
+    // The household's own facts, or nothing. A failure here costs the model its
+    // background rather than costing the reader a spin — the engine's pick is
+    // already on screen either way.
+    Map<String, Object?> household = const <String, Object?>{};
+    try {
+      household = await householdAiContext(ref);
+    } on Object catch (error) {
+      AppLog.debug(
+        'Choosing without the household context.',
+        name: 'spin',
+        data: <String, Object?>{'reason': error.runtimeType.toString()},
+      );
+    }
 
     // What meal this actually is. It said 'tonight' regardless, so a breakfast
     // spin asked the model to choose dinner and then showed the answer under a
     // breakfast heading — the same mismatch the result screen's overline had.
-    final Set<MealCategory> categories = ref
-        .read(spinFiltersControllerProvider)
-        .categories;
+    final SpinFilters filters = ref.read(spinFiltersControllerProvider);
+    final Set<MealCategory> categories = filters.categories;
 
     return <String, Object?>{
-      if (recent.isNotEmpty) 'eaten_recently': recent.join(', '),
-      if (urgent.isNotEmpty)
-        'going_off_soon': urgent.take(_urgentForPrompt).join(', '),
+      ...household,
       'deciding_for': switch (categories.length) {
         // Nothing narrowed, so the clock decides. It used to say "tonight"
         // whatever the hour, which asked the model to pick dinner at eight in the
@@ -638,11 +692,22 @@ class SpinController extends _$SpinController {
             .map((MealCategory category) => category.label.toLowerCase())
             .join(' or '),
       },
+
+      // What the reader asked of the kitchen, when they asked anything.
+      //
+      // Not a restatement of a filter that has run — the *level* is the thing the
+      // shortlist cannot show. Every option in it already clears the bar, so
+      // without this the model cannot tell "they wanted to avoid shopping
+      // tonight" from "they did not care", and those deserve different reasons
+      // under the same meal.
+      if (filters.pantryReach != PantryReach.any)
+        'they_asked_for': filters.pantryReach == PantryReach.complete
+            ? 'something they can cook with nothing to buy'
+            : 'something they mostly have in',
+
+      if (filters.mood case final Mood mood) 'mood': mood.label.toLowerCase(),
     };
   }
-
-  /// A shelf, not an inventory. Past this, "soon" has stopped meaning anything.
-  static const int _urgentForPrompt = 6;
 
   /// Records a no-match and hands the state straight back.
   ///
@@ -680,15 +745,29 @@ class SpinController extends _$SpinController {
     required SpinFilters filters,
     required List<Meal> eligible,
     required int hiddenCount,
+    Map<String, PantryMatch> pantry = const <String, PantryMatch>{},
     int blockedByRepetition = 0,
     int blockedByIngredient = 0,
   }) {
+    /// How many meals survive [candidate].
+    ///
+    /// **The pantry has to be counted here too.** `allows` cannot see it — a match
+    /// is a fact about a meal *and this kitchen* — so an analysis built on `allows`
+    /// alone would promise "drop the budget and there are eight" when six of those
+    /// eight are still blocked by the kitchen filter. A relaxation that opens
+    /// nothing is worse than no suggestion: it is the app being wrong about its
+    /// own state, in the one place it is explaining itself.
+    int survivors(SpinFilters candidate) => eligible
+        .where(candidate.allows)
+        .where((Meal meal) => _reaches(candidate.pantryReach, pantry[meal.id]))
+        .length;
+
     // Sorted by what each one costs, so the sentence leads with the filter doing
     // the most damage rather than whichever happens to be declared first.
     final Map<SpinConstraint, int> opens = <SpinConstraint, int>{
       for (final SpinConstraint constraint in filters.active)
         if (constraint.isRelaxable)
-          constraint: eligible.where(filters.without(constraint).allows).length,
+          constraint: survivors(filters.without(constraint)),
     };
 
     final List<SpinConstraint> blocking = filters.active.toList()

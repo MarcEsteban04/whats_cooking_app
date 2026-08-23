@@ -62,6 +62,10 @@ class SpinFiltersController extends _$SpinFiltersController {
   /// Restricts the spin to meals we wrote, or opens it back up (Sprint 37).
   void setOursOnly(bool oursOnly) => state = state.copyWith(oursOnly: oursOnly);
 
+  /// How much of a meal the kitchen has to cover (Sprint 54).
+  void setPantryReach(PantryReach reach) =>
+      state = state.copyWith(pantryReach: reach);
+
   /// Tapping the chosen mood again clears it (Sprint 36).
   ///
   /// One mood at a time. Two would need a rule for what "healthy and junk food"

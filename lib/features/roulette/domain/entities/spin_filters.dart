@@ -32,7 +32,14 @@ enum SpinConstraint {
   /// docs/PRD.md principle 3: producing a meal the user cannot eat is worse than
   /// producing none. A budget the app quietly stretched costs somebody twenty
   /// pesos; a dietary exclusion it quietly stretched costs them dinner, or worse.
-  dietary('your dietary needs');
+  dietary('your dietary needs'),
+
+  /// How much of the meal the kitchen already covers (Sprint 54).
+  ///
+  /// Relaxable, and it is the one somebody is most likely to want relaxed: an
+  /// empty pantry makes this empty the pool completely, so it has to be nameable
+  /// in the no-match sentence and offerable as the one-tap way out.
+  pantry('what is in the kitchen');
 
   const SpinConstraint(this.label);
 
@@ -63,6 +70,35 @@ enum SpinConstraint {
 /// The honest fix then is scoring in SQL, which is where the recommendation
 /// engine is heading anyway — not moving these six conditions into the query and
 /// losing the diagnosis.
+/// How much of a meal the kitchen has to already cover (Sprint 54).
+///
+/// **The pantry was only ever a *bonus* before this.** `MealScorer` gives twenty
+/// points for a complete match and a sliding share above two thirds, which nudges
+/// the draw and nothing more — so "we have chicken and eggs and want to cook
+/// those" had no answer except reading the Kitchen tab and picking by hand. This
+/// makes it a filter, which is what the reader was reaching for.
+///
+/// Three levels rather than a switch, because the honest middle is where most
+/// evenings land: a complete match is often empty — nobody records every staple —
+/// and refusing to spin at all would send somebody back to Any immediately.
+enum PantryReach {
+  /// Ignore the kitchen. The scorer still leans toward what is in.
+  any('Anything', 'the kitchen is only a nudge'),
+
+  /// Two thirds of the countable ingredients, matching `PantryMatch.isMostlyIn`.
+  mostly('Mostly in', 'a shop for one or two things'),
+
+  /// Everything countable. Staples and optional ingredients never count.
+  complete('All in', 'nothing to buy');
+
+  const PantryReach(this.label, this.detail);
+
+  final String label;
+
+  /// What choosing it means, for the sheet.
+  final String detail;
+}
+
 @immutable
 class SpinFilters {
   const SpinFilters({
@@ -73,6 +109,7 @@ class SpinFilters {
     this.difficulties = const <Difficulty>{},
     this.dietaryTags = const <DietaryTag>{},
     this.oursOnly = false,
+    this.pantryReach = PantryReach.any,
     this.mood,
   });
 
@@ -121,6 +158,14 @@ class SpinFilters {
   /// Off by default. On a fresh install it would empty the pool, and a first spin
   /// that finds nothing is the one failure this product cannot survive.
   final bool oursOnly;
+
+  /// How much of a meal the kitchen has to already cover (Sprint 54).
+  ///
+  /// Not applied by [allows], and it cannot be: a pantry match is a fact about a
+  /// meal *and this kitchen*, computed server-side by `pantry_match()` and keyed
+  /// by meal id — the `Meal` itself does not carry it. The spin controller applies
+  /// it where the match map is already in hand for scoring.
+  final PantryReach pantryReach;
 
   /// What the household is in the mood for tonight, or null (Sprint 36).
   ///
@@ -174,6 +219,7 @@ class SpinFilters {
     if (categories.isNotEmpty) SpinConstraint.category,
     if (difficulties.isNotEmpty) SpinConstraint.difficulty,
     if (oursOnly) SpinConstraint.ours,
+    if (pantryReach != PantryReach.any) SpinConstraint.pantry,
     if (dietaryTags.isNotEmpty) SpinConstraint.dietary,
   };
 
@@ -199,6 +245,7 @@ class SpinFilters {
       SpinConstraint.category => copyWith(categories: const <MealCategory>{}),
       SpinConstraint.difficulty => copyWith(difficulties: const <Difficulty>{}),
       SpinConstraint.ours => copyWith(oursOnly: false),
+      SpinConstraint.pantry => copyWith(pantryReach: PantryReach.any),
       // Deliberately unreachable through the analysis, which only ever asks
       // about relaxable constraints. Honoured here so the switch is total and a
       // future caller cannot get a silently unchanged object back.
@@ -236,6 +283,14 @@ class SpinFilters {
       // the sentence §7 wants — it names the filter in the reader's own terms
       // rather than saying "no results".
       SpinConstraint.ours => 'of your own',
+      // Reads as "Nothing you can cook with what is in that is also under ₱150 a
+      // head" — naming the kitchen rather than saying "no results", which is what
+      // makes the one-tap relaxation underneath it obvious.
+      SpinConstraint.pantry => switch (pantryReach) {
+        PantryReach.complete => 'you can cook with nothing to buy',
+        PantryReach.mostly => 'you have most of',
+        PantryReach.any => 'in the kitchen',
+      },
       SpinConstraint.dietary => _list(
         dietaryTags.map((DietaryTag t) => t.label.toLowerCase()),
       ),
@@ -249,6 +304,7 @@ class SpinFilters {
     Set<MealCategory>? categories,
     Set<Difficulty>? difficulties,
     bool? oursOnly,
+    PantryReach? pantryReach,
     Mood? mood,
     Set<DietaryTag>? dietaryTags,
     bool clearBudget = false,
@@ -269,6 +325,7 @@ class SpinFilters {
       categories: categories ?? this.categories,
       difficulties: difficulties ?? this.difficulties,
       oursOnly: oursOnly ?? this.oursOnly,
+      pantryReach: pantryReach ?? this.pantryReach,
       mood: clearMood ? null : (mood ?? this.mood),
       dietaryTags: dietaryTags ?? this.dietaryTags,
     );
@@ -295,6 +352,7 @@ class SpinFilters {
       setEquals(other.categories, categories) &&
       setEquals(other.difficulties, difficulties) &&
       other.oursOnly == oursOnly &&
+      other.pantryReach == pantryReach &&
       other.mood == mood &&
       setEquals(other.dietaryTags, dietaryTags);
 
@@ -306,6 +364,7 @@ class SpinFilters {
     Object.hashAllUnordered(categories),
     Object.hashAllUnordered(difficulties),
     oursOnly,
+    pantryReach,
     mood,
     Object.hashAllUnordered(dietaryTags),
   );

@@ -82,6 +82,27 @@ class SpinFiltersSheet extends ConsumerWidget {
                   onChanged: controller.setOursOnly,
                 ),
               ),
+              // The kitchen (Sprint 54).
+              //
+              // High, right under "where from", because it cuts the pool harder
+              // than anything below it and is the question somebody opens this
+              // sheet to ask on a night they do not want to shop.
+              _Section(
+                title: 'The kitchen',
+                subtitle: 'How much of it you already have in.',
+                child: _StepRow<PantryReach>(
+                  steps: const <PantryReach>[
+                    PantryReach.mostly,
+                    PantryReach.complete,
+                  ],
+                  selected: filters.pantryReach == PantryReach.any
+                      ? null
+                      : filters.pantryReach,
+                  label: (PantryReach reach) => reach.label,
+                  onSelected: (PantryReach? reach) => controller
+                      .setPantryReach(reach ?? PantryReach.any),
+                ),
+              ),
               _Section(
                 title: 'Budget',
                 subtitle: 'A head, not per pot.',
