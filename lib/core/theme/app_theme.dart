@@ -681,6 +681,15 @@ abstract final class AppTheme {
         shape: const RoundedRectangleBorder(borderRadius: AppRadius.borderMd),
       ),
 
+      // Kept, and nothing in this app uses it (Sprint 57).
+      //
+      // Every confirmation now goes through `AppToast`, which puts the pill at the
+      // *top* — `SnackBarBehavior.floating` here was surfacing them in the same
+      // eighty pixels as the shell's floating navigation capsule, so the two were
+      // competing for one place. The theme entry stays because Flutter's own
+      // widgets can still raise a snack bar (a text field's paste toolbar, a
+      // debug banner), and an unstyled one would be the only Material-default
+      // surface in the app.
       snackBarTheme: SnackBarThemeData(
         backgroundColor: colors.surfaceInverse,
         contentTextStyle: text.bodyMedium.copyWith(color: colors.textOnInverse),

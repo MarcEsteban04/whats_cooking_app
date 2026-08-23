@@ -13,6 +13,7 @@ import 'package:whats_cooking/core/widgets/buttons/app_icon_button.dart';
 import 'package:whats_cooking/core/widgets/cards/app_card.dart';
 import 'package:whats_cooking/core/widgets/chips/app_filter_chip.dart';
 import 'package:whats_cooking/core/widgets/dashboard/dashboard.dart';
+import 'package:whats_cooking/core/widgets/feedback/app_toast.dart';
 import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
 import 'package:whats_cooking/core/widgets/inputs/app_select.dart';
 import 'package:whats_cooking/core/widgets/inputs/app_text_field.dart';
@@ -259,14 +260,10 @@ class _MealFormScreenState extends ConsumerState<MealFormScreen> {
         return;
       }
       context.pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            widget.isEditing
-                ? '${meal.name} is updated'
-                : '${meal.name} is in your meals',
-          ),
-        ),
+      AppToast.success(
+        widget.isEditing
+            ? '${meal.name} is updated'
+            : '${meal.name} is in your meals',
       );
     } on Object catch (error, stackTrace) {
       if (!mounted) {

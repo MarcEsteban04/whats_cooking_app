@@ -11,6 +11,7 @@ import 'package:whats_cooking/core/network/supabase_bootstrap.dart';
 import 'package:whats_cooking/core/router/app_router.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/utils/logger.dart';
+import 'package:whats_cooking/core/widgets/feedback/app_toast.dart';
 import 'package:whats_cooking/features/profile/presentation/providers/reminder_controller.dart';
 import 'package:whats_cooking/features/profile/presentation/providers/theme_mode_controller.dart';
 
@@ -157,13 +158,17 @@ class _WhatsCookingAppState extends ConsumerState<WhatsCookingApp> {
     );
   }
 
-  /// Clamps OS text scaling to the range every layout is designed to survive
-  /// (docs/DESIGN_SYSTEM.md §3).
+  /// Clamps OS text scaling, and hangs the toast layer above every route.
   ///
-  /// Clamping rather than ignoring: below 0.85 the 13 px metadata floor stops
-  /// being legible, and above 1.3 prices and button labels start to truncate.
-  /// Both bounds are a promise the layouts have to keep, so they are enforced
-  /// once here instead of per screen.
+  /// **Clamping rather than ignoring** (docs/DESIGN_SYSTEM.md §3): below 0.85 the
+  /// 13 px metadata floor stops being legible, and above 1.3 prices and button
+  /// labels start to truncate. Both bounds are a promise the layouts have to
+  /// keep, so they are enforced once here instead of per screen.
+  ///
+  /// **[ToastHost] belongs here and nowhere else** (Sprint 57). `builder` runs
+  /// below the theme and the media query and *above* the router's navigator, so
+  /// one host covers every route, sheet and full-screen takeover — and no screen
+  /// has to own a messenger or hold a context to say something happened.
   static Widget _clampTextScale(BuildContext context, Widget? child) {
     final MediaQueryData mediaQuery = MediaQuery.of(context);
 
@@ -174,7 +179,7 @@ class _WhatsCookingAppState extends ConsumerState<WhatsCookingApp> {
           maxScaleFactor: AppTypography.maxTextScale,
         ),
       ),
-      child: child ?? const SizedBox.shrink(),
+      child: ToastHost(child: child ?? const SizedBox.shrink()),
     );
   }
 }

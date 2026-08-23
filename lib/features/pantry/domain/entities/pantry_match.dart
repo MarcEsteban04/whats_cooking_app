@@ -25,7 +25,8 @@ class PantryMatch {
       needed: (row['needed'] as num?)?.toInt() ?? 0,
       have: (row['have'] as num?)?.toInt() ?? 0,
       missing: <String>[
-        for (final Object? name in (row['missing'] as List<Object?>?) ?? const <Object?>[])
+        for (final Object? name
+            in (row['missing'] as List<Object?>?) ?? const <Object?>[])
           if (name is String) name,
       ],
     );
@@ -91,7 +92,10 @@ class PantryMatch {
   /// screen will never show, since it only ever displays positive ones.
   double get partialShare {
     final double above =
-        ((fraction - _mostlyThreshold) / (1 - _mostlyThreshold)).clamp(0.0, 1.0);
+        ((fraction - _mostlyThreshold) / (1 - _mostlyThreshold)).clamp(
+          0.0,
+          1.0,
+        );
     return 0.3 + 0.6 * above;
   }
 

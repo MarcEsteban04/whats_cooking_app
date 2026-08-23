@@ -141,8 +141,9 @@ class _RestaurantFormScreenState extends ConsumerState<RestaurantFormScreen> {
                 const SectionHeader(title: 'Cuisine'),
                 _CuisineChips(
                   selected: _draft.cuisine,
-                  onSelected: (Cuisine cuisine) =>
-                      setState(() => _draft = _draft.copyWith(cuisine: cuisine)),
+                  onSelected: (Cuisine cuisine) => setState(
+                    () => _draft = _draft.copyWith(cuisine: cuisine),
+                  ),
                 ),
 
                 const SectionHeader(

@@ -47,7 +47,9 @@ abstract final class RemoteCall {
 
       try {
         final Future<T> future = operation();
-        return timeout == Duration.zero ? await future : await future.timeout(timeout);
+        return timeout == Duration.zero
+            ? await future
+            : await future.timeout(timeout);
       } on DomainSignal {
         // Passed through untouched. A signal is an answer, not a failure: it
         // carries meaning the caller acts on, and mapping it to an

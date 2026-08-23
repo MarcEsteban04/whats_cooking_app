@@ -13,8 +13,10 @@ import 'package:whats_cooking/core/utils/formatters.dart';
 import 'package:whats_cooking/core/widgets/buttons/circle_action.dart';
 import 'package:whats_cooking/core/widgets/dashboard/dashboard.dart';
 import 'package:whats_cooking/core/widgets/feedback/app_skeleton.dart';
+import 'package:whats_cooking/core/widgets/feedback/app_toast.dart';
 import 'package:whats_cooking/core/widgets/feedback/empty_state.dart';
 import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
+import 'package:whats_cooking/core/widgets/overlays/confirmation_dialog.dart';
 import 'package:whats_cooking/core/widgets/press_feedback.dart';
 import 'package:whats_cooking/core/widgets/swipe_action.dart';
 import 'package:whats_cooking/features/grocery/domain/entities/grocery_item.dart';
@@ -114,9 +116,7 @@ class GroceryScreen extends ConsumerWidget {
                                 : _Loaded(items: value),
                           _ => const _Loading(),
                         },
-                        const SizedBox(
-                          height: AppLayout.scrollBottomPadding,
-                        ),
+                        const SizedBox(height: AppLayout.scrollBottomPadding),
                       ],
                     ),
                   ),
@@ -136,10 +136,10 @@ class GroceryScreen extends ConsumerWidget {
     if (items.isEmpty) {
       return 'nothing to buy';
     }
-    final int left = items.where((GroceryItem item) => !item.isCompleted).length;
-    return left == 0
-        ? 'all done'
-        : '$left still to get';
+    final int left = items
+        .where((GroceryItem item) => !item.isCompleted)
+        .length;
+    return left == 0 ? 'all done' : '$left still to get';
   }
 }
 
@@ -211,7 +211,7 @@ class _Loaded extends ConsumerWidget {
                     // control you cannot learn the position of.
                     onTap: done == 0
                         ? null
-                        : () => _clearCompleted(context, ref),
+                        : () => _clearCompleted(context, ref, done),
                   ),
                 ],
               ),
@@ -237,11 +237,11 @@ class _Loaded extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  for (final (int index, GroceryItem item) in rows.indexed)
-                    ...<Widget>[
-                      if (index > 0) const DashboardRule(),
-                      _GroceryRow(item: item, key: ValueKey<String>(item.id)),
-                    ],
+                  for (final (int index, GroceryItem item)
+                      in rows.indexed) ...<Widget>[
+                    if (index > 0) const DashboardRule(),
+                    _GroceryRow(item: item, key: ValueKey<String>(item.id)),
+                  ],
                 ],
               ),
             ),
@@ -250,7 +250,36 @@ class _Loaded extends ConsumerWidget {
     );
   }
 
-  Future<void> _clearCompleted(BuildContext context, WidgetRef ref) async {
+  /// Deletes every ticked line, after asking (Sprint 57).
+  ///
+  /// **This is the most destructive tap on the screen and it had no confirmation
+  /// at all.** `clear_completed` is a `delete … where is_completed`, so a
+  /// mistimed thumb on the tile next to `Add` threw away an entire shop with no
+  /// way back — and the ability to un-tick a line, which is the safety net
+  /// everywhere else on this list, stops existing the moment the row is gone.
+  ///
+  /// The count is in the question rather than in the button, because "clear 12
+  /// ticked things" is a different decision from "clear 1" and the number is the
+  /// whole difference.
+  Future<void> _clearCompleted(
+    BuildContext context,
+    WidgetRef ref,
+    int done,
+  ) async {
+    final bool confirmed = await ConfirmationDialog.show(
+      context,
+      title: done == 1 ? 'Clear the one you got?' : 'Clear the $done you got?',
+      body: 'They come off the list for good. Anything still to get stays.',
+      confirmLabel: done == 1 ? 'Clear it' : 'Clear $done',
+      cancelLabel: 'Leave them',
+      icon: AppIcons.delete,
+      isDestructive: true,
+    );
+
+    if (!confirmed || !context.mounted) {
+      return;
+    }
+
     final (int gone, AppException? failure) = await ref
         .read(groceryControllerProvider.notifier)
         .clearCompleted();
@@ -259,15 +288,11 @@ class _Loaded extends ConsumerWidget {
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          failure != null
-              ? failure.displayMessage ?? failure.message
-              : 'Cleared $gone ${gone == 1 ? 'item' : 'items'}.',
-        ),
-      ),
-    );
+    if (failure case final AppException problem) {
+      AppToast.failure(problem.displayMessage ?? problem.message);
+      return;
+    }
+    AppToast.success('Cleared $gone ${gone == 1 ? 'item' : 'items'}.');
   }
 }
 
@@ -356,7 +381,28 @@ class _GroceryRow extends ConsumerWidget {
           );
           return false;
         }
-        return true;
+
+        // **It asks now** (Sprint 57). A swipe is a deliberate gesture right up
+        // until the list is long enough to scroll, and then it is a gesture
+        // people make by accident with a thumb — this list is read while walking
+        // and the row underneath vanished with no way back.
+        //
+        // The cost is one tap on an action nobody does often: ticking is what
+        // happens twenty times in a shop, and ticking is untouched.
+        return ConfirmationDialog.show(
+          context,
+          title: 'Take ${AppFormat.sentenceCase(item.name)} off the list?',
+          body: item.fromMealName == null
+              ? 'It will not be there when you shop.'
+              // Says where it came from, because that changes the decision: a
+              // line a meal put there is one somebody chose a dinner for.
+              : 'It is on the list for ${item.fromMealName}, and will not be '
+                    'there when you shop.',
+          confirmLabel: 'Take it off',
+          cancelLabel: 'Keep it',
+          icon: AppIcons.delete,
+          isDestructive: true,
+        );
       },
       onDismissed: (_) async {
         final AppException? failure = await ref
@@ -366,14 +412,12 @@ class _GroceryRow extends ConsumerWidget {
         if (!context.mounted) {
           return;
         }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              failure == null
-                  ? '${AppFormat.sentenceCase(item.name)} is off the list.'
-                  : failure.displayMessage ?? failure.message,
-            ),
-          ),
+        if (failure case final AppException problem) {
+          AppToast.failure(problem.displayMessage ?? problem.message);
+          return;
+        }
+        AppToast.success(
+          '${AppFormat.sentenceCase(item.name)} is off the list.',
         );
       },
       child: PressFeedback(
@@ -398,8 +442,7 @@ class _GroceryRow extends ConsumerWidget {
                       Text(
                         AppFormat.sentenceCase(item.name),
                         style: context.text.bodyLarge.copyWith(
-                          decoration:
-                              done ? TextDecoration.lineThrough : null,
+                          decoration: done ? TextDecoration.lineThrough : null,
                           decorationColor: colors.textTertiary,
                         ),
                         maxLines: 2,
@@ -467,14 +510,10 @@ class _GroceryRow extends ConsumerWidget {
     // happens in a shop, one-handed, twenty times in a row. A confirmation per
     // item would make ticking the list slower than writing it. Offered and
     // ignorable; the tick stands either way.
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${AppFormat.sentenceCase(item.name)} — got it'),
-        action: SnackBarAction(
-          label: 'Into the kitchen',
-          onPressed: () => _intoKitchen(ref),
-        ),
-      ),
+    AppToast.success(
+      '${AppFormat.sentenceCase(item.name)} — got it',
+      actionLabel: 'Into the kitchen',
+      onAction: () => _intoKitchen(ref),
     );
   }
 
@@ -484,11 +523,9 @@ class _GroceryRow extends ConsumerWidget {
   /// in an aisle is asking somebody to retype what they just ticked. `add` is
   /// idempotent by name, so a second tap merges rather than duplicating.
   Future<void> _intoKitchen(WidgetRef ref) async {
-    await ref.read(pantryControllerProvider.notifier).add(
-      name: item.name,
-      quantity: item.quantity,
-      unit: item.unit,
-    );
+    await ref
+        .read(pantryControllerProvider.notifier)
+        .add(name: item.name, quantity: item.quantity, unit: item.unit);
 
     // The kitchen decides what the roulette can offer, so the match map is now
     // stale.
@@ -548,7 +585,8 @@ class _Empty extends StatelessWidget {
         // Says both ways in: by hand now, and by itself from Sprint 43. The
         // shared `EmptyState.grocery` only mentions spinning, and this screen can
         // be filled in directly.
-        body: 'Add what you need, or accept a meal and we will work out what is '
+        body:
+            'Add what you need, or accept a meal and we will work out what is '
             'missing.',
         actionLabel: 'Add something',
         onAction: () => context.pushNamed(AppRoute.groceryAdd.routeName),

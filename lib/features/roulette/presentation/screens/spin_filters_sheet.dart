@@ -65,7 +65,8 @@ class SpinFiltersSheet extends ConsumerWidget {
               // under the Home headline: "Pick something based on your mood."
               _Section(
                 title: 'In the mood for',
-                subtitle: 'Nudges what we lean towards. Never rules anything out.',
+                subtitle:
+                    'Nudges what we lean towards. Never rules anything out.',
                 child: _Moods(
                   selected: filters.mood,
                   onSelected: controller.setMood,
@@ -76,7 +77,8 @@ class SpinFiltersSheet extends ConsumerWidget {
               // mood it genuinely can empty it.
               _Section(
                 title: 'Where from',
-                subtitle: 'The catalogue is there until your own library fills up.',
+                subtitle:
+                    'The catalogue is there until your own library fills up.',
                 child: _OursOnly(
                   value: filters.oursOnly,
                   onChanged: controller.setOursOnly,
@@ -99,8 +101,8 @@ class SpinFiltersSheet extends ConsumerWidget {
                       ? null
                       : filters.pantryReach,
                   label: (PantryReach reach) => reach.label,
-                  onSelected: (PantryReach? reach) => controller
-                      .setPantryReach(reach ?? PantryReach.any),
+                  onSelected: (PantryReach? reach) =>
+                      controller.setPantryReach(reach ?? PantryReach.any),
                 ),
               ),
               _Section(

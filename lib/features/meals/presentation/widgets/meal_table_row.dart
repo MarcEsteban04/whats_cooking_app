@@ -8,6 +8,7 @@ import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/utils/formatters.dart';
 import 'package:whats_cooking/core/widgets/cards/meal_card.dart';
 import 'package:whats_cooking/core/widgets/dashboard/dashboard.dart';
+import 'package:whats_cooking/core/widgets/feedback/app_toast.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/dislikes_controller.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/favorites_controller.dart';
@@ -117,9 +118,7 @@ class MealTableRow extends ConsumerWidget {
     // The controller has already put the heart back. All that is left is to say
     // why, because a heart that silently returns to where it was reads as the
     // tap having missed.
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(failure.displayMessage ?? failure.message)),
-    );
+    AppToast.failure(failure.displayMessage ?? failure.message);
   }
 }
 

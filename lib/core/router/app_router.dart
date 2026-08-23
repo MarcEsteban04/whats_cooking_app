@@ -439,15 +439,18 @@ final GoRoute _mealCreateRoute = GoRoute(
   path: AppRoute.mealCreate.path,
   name: AppRoute.mealCreate.routeName,
   parentNavigatorKey: rootNavigatorKey,
-  pageBuilder: (BuildContext context, GoRouterState state) => AppSlideUpPage<void>(
-    // A generated recipe arrives as `extra` (Sprint 48), which is why this is the
-    // same route rather than a second one: what opens is the same form doing the
-    // same job, with some of the fields already filled in. Null on a deep link or
-    // a cold start, and a blank form is the right answer to both.
-    child: MealFormScreen(
-      initialDraft: state.extra is MealDraft ? state.extra as MealDraft : null,
-    ),
-  ),
+  pageBuilder: (BuildContext context, GoRouterState state) =>
+      AppSlideUpPage<void>(
+        // A generated recipe arrives as `extra` (Sprint 48), which is why this is the
+        // same route rather than a second one: what opens is the same form doing the
+        // same job, with some of the fields already filled in. Null on a deep link or
+        // a cold start, and a blank form is the right answer to both.
+        child: MealFormScreen(
+          initialDraft: state.extra is MealDraft
+              ? state.extra as MealDraft
+              : null,
+        ),
+      ),
 );
 
 /// Asking for a recipe (Sprint 48).
@@ -502,14 +505,15 @@ final List<RouteBase> _fullScreenRoutes = <RouteBase>[
     path: AppRoute.pantryUsed.path,
     name: AppRoute.pantryUsed.routeName,
     parentNavigatorKey: rootNavigatorKey,
-    pageBuilder: (BuildContext context, GoRouterState state) => AppSheetPage<void>(
-      child: PantryUsedSheet(
-        mealId: state.pathParameters['mealId']!,
-        // The name, so the sheet can say which meal without fetching it. Null on
-        // a deep link, where the heading falls back to the generic line.
-        mealName: state.extra is String ? state.extra as String : null,
-      ),
-    ),
+    pageBuilder: (BuildContext context, GoRouterState state) =>
+        AppSheetPage<void>(
+          child: PantryUsedSheet(
+            mealId: state.pathParameters['mealId']!,
+            // The name, so the sheet can say which meal without fetching it. Null on
+            // a deep link, where the heading falls back to the generic line.
+            mealName: state.extra is String ? state.extra as String : null,
+          ),
+        ),
   ),
   // Reading the fridge (Sprint 49). Full screen on the root navigator, like every
   // other screen whose primary button must not end up behind the floating bottom
@@ -550,9 +554,7 @@ final List<RouteBase> _fullScreenRoutes = <RouteBase>[
         AppScaleFadePage<void>(
           child: RestaurantResultScreen(
             restaurantId: state.pathParameters['id']!,
-            pick: state.extra is Restaurant
-                ? state.extra as Restaurant
-                : null,
+            pick: state.extra is Restaurant ? state.extra as Restaurant : null,
           ),
         ),
   ),

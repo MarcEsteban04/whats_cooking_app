@@ -21,11 +21,7 @@ part 'home_dashboard.g.dart';
 /// One week's food spend, a head (Sprint 47b).
 @immutable
 class WeekSpend {
-  const WeekSpend({
-    required this.weeksAgo,
-    this.cooked = 0,
-    this.eatenOut = 0,
-  });
+  const WeekSpend({required this.weeksAgo, this.cooked = 0, this.eatenOut = 0});
 
   /// 0 is this week, 5 is five weeks back.
   final int weeksAgo;
@@ -118,26 +114,27 @@ class HomeDashboard {
   /// panel announcing the app has nothing for you; a list of three things to do is
   /// the same space spent usefully.
   List<({String label, String body, bool isDone, HomeSetupStep step})>
-  get setupSteps => <({String label, String body, bool isDone, HomeSetupStep step})>[
-    (
-      label: 'Add a few of your own meals',
-      body: 'The roulette is only as good as the library.',
-      isDone: ownMeals > 0,
-      step: HomeSetupStep.meals,
-    ),
-    (
-      label: 'Say what is in the kitchen',
-      body: 'Then it can offer things you can cook right now.',
-      isDone: pantryItems > 0,
-      step: HomeSetupStep.pantry,
-    ),
-    (
-      label: 'Add somewhere you eat out',
-      body: 'For the nights nobody is cooking.',
-      isDone: places > 0,
-      step: HomeSetupStep.places,
-    ),
-  ];
+  get setupSteps =>
+      <({String label, String body, bool isDone, HomeSetupStep step})>[
+        (
+          label: 'Add a few of your own meals',
+          body: 'The roulette is only as good as the library.',
+          isDone: ownMeals > 0,
+          step: HomeSetupStep.meals,
+        ),
+        (
+          label: 'Say what is in the kitchen',
+          body: 'Then it can offer things you can cook right now.',
+          isDone: pantryItems > 0,
+          step: HomeSetupStep.pantry,
+        ),
+        (
+          label: 'Add somewhere you eat out',
+          body: 'For the nights nobody is cooking.',
+          isDone: places > 0,
+          step: HomeSetupStep.places,
+        ),
+      ];
 }
 
 /// Where a setup step sends you.
@@ -154,9 +151,7 @@ Future<HomeDashboard> homeDashboard(Ref ref) async {
   final DateTime today = DateTime(now.year, now.month, now.day);
   final DateTime weekAgo = today.subtract(const Duration(days: 7));
   final DateTime monthAgo = today.subtract(const Duration(days: 30));
-  final DateTime windowStart = today.subtract(
-    const Duration(days: 7 * _weeks),
-  );
+  final DateTime windowStart = today.subtract(const Duration(days: 7 * _weeks));
 
   final List<MealHistoryEntry> history =
       ref.watch(mealHistoryProvider).value ?? const <MealHistoryEntry>[];
@@ -220,7 +215,9 @@ Future<HomeDashboard> homeDashboard(Ref ref) async {
     if (when.isBefore(windowStart)) {
       return null;
     }
-    final int daysAgo = today.difference(DateTime(when.year, when.month, when.day)).inDays;
+    final int daysAgo = today
+        .difference(DateTime(when.year, when.month, when.day))
+        .inDays;
     final int index = _weeks - 1 - (daysAgo ~/ 7);
     return index >= 0 && index < _weeks ? index : null;
   }

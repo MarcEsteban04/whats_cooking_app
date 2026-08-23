@@ -41,7 +41,8 @@ PantryRepository pantryRepository(Ref ref) {
 @Riverpod(keepAlive: true)
 class PantryController extends _$PantryController {
   @override
-  Future<List<PantryItem>> build() => ref.read(pantryRepositoryProvider).items();
+  Future<List<PantryItem>> build() =>
+      ref.read(pantryRepositoryProvider).items();
 
   /// Puts something in the kitchen, or updates what is there.
   ///
@@ -54,12 +55,14 @@ class PantryController extends _$PantryController {
     DateTime? expiresOn,
   }) async {
     return _write(
-      () => ref.read(pantryRepositoryProvider).add(
-        name: name,
-        quantity: quantity,
-        unit: unit,
-        expiresOn: expiresOn,
-      ),
+      () => ref
+          .read(pantryRepositoryProvider)
+          .add(
+            name: name,
+            quantity: quantity,
+            unit: unit,
+            expiresOn: expiresOn,
+          ),
       // Not optimistic, unlike the other two. An add has to resolve a name
       // against the vocabulary — possibly creating the row — so the id, the
       // category and whether it is a staple are all things only the server knows.
@@ -121,14 +124,16 @@ class PantryController extends _$PantryController {
     );
 
     return _write(
-      () => ref.read(pantryRepositoryProvider).updateAmount(
-        item.id,
-        quantity: quantity,
-        unit: unit,
-        expiresOn: expiresOn,
-        clearQuantity: clearQuantity,
-        clearExpiry: clearExpiry,
-      ),
+      () => ref
+          .read(pantryRepositoryProvider)
+          .updateAmount(
+            item.id,
+            quantity: quantity,
+            unit: unit,
+            expiresOn: expiresOn,
+            clearQuantity: clearQuantity,
+            clearExpiry: clearExpiry,
+          ),
       optimistic: <PantryItem>[
         for (final PantryItem existing in state.value ?? const <PantryItem>[])
           if (existing.id == item.id) next else existing,
@@ -247,14 +252,15 @@ class PantryController extends _$PantryController {
   /// and an item that appears in the wrong group and moves on the next refresh
   /// reads as a bug.
   static List<PantryItem> _merge(List<PantryItem> items, PantryItem saved) {
-    final List<PantryItem> next = <PantryItem>[
-      for (final PantryItem item in items)
-        if (item.id != saved.id) item,
-      saved,
-    ]..sort((PantryItem a, PantryItem b) {
-      final int byCategory = a.category.index.compareTo(b.category.index);
-      return byCategory != 0 ? byCategory : a.name.compareTo(b.name);
-    });
+    final List<PantryItem> next =
+        <PantryItem>[
+          for (final PantryItem item in items)
+            if (item.id != saved.id) item,
+          saved,
+        ]..sort((PantryItem a, PantryItem b) {
+          final int byCategory = a.category.index.compareTo(b.category.index);
+          return byCategory != 0 ? byCategory : a.name.compareTo(b.name);
+        });
 
     return next;
   }

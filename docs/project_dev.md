@@ -886,6 +886,85 @@ scheduled and self-corrects on the next open. The failure mode is one reminder a
 hour out for a household that crosses a daylight-saving boundary and does not open
 the app for a day. The Philippines has not observed daylight saving since 1978.
 
+## Sprint 57 — Where Confirmations Go, And Asking Before Deleting
+
+> "how about the success or error alert? can we make it show at the top like a
+> dynamic island? … then add confirm delete confirmation on all screens that has
+> delete feature"
+
+**Every confirmation in this app was competing with the navigation.** The theme
+set `SnackBarBehavior.floating` and the shell runs `extendBody` under a floating
+capsule, so all twenty-one of them surfaced in the same eighty pixels as the
+primary navigation — sitting on it or shouldering it aside. Two things wanted one
+place, and one of them is how you move around the app.
+
+`AppToast` is a pill at the top, owned by a single `ToastHost` installed in
+`MaterialApp.builder` — below the theme and the media query, above the router's
+navigator, so one host covers every route, sheet and full-screen takeover.
+
+**It takes no `BuildContext`, and that fixes a class of bug rather than saving a
+parameter.** Several callers pop a sheet and *then* confirm — the pantry deduction
+sheet and the meal form both do — so the context they were holding is on its way
+out of the tree at the moment it gets used.
+
+**Success and failure no longer look identical.** They did: "6 things came out of
+the kitchen" and "That could not be saved" were the same grey rectangle, which
+made success and error the two tones in the palette that nothing used. A glyph
+carries the difference alongside the colour, because DESIGN_SYSTEM §11 forbids
+colour meaning anything on its own. The ground stays ink — a full-width coloured
+banner would be the loudest thing in the app for three seconds, and the one accent
+belongs to SPIN.
+
+Not literally a Dynamic Island. The morphing is Apple's hardware affordance doing
+a job; there is no notch to grow out of here, and imitating it would read as a
+copy rather than as this app. It slides down, holds, slides up. Tap or swipe up to
+send it away early.
+
+Deliberate details, each of which was a bug first:
+
+* A **serial** on every message. Without it, ticking two items in a row shows one
+  pill and then nothing — an equal value does not notify.
+* **One at a time, replacing.** A queue would make somebody who ticks six things
+  wait eighteen seconds to hear about the sixth.
+* **Cleared when the fade finishes, not when it starts.** `Opacity` of zero still
+  hit-tests, so a pill left in the tree would silently swallow every tap across
+  the top of the screen for the rest of the session — and `IgnorePointer` covers
+  the hundred and fifty milliseconds it spends leaving.
+* **`Positioned.fill` for the app content.** A non-positioned child of a `Stack`
+  gets *loosened* constraints, which is fine until one screen holds an unbounded
+  scroll view.
+* **The tone follows the count, not the failure.** "9 added — the rest could not
+  be" is nine things on a list; calling that a failure would be the app disowning
+  work it did.
+
+## Asking before deleting
+
+Six of the nine destructive paths already confirmed. Three did not, and they were
+the three that could be triggered by accident:
+
+* **A grocery line, swiped.** A swipe is deliberate right up until the list is
+  long enough to scroll, and then it is something a thumb does by accident while
+  walking. The dialog names where the line came from when a meal put it there,
+  because that changes the decision.
+* **`Clear done`.** The most destructive tap on the screen and it had nothing at
+  all: `clear_completed` is a `delete … where is_completed`, one tile away from
+  `Add`, so a mistimed thumb threw away a whole shop. The ability to un-tick a
+  line — the safety net everywhere else on that list — stops existing the moment
+  the row is gone. The count is in the question, because clearing twelve is a
+  different decision from clearing one.
+* **A pantry line, swiped.** More to lose than the shopping list: the row carries
+  an amount and often a date somebody typed, and it is what the roulette's "cook
+  what we have" filter reads. A row deleted by a stray thumb quietly narrows what
+  the app offers for dinner, which is the last place a mistake shows up as itself.
+
+The cost is one tap on an action nobody performs often. Ticking is what happens
+twenty times in a shop, and ticking is untouched.
+
+**Three paths deliberately left alone**, because none of them deletes anything
+stored: removing an ingredient row from an unsaved meal draft, un-picking a name
+on the recipe generator, and the pantry deduction sheet — which *is* a
+confirmation.
+
 ---
 
 # 🚦 Definition of Done

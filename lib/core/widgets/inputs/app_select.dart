@@ -180,11 +180,8 @@ class AppSelect<T> extends StatelessWidget {
       // mattered.
       isScrollControlled: true,
       shape: RoundedRectangleBorder(borderRadius: AppRadius.top(AppRadius.xl)),
-      builder: (BuildContext sheetContext) => _SelectSheet<T>(
-        title: title,
-        value: value,
-        options: options,
-      ),
+      builder: (BuildContext sheetContext) =>
+          _SelectSheet<T>(title: title, value: value, options: options),
     );
 
     if (chosen != null) {

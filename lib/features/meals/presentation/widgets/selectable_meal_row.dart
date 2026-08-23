@@ -89,7 +89,9 @@ class SelectableMealRow extends StatelessWidget {
           ],
           // `IgnorePointer` while selecting, so the row's own heart and its tap
           // target do not compete with the selection underneath them.
-          Expanded(child: IgnorePointer(ignoring: isSelecting, child: row)),
+          Expanded(
+            child: IgnorePointer(ignoring: isSelecting, child: row),
+          ),
         ],
       ),
     );

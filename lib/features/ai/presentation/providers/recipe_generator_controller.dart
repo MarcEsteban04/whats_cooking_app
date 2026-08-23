@@ -61,10 +61,7 @@ class RecipeGenerator extends _$RecipeGenerator {
   /// whatever somebody typed, and it is optional: an empty kitchen and an empty
   /// note still gets a recipe, because "I do not know, surprise me" is a real
   /// request.
-  Future<void> write({
-    required List<String> ingredients,
-    String? note,
-  }) async {
+  Future<void> write({required List<String> ingredients, String? note}) async {
     if (state.isWriting) {
       return;
     }

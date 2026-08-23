@@ -53,11 +53,9 @@ class GroceryController extends _$GroceryController {
     String unit = '',
   }) {
     return _write(
-      () => ref.read(groceryRepositoryProvider).add(
-        name: name,
-        quantity: quantity,
-        unit: unit,
-      ),
+      () => ref
+          .read(groceryRepositoryProvider)
+          .add(name: name, quantity: quantity, unit: unit),
       // Not optimistic. An add either creates a line or merges into one, and only
       // the server knows which — guessing would either show a duplicate for a
       // moment or hide a merge that did not happen.
@@ -111,12 +109,14 @@ class GroceryController extends _$GroceryController {
     bool clearQuantity = false,
   }) {
     return _write(
-      () => ref.read(groceryRepositoryProvider).updateAmount(
-        item.id,
-        quantity: quantity,
-        unit: unit,
-        clearQuantity: clearQuantity,
-      ),
+      () => ref
+          .read(groceryRepositoryProvider)
+          .updateAmount(
+            item.id,
+            quantity: quantity,
+            unit: unit,
+            clearQuantity: clearQuantity,
+          ),
       optimistic: _replacing(
         item.copyWith(
           quantity: quantity,
@@ -194,7 +194,9 @@ class GroceryController extends _$GroceryController {
 
     try {
       final GroceryItem saved = await operation();
-      state = AsyncData<List<GroceryItem>>(_merge(state.value ?? before, saved));
+      state = AsyncData<List<GroceryItem>>(
+        _merge(state.value ?? before, saved),
+      );
       return null;
     } on Object catch (error, stackTrace) {
       state = AsyncData<List<GroceryItem>>(before);

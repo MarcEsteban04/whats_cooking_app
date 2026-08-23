@@ -118,10 +118,7 @@ class AssistantController extends _$AssistantController {
     try {
       final AssistantReply reply = await ref
           .read(assistantRepositoryProvider)
-          .ask(
-            messages: withQuestion,
-            context: await householdAiContext(ref),
-          );
+          .ask(messages: withQuestion, context: await householdAiContext(ref));
 
       state = state.copyWith(
         messages: <AssistantMessage>[

@@ -50,7 +50,10 @@ class FanOutAnalyticsSink implements AnalyticsSink {
 
   @override
   void record(RecordedEvent recorded) {
-    assert(_isSafe(recorded.event), 'Analytics event carries a redacted field.');
+    assert(
+      _isSafe(recorded.event),
+      'Analytics event carries a redacted field.',
+    );
 
     for (final AnalyticsSink sink in sinks) {
       // Guarded per sink. One sink throwing must not cost the others their
@@ -100,7 +103,8 @@ class FanOutAnalyticsSink implements AnalyticsSink {
           return false;
         }
       }
-      if (property.value is String && (property.value! as String).contains('@')) {
+      if (property.value is String &&
+          (property.value! as String).contains('@')) {
         return false;
       }
     }

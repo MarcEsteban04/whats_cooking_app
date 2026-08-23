@@ -347,11 +347,7 @@ class SpinController extends _$SpinController {
         // All three exclusions in one set, because the query does not care why a
         // meal is out — only that it must not come back. Applied on the server,
         // so the pool is right rather than filtered after the fact.
-        excludedMealIds: <String>{
-          ...hidden,
-          ...avoided,
-          ..._seenThisSession,
-        },
+        excludedMealIds: <String>{...hidden, ...avoided, ..._seenThisSession},
       );
 
       final MealPage page = await ref
@@ -558,18 +554,20 @@ class SpinController extends _$SpinController {
 
     AssistantChoice? choice;
     try {
-      choice = await ref.read(assistantRepositoryProvider).choose(
-        options: <ChoiceOption>[
-          for (final ScoredMeal candidate in shortlist)
-            ChoiceOption(
-              id: candidate.meal.id,
-              name: candidate.meal.name,
-              detail: _describe(candidate.meal),
-            ),
-        ],
-        context: await _assistantContext(),
-        timeout: _assistantBudget,
-      );
+      choice = await ref
+          .read(assistantRepositoryProvider)
+          .choose(
+            options: <ChoiceOption>[
+              for (final ScoredMeal candidate in shortlist)
+                ChoiceOption(
+                  id: candidate.meal.id,
+                  name: candidate.meal.name,
+                  detail: _describe(candidate.meal),
+                ),
+            ],
+            context: await _assistantContext(),
+            timeout: _assistantBudget,
+          );
     } on RateLimitException {
       // The rest of the hour would fail the same way, so stop asking rather than
       // spending a round trip per spin to be told again.
@@ -596,8 +594,7 @@ class SpinController extends _$SpinController {
     }
 
     if (state case final SpinSettled current
-        when current.meal.id == drawn.meal.id &&
-            current.isAwaitingAssistant) {
+        when current.meal.id == drawn.meal.id && current.isAwaitingAssistant) {
       // Promoted to a local so the closure below sees a non-nullable value.
       // `choice` is a mutable local that the analyzer cannot prove stays
       // assigned across a lambda, which is a fair thing for it to refuse.
@@ -688,9 +685,10 @@ class SpinController extends _$SpinController {
         // morning.
         0 => MealMoment.current.mealName,
         1 => categories.first.label.toLowerCase(),
-        _ => categories
-            .map((MealCategory category) => category.label.toLowerCase())
-            .join(' or '),
+        _ =>
+          categories
+              .map((MealCategory category) => category.label.toLowerCase())
+              .join(' or '),
       },
 
       // What the reader asked of the kitchen, when they asked anything.

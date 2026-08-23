@@ -348,10 +348,7 @@ class _SpinScreenState extends ConsumerState<SpinScreen>
         // next screen shows, which is the only promise a reel makes.
         if (next case SpinSettled(isAwaitingAssistant: true)) {
           _isAwaitingAssistant = true;
-          _graceTimer ??= Timer(
-            _assistantGrace,
-            () => _startReel(force: true),
-          );
+          _graceTimer ??= Timer(_assistantGrace, () => _startReel(force: true));
         } else {
           _isAwaitingAssistant = false;
           _graceTimer?.cancel();
@@ -412,8 +409,7 @@ class _SpinScreenState extends ConsumerState<SpinScreen>
                     animation: _controller,
                     pool: _reelPool ?? const <Meal>[],
                     isStopped: _isReelStopped,
-                    isAsking:
-                        state is SpinSettled && state.isAwaitingAssistant,
+                    isAsking: state is SpinSettled && state.isAwaitingAssistant,
                   ),
                 },
               ),

@@ -455,18 +455,20 @@ class RestaurantSpinController extends _$RestaurantSpinController {
 
     AssistantChoice? choice;
     try {
-      choice = await ref.read(assistantRepositoryProvider).choose(
-        options: <ChoiceOption>[
-          for (final ScoredRestaurant candidate in shortlist)
-            ChoiceOption(
-              id: candidate.restaurant.id,
-              name: candidate.restaurant.name,
-              detail: _describePlace(candidate.restaurant),
-            ),
-        ],
-        context: _assistantContext(beenToRecently),
-        timeout: _assistantBudget,
-      );
+      choice = await ref
+          .read(assistantRepositoryProvider)
+          .choose(
+            options: <ChoiceOption>[
+              for (final ScoredRestaurant candidate in shortlist)
+                ChoiceOption(
+                  id: candidate.restaurant.id,
+                  name: candidate.restaurant.name,
+                  detail: _describePlace(candidate.restaurant),
+                ),
+            ],
+            context: _assistantContext(beenToRecently),
+            timeout: _assistantBudget,
+          );
     } on RateLimitException {
       // The rest of the hour would fail the same way, so stop asking rather than
       // spending a round trip per spin to be told again.
@@ -563,11 +565,13 @@ class RestaurantSpinController extends _$RestaurantSpinController {
       // half of the app.
       ref.invalidate(restaurantVisitsProvider);
 
-      ref.read(analyticsProvider).mealAccepted(
-        mealId: place.id,
-        spinCount: _spinsThisSession,
-        surface: SpinSurface.eatingOut,
-      );
+      ref
+          .read(analyticsProvider)
+          .mealAccepted(
+            mealId: place.id,
+            spinCount: _spinsThisSession,
+            surface: SpinSurface.eatingOut,
+          );
 
       _seenThisSession.clear();
       _spinsThisSession = 0;
@@ -580,13 +584,15 @@ class RestaurantSpinController extends _$RestaurantSpinController {
 
   /// Turns this place down and asks for another.
   void reject(Restaurant place) {
-    ref.read(analyticsProvider).record(
-      MealRejected(
-        mealId: place.id,
-        spinCount: _spinsThisSession,
-        surface: SpinSurface.eatingOut,
-      ),
-    );
+    ref
+        .read(analyticsProvider)
+        .record(
+          MealRejected(
+            mealId: place.id,
+            spinCount: _spinsThisSession,
+            surface: SpinSurface.eatingOut,
+          ),
+        );
   }
 
   /// Forgets the session's exclusions without accepting anything.
@@ -599,7 +605,9 @@ class RestaurantSpinController extends _$RestaurantSpinController {
   Future<void> relaxAndSpin(RestaurantConstraint constraint) {
     ref
         .read(restaurantFiltersControllerProvider.notifier)
-        .replace(ref.read(restaurantFiltersControllerProvider).without(constraint));
+        .replace(
+          ref.read(restaurantFiltersControllerProvider).without(constraint),
+        );
     return spin();
   }
 
@@ -634,13 +642,10 @@ class RestaurantSpinController extends _$RestaurantSpinController {
     required List<Restaurant> eligible,
     int blockedByRecency = 0,
   }) {
-    final Map<RestaurantConstraint, int> opens =
-        <RestaurantConstraint, int>{
-          for (final RestaurantConstraint constraint in filters.active)
-            constraint: eligible
-                .where(filters.without(constraint).allows)
-                .length,
-        };
+    final Map<RestaurantConstraint, int> opens = <RestaurantConstraint, int>{
+      for (final RestaurantConstraint constraint in filters.active)
+        constraint: eligible.where(filters.without(constraint).allows).length,
+    };
 
     final List<RestaurantConstraint> blocking = filters.active.toList()
       ..sort(

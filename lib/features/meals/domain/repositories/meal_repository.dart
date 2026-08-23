@@ -138,7 +138,6 @@ abstract interface class MealRepository {
   /// Optional ingredients do not block: a recipe listing coriander as a garnish is
   /// one a coriander-hater can cook.
   Future<Set<String>> mealsBlockedByDislikes();
-
 }
 
 /// The page size for the feed.

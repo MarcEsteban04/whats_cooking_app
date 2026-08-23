@@ -8,6 +8,7 @@ import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/utils/provider_cache.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_icon_button.dart';
 import 'package:whats_cooking/core/widgets/dashboard/dashboard.dart';
+import 'package:whats_cooking/core/widgets/feedback/app_toast.dart';
 import 'package:whats_cooking/core/widgets/feedback/empty_state.dart';
 import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal.dart';
@@ -233,17 +234,13 @@ class _RestoreButton extends ConsumerWidget {
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          // The row has already gone or already come back — the controller
-          // rolled its own state. All that is left is to say which happened.
-          failure == null
-              ? '${meal.name} is back on the menu.'
-              : failure.displayMessage ?? failure.message,
-        ),
-      ),
-    );
+    // The row has already gone or already come back — the controller rolled its
+    // own state. All that is left is to say which happened.
+    if (failure case final AppException problem) {
+      AppToast.failure(problem.displayMessage ?? problem.message);
+      return;
+    }
+    AppToast.success('${meal.name} is back on the menu.');
   }
 }
 

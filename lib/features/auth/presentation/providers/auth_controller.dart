@@ -139,7 +139,8 @@ class AuthController extends _$AuthController {
       // Says what to do rather than what went wrong, because at this point the
       // app genuinely does not know which it was — the backend refused and the
       // reason is in `detail`, which only a verbose build shows.
-      message: 'We could not create that account. Check the address, or sign '
+      message:
+          'We could not create that account. Check the address, or sign '
           'in if you already have one.',
       detail: mapped.detail,
       code: mapped.code,

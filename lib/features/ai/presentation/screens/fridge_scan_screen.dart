@@ -11,6 +11,7 @@ import 'package:whats_cooking/core/utils/app_haptics.dart';
 import 'package:whats_cooking/core/utils/logger.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_button.dart';
 import 'package:whats_cooking/core/widgets/dashboard/dashboard.dart';
+import 'package:whats_cooking/core/widgets/feedback/app_toast.dart';
 import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
 import 'package:whats_cooking/features/ai/presentation/providers/fridge_scan_controller.dart';
 
@@ -116,9 +117,7 @@ class _FridgeScanScreenState extends ConsumerState<FridgeScanScreen> {
                   AppButton.secondary(
                     label: 'Take another',
                     isFullWidth: true,
-                    onPressed: isBusy
-                        ? null
-                        : () => _pick(ImageSource.camera),
+                    onPressed: isBusy ? null : () => _pick(ImageSource.camera),
                   ),
                 ],
               ],
@@ -193,11 +192,7 @@ class _FridgeScanScreenState extends ConsumerState<FridgeScanScreen> {
         data: <String, Object?>{'reason': error.runtimeType.toString()},
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not open the camera. Check its permission.'),
-          ),
-        );
+        AppToast.failure('Could not open the camera. Check its permission.');
       }
     } finally {
       if (mounted) {
@@ -216,23 +211,19 @@ class _FridgeScanScreenState extends ConsumerState<FridgeScanScreen> {
     }
 
     AppHaptics.decided();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        // The count, and the shortfall when there was one. "Six of eight" is the
-        // honest sentence, and it is better than a success message that quietly
-        // dropped two.
-        content: Text(
-          switch (result) {
-            (added: 0, failure: _) => 'Nothing was added.',
-            (added: final int n, failure: null) =>
-              n == 1 ? '1 thing is in your kitchen' : '$n things are in your '
+    // The count, and the shortfall when there was one. "Six of eight" is the
+    // honest sentence, and it is better than a success message that quietly
+    // dropped two — and the tone follows the count rather than the failure, so a
+    // partial still reads as things having arrived.
+    AppToast.show(switch (result) {
+      (added: 0, failure: _) => 'Nothing was added.',
+      (added: final int n, failure: null) =>
+        n == 1
+            ? '1 thing is in your kitchen'
+            : '$n things are in your '
                   'kitchen',
-            (added: final int n, failure: _) =>
-              '$n added — the rest could not be',
-          },
-        ),
-      ),
-    );
+      (added: final int n, failure: _) => '$n added — the rest could not be',
+    }, tone: result.added == 0 ? ToastTone.failure : ToastTone.success);
 
     // Back to the pantry, which is where the result is. Staying on an empty scan
     // screen after adding eight things hides the thing that just happened.
@@ -417,7 +408,9 @@ class _CandidateRow extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: isKept ? colors.surfaceInverse : Colors.transparent,
                     border: Border.all(
-                      color: isKept ? colors.surfaceInverse : colors.outlineStrong,
+                      color: isKept
+                          ? colors.surfaceInverse
+                          : colors.outlineStrong,
                       width: _boxBorder,
                     ),
                     borderRadius: AppRadius.borderSm,

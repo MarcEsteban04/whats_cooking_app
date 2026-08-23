@@ -102,11 +102,7 @@ class _PickingCardState extends State<PickingCard>
 }
 
 class _Bar extends StatelessWidget {
-  const _Bar({
-    required this.pulse,
-    required this.isStill,
-    required this.width,
-  });
+  const _Bar({required this.pulse, required this.isStill, required this.width});
 
   final Animation<double> pulse;
   final bool isStill;

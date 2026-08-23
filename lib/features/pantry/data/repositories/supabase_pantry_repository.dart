@@ -174,7 +174,8 @@ class SupabasePantryRepository implements PantryRepository {
         return <PantryUse>[
           if (rows is List)
             for (final dynamic row in rows)
-              if (row is Map<String, dynamic> && row['pantry_item_id'] is String)
+              if (row is Map<String, dynamic> &&
+                  row['pantry_item_id'] is String)
                 PantryUse.fromRow(row),
         ];
       },
@@ -294,8 +295,10 @@ class SupabasePantryRepository implements PantryRepository {
   }
 
   /// Escapes the wildcards `ilike` would otherwise treat as syntax.
-  static String _escapeLike(String value) =>
-      value.replaceAll('\\', r'\\').replaceAll('%', r'\%').replaceAll('_', r'\_');
+  static String _escapeLike(String value) => value
+      .replaceAll('\\', r'\\')
+      .replaceAll('%', r'\%')
+      .replaceAll('_', r'\_');
 
   /// The join PostgREST nests under `ingredients`.
   static const String _columns =

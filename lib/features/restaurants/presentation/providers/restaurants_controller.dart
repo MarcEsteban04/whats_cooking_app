@@ -136,13 +136,12 @@ class RestaurantsController extends _$RestaurantsController {
   /// step here so a newly starred place moves to the top immediately rather than
   /// on the next refresh.
   static List<Restaurant> _sorted(List<Restaurant> items) {
-    return List<Restaurant>.of(items)
-      ..sort((Restaurant a, Restaurant b) {
-        if (a.isFavorite != b.isFavorite) {
-          return a.isFavorite ? -1 : 1;
-        }
-        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
-      });
+    return List<Restaurant>.of(items)..sort((Restaurant a, Restaurant b) {
+      if (a.isFavorite != b.isFavorite) {
+        return a.isFavorite ? -1 : 1;
+      }
+      return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    });
   }
 }
 

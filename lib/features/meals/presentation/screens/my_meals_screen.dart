@@ -9,6 +9,7 @@ import 'package:whats_cooking/core/theme/theme.dart';
 import 'package:whats_cooking/core/utils/formatters.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_icon_button.dart';
 import 'package:whats_cooking/core/widgets/dashboard/dashboard.dart';
+import 'package:whats_cooking/core/widgets/feedback/app_toast.dart';
 import 'package:whats_cooking/core/widgets/feedback/empty_state.dart';
 import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
 import 'package:whats_cooking/core/widgets/overlays/confirmation_dialog.dart';
@@ -175,7 +176,8 @@ class _MyMealsScreenState extends ConsumerState<MyMealsScreen> {
       title: count == 1 ? 'Delete this meal?' : 'Delete $count meals?',
       // Says what survives, because it is the question somebody actually has.
       // Deleting a recipe does not unpick the nights it was eaten.
-      body: 'The recipe goes. Nights you have already eaten it stay in your '
+      body:
+          'The recipe goes. Nights you have already eaten it stay in your '
           'history.',
       confirmLabel: 'Delete',
       cancelLabel: 'Keep them',
@@ -215,19 +217,13 @@ class _MyMealsScreenState extends ConsumerState<MyMealsScreen> {
       _isDeleting = false;
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          switch ((gone, failure)) {
-            (0, final AppException e) => e.displayMessage ?? e.message,
-            (0, _) => 'Nothing was deleted.',
-            (1, null) => 'The meal is gone.',
-            (final int n, null) => '$n meals are gone.',
-            (final int n, _) => '$n deleted — the rest could not be.',
-          },
-        ),
-      ),
-    );
+    AppToast.show(switch ((gone, failure)) {
+      (0, final AppException e) => e.displayMessage ?? e.message,
+      (0, _) => 'Nothing was deleted.',
+      (1, null) => 'The meal is gone.',
+      (final int n, null) => '$n meals are gone.',
+      (final int n, _) => '$n deleted — the rest could not be.',
+    }, tone: gone > 0 ? ToastTone.success : ToastTone.failure);
   }
 }
 
@@ -275,9 +271,7 @@ class _TopBar extends StatelessWidget {
               // The count replaces the title while selecting, rather than
               // appearing beside it. Two headlines competing is how a selection
               // mode ends up looking like a different screen.
-              selectedCount == 0
-                  ? 'Your meals'
-                  : '$selectedCount selected',
+              selectedCount == 0 ? 'Your meals' : '$selectedCount selected',
               style: context.text.headlineMedium,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,

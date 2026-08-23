@@ -183,9 +183,7 @@ class MealQuery {
           : maxCostPerServing ?? this.maxCostPerServing,
       sort: sort ?? this.sort,
       excludedMealIds: excludedMealIds ?? this.excludedMealIds,
-      onlyMealIds: clearCookableOnly
-          ? null
-          : (onlyMealIds ?? this.onlyMealIds),
+      onlyMealIds: clearCookableOnly ? null : (onlyMealIds ?? this.onlyMealIds),
     );
   }
 

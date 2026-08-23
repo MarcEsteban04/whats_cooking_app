@@ -44,9 +44,7 @@ class SpendChart extends StatelessWidget {
       children: <Widget>[
         Row(
           children: <Widget>[
-            Expanded(
-              child: Text('Spend a head', style: context.text.overline),
-            ),
+            Expanded(child: Text('Spend a head', style: context.text.overline)),
             // The axis, as a sentence. A y-axis with four labelled gridlines on a
             // phone is four rows of six-point type nobody reads; the peak is the
             // only number needed to make the bars mean something.
@@ -62,7 +60,8 @@ class SpendChart extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: <Widget>[
-              for (final (int index, WeekSpend week) in weeks.indexed) ...<Widget>[
+              for (final (int index, WeekSpend week)
+                  in weeks.indexed) ...<Widget>[
                 if (index > 0) const SizedBox(width: _gap),
                 Expanded(
                   child: _Bar(
@@ -81,9 +80,7 @@ class SpendChart extends StatelessWidget {
           children: <Widget>[
             // Only the ends are labelled. Six week labels on a phone is a row of
             // abbreviations, and "six weeks ago" to "this week" is the whole axis.
-            Expanded(
-              child: Text('6 weeks ago', style: context.text.metadata),
-            ),
+            Expanded(child: Text('6 weeks ago', style: context.text.metadata)),
             Text('this week', style: context.text.metadata),
           ],
         ),
@@ -212,19 +209,20 @@ class CuisineMix extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    final List<(Cuisine, int)> ranked = <(Cuisine, int)>[
-      for (final MapEntry<Cuisine, int> entry in counts.entries)
-        (entry.key, entry.value),
-    ]..sort(((Cuisine, int) a, (Cuisine, int) b) {
-      final int byCount = b.$2.compareTo(a.$2);
-      // Ties broken by cuisine order rather than map order, so the rows do not
-      // reshuffle between two refreshes that changed nothing.
-      return byCount != 0 ? byCount : a.$1.index.compareTo(b.$1.index);
-    });
+    final List<(Cuisine, int)> ranked =
+        <(Cuisine, int)>[
+          for (final MapEntry<Cuisine, int> entry in counts.entries)
+            (entry.key, entry.value),
+        ]..sort(((Cuisine, int) a, (Cuisine, int) b) {
+          final int byCount = b.$2.compareTo(a.$2);
+          // Ties broken by cuisine order rather than map order, so the rows do not
+          // reshuffle between two refreshes that changed nothing.
+          return byCount != 0 ? byCount : a.$1.index.compareTo(b.$1.index);
+        });
 
     final List<(Cuisine, int)> top = ranked.take(_rows).toList();
-    final int remainder = total -
-        top.fold<int>(0, (int sum, (Cuisine, int) row) => sum + row.$2);
+    final int remainder =
+        total - top.fold<int>(0, (int sum, (Cuisine, int) row) => sum + row.$2);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -288,7 +286,9 @@ class _MixRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: AppSpacing.space3),
-          Expanded(child: MiniBarTrack(fraction: fraction, color: color)),
+          Expanded(
+            child: MiniBarTrack(fraction: fraction, color: color),
+          ),
           const SizedBox(width: AppSpacing.space3),
           SizedBox(
             width: _valueWidth,
@@ -313,11 +313,7 @@ class _MixRow extends StatelessWidget {
 /// Thicker than the dashboard's `MiniBar`, which sits under a figure as a hint.
 /// This one *is* the data, so it needs enough weight to be compared across rows.
 class MiniBarTrack extends StatelessWidget {
-  const MiniBarTrack({
-    required this.fraction,
-    required this.color,
-    super.key,
-  });
+  const MiniBarTrack({required this.fraction, required this.color, super.key});
 
   final double fraction;
   final Color color;

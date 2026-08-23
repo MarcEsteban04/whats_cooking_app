@@ -10,6 +10,7 @@ import 'package:whats_cooking/core/widgets/buttons/app_button.dart';
 import 'package:whats_cooking/core/widgets/buttons/circle_action.dart';
 import 'package:whats_cooking/core/widgets/dashboard/dashboard.dart';
 import 'package:whats_cooking/core/widgets/feedback/app_skeleton.dart';
+import 'package:whats_cooking/core/widgets/feedback/app_toast.dart';
 import 'package:whats_cooking/core/widgets/feedback/empty_state.dart';
 import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
 import 'package:whats_cooking/core/widgets/overlays/confirmation_dialog.dart';
@@ -78,8 +79,7 @@ class RestaurantLibraryView extends ConsumerStatefulWidget {
       _RestaurantLibraryViewState();
 }
 
-class _RestaurantLibraryViewState
-    extends ConsumerState<RestaurantLibraryView> {
+class _RestaurantLibraryViewState extends ConsumerState<RestaurantLibraryView> {
   /// Narrowed to one distance, or null for all of them.
   Proximity? _proximity;
 
@@ -101,9 +101,7 @@ class _RestaurantLibraryViewState
 
     return Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(
-          maxWidth: AppLayout.contentMaxWidth,
-        ),
+        constraints: const BoxConstraints(maxWidth: AppLayout.contentMaxWidth),
         child: RefreshIndicator(
           onRefresh: controller.refresh,
           child: ListView(
@@ -125,9 +123,8 @@ class _RestaurantLibraryViewState
                   AppCircleAction(
                     icon: AppIcons.add,
                     label: 'Add a place',
-                    onTap: () => context.pushNamed(
-                      AppRoute.restaurantCreate.routeName,
-                    ),
+                    onTap: () =>
+                        context.pushNamed(AppRoute.restaurantCreate.routeName),
                   ),
                 ],
               ),
@@ -136,32 +133,27 @@ class _RestaurantLibraryViewState
                 above,
               ],
               const SizedBox(height: AppSpacing.space5),
-                  switch (places) {
-                    AsyncError<List<Restaurant>>(:final Object error) =>
-                      ErrorState(
-                        kind: error is AppException
-                            ? error.errorStateKind
-                            : ErrorStateKind.unknown,
-                        body: error is AppException
-                            ? error.displayMessage
-                            : null,
-                        onRetry: controller.refresh,
-                      ),
-                    AsyncValue<List<Restaurant>>(
-                      :final List<Restaurant> value,
-                    ) =>
-                      value.isEmpty
-                          ? const _Empty()
-                          : _Loaded(
-                              all: value,
-                              visible: visible,
-                              proximity: _proximity,
-                              onProximity: (Proximity picked) => setState(
-                                () => _proximity = _proximity == picked
-                                    ? null
-                                    : picked,
-                              ),
-                            ),
+              switch (places) {
+                AsyncError<List<Restaurant>>(:final Object error) => ErrorState(
+                  kind: error is AppException
+                      ? error.errorStateKind
+                      : ErrorStateKind.unknown,
+                  body: error is AppException ? error.displayMessage : null,
+                  onRetry: controller.refresh,
+                ),
+                AsyncValue<List<Restaurant>>(:final List<Restaurant> value) =>
+                  value.isEmpty
+                      ? const _Empty()
+                      : _Loaded(
+                          all: value,
+                          visible: visible,
+                          proximity: _proximity,
+                          onProximity: (Proximity picked) => setState(
+                            () => _proximity = _proximity == picked
+                                ? null
+                                : picked,
+                          ),
+                        ),
                 _ => const _Loading(),
               },
             ],
@@ -212,9 +204,7 @@ class _Loaded extends StatelessWidget {
     final List<double> costs = <double>[
       for (final Restaurant place in all) place.costPerHead,
     ]..sort();
-    final double median = costs.isEmpty
-        ? 0
-        : costs[costs.length ~/ 2];
+    final double median = costs.isEmpty ? 0 : costs[costs.length ~/ 2];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -288,9 +278,8 @@ class _Loaded extends StatelessWidget {
                   DashboardAction(
                     label: 'Add',
                     icon: AppIcons.add,
-                    onTap: () => context.pushNamed(
-                      AppRoute.restaurantCreate.routeName,
-                    ),
+                    onTap: () =>
+                        context.pushNamed(AppRoute.restaurantCreate.routeName),
                   ),
                   // Where we have been (Sprint 55). Three tiles rather than two,
                   // and this is the one that was missing: the app has recorded
@@ -300,9 +289,8 @@ class _Loaded extends StatelessWidget {
                   DashboardAction(
                     label: 'Been to',
                     icon: AppIcons.plannerActive,
-                    onTap: () => context.pushNamed(
-                      AppRoute.restaurantHistory.routeName,
-                    ),
+                    onTap: () =>
+                        context.pushNamed(AppRoute.restaurantHistory.routeName),
                   ),
                   DashboardAction(
                     label: 'Cook instead',
@@ -342,14 +330,11 @@ class _Loaded extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                for (final (int index, Restaurant place) in visible.indexed)
-                  ...<Widget>[
-                    if (index > 0) const DashboardRule(),
-                    _RestaurantRow(
-                      place: place,
-                      key: ValueKey<String>(place.id),
-                    ),
-                  ],
+                for (final (int index, Restaurant place)
+                    in visible.indexed) ...<Widget>[
+                  if (index > 0) const DashboardRule(),
+                  _RestaurantRow(place: place, key: ValueKey<String>(place.id)),
+                ],
               ],
             ),
           ),
@@ -430,7 +415,9 @@ class _RestaurantRow extends ConsumerWidget {
               child: Padding(
                 padding: const EdgeInsets.all(AppSpacing.space2),
                 child: Icon(
-                  place.isFavorite ? Icons.star_rounded : Icons.star_outline_rounded,
+                  place.isFavorite
+                      ? Icons.star_rounded
+                      : Icons.star_outline_rounded,
                   size: AppIconSize.sm,
                   color: place.isFavorite
                       ? colors.primary
@@ -470,15 +457,11 @@ class _RestaurantRow extends ConsumerWidget {
     if (!context.mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          failure == null
-              ? '${place.name} is off the list.'
-              : failure.displayMessage ?? failure.message,
-        ),
-      ),
-    );
+    if (failure case final AppException problem) {
+      AppToast.failure(problem.displayMessage ?? problem.message);
+      return;
+    }
+    AppToast.success('${place.name} is off the list.');
   }
 }
 
@@ -495,7 +478,8 @@ class _Empty extends StatelessWidget {
         title: 'No places yet',
         // Says what the list is for, because a restaurant list with no discovery
         // layer is not obviously worth typing into until you know it gets spun.
-        body: 'Add the places you actually go. On the nights nobody is cooking, '
+        body:
+            'Add the places you actually go. On the nights nobody is cooking, '
             'the app can pick one.',
         actionLabel: 'Add a place',
         onAction: () => context.pushNamed(AppRoute.restaurantCreate.routeName),
@@ -567,7 +551,11 @@ class _PickOneLocked extends StatelessWidget {
           padding: const EdgeInsets.all(AppSpacing.space4),
           child: Row(
             children: <Widget>[
-              Icon(AppIcons.spin, size: AppIconSize.sm, color: colors.textTertiary),
+              Icon(
+                AppIcons.spin,
+                size: AppIconSize.sm,
+                color: colors.textTertiary,
+              ),
               const SizedBox(width: AppSpacing.space3),
               Expanded(
                 child: Column(

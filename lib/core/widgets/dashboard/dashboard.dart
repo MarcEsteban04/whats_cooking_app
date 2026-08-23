@@ -384,9 +384,8 @@ class AppSegmentedControl<T> extends StatelessWidget {
                 ? 0
                 : constraints.maxWidth / options.length;
 
-            final double needed = MediaQuery.textScalerOf(
-              context,
-            ).scale(_minSegmentWidth);
+            final double needed = MediaQuery.textScalerOf(context)
+                .scale(_minSegmentWidth);
 
             if (share >= needed) {
               return Row(

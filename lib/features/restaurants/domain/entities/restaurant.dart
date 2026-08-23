@@ -73,16 +73,16 @@ class Restaurant {
       name: row['name'] as String? ?? '',
       // Unrecognised cuisines fall back rather than throwing: one retired from
       // the app should not make the screen unopenable for whoever picked it.
-      cuisine: Cuisine.fromValue(row['cuisine'] as String? ?? '') ??
-          Cuisine.other,
+      cuisine:
+          Cuisine.fromValue(row['cuisine'] as String? ?? '') ?? Cuisine.other,
       costPerHead: (row['cost_per_head'] as num?)?.toDouble() ?? 0,
       proximity: Proximity.fromValue(row['proximity'] as String?),
       delivers: row['delivers'] as bool? ?? false,
       notes: row['notes'] as String?,
       goToOrder: row['go_to_order'] as String?,
       tags: <String>[
-        for (final Object? tag in (row['tags'] as List<Object?>?) ??
-            const <Object?>[])
+        for (final Object? tag
+            in (row['tags'] as List<Object?>?) ?? const <Object?>[])
           if (tag is String) tag,
       ],
       isFavorite: row['is_favorite'] as bool? ?? false,

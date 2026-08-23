@@ -113,8 +113,7 @@ class FridgeScanController extends _$FridgeScanController {
   /// Keeps or drops one.
   void toggle(int index) => _replace(
     index,
-    (ScanCandidate candidate) =>
-        candidate.copyWith(isKept: !candidate.isKept),
+    (ScanCandidate candidate) => candidate.copyWith(isKept: !candidate.isKept),
   );
 
   /// Corrects a name.
@@ -122,8 +121,10 @@ class FridgeScanController extends _$FridgeScanController {
   /// The correction is what makes this feature safe to use at all — "kangkong"
   /// read as "spinach" is the common case, not the rare one, and it is a fix
   /// somebody makes in two seconds if the field lets them.
-  void rename(int index, String name) =>
-      _replace(index, (ScanCandidate candidate) => candidate.copyWith(name: name));
+  void rename(int index, String name) => _replace(
+    index,
+    (ScanCandidate candidate) => candidate.copyWith(name: name),
+  );
 
   /// Writes the kept items to the kitchen.
   ///

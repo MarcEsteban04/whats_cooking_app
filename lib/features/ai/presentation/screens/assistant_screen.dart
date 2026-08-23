@@ -120,7 +120,9 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
                                   // theirs rather than inventing a second wording.
                                   message: e.displayMessage ?? e.message,
                                   onRetry: ref
-                                      .read(assistantControllerProvider.notifier)
+                                      .read(
+                                        assistantControllerProvider.notifier,
+                                      )
                                       .retry,
                                 ),
                               ),

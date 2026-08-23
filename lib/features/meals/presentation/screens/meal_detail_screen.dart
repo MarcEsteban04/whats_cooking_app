@@ -12,6 +12,7 @@ import 'package:whats_cooking/core/widgets/buttons/app_icon_button.dart';
 import 'package:whats_cooking/core/widgets/cards/meal_card.dart';
 import 'package:whats_cooking/core/widgets/dashboard/dashboard.dart';
 import 'package:whats_cooking/core/widgets/feedback/app_skeleton.dart';
+import 'package:whats_cooking/core/widgets/feedback/app_toast.dart';
 import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
 import 'package:whats_cooking/core/widgets/overlays/confirmation_dialog.dart';
 import 'package:whats_cooking/features/auth/presentation/providers/current_user_provider.dart';
@@ -198,9 +199,7 @@ class _TopBar extends ConsumerWidget {
     if (failure == null || !context.mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(failure.displayMessage ?? failure.message)),
-    );
+    AppToast.failure(failure.displayMessage ?? failure.message);
   }
 }
 
@@ -268,15 +267,11 @@ class _HideButton extends ConsumerWidget {
     }
 
     if (failure != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(failure.displayMessage ?? failure.message)),
-      );
+      AppToast.failure(failure.displayMessage ?? failure.message);
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("${meal.name} won't be suggested again.")),
-    );
+    AppToast.success("${meal.name} won't be suggested again.");
 
     // Back to wherever this was opened from, which is where the change is
     // visible: the meal is gone from the list behind it. Staying on the detail
@@ -294,15 +289,11 @@ class _HideButton extends ConsumerWidget {
     if (!context.mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          failure == null
-              ? '${meal.name} is back on the menu.'
-              : failure.displayMessage ?? failure.message,
-        ),
-      ),
-    );
+    if (failure case final AppException problem) {
+      AppToast.failure(problem.displayMessage ?? problem.message);
+      return;
+    }
+    AppToast.success('${meal.name} is back on the menu.');
   }
 }
 
@@ -443,16 +434,13 @@ class _OwnerActions extends ConsumerWidget {
       if (context.canPop()) {
         context.pop();
       }
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('${meal.name} is deleted')));
+      AppToast.success('${meal.name} is deleted');
     } on Object catch (error, stackTrace) {
       if (!context.mounted) {
         return;
       }
       final AppException failure = ErrorMapper.map(error, stackTrace);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(failure.displayMessage ?? failure.message)),
-      );
+      AppToast.failure(failure.displayMessage ?? failure.message);
     }
   }
 }

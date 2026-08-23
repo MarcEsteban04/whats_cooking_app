@@ -124,10 +124,12 @@ class _RecipeGeneratorScreenState extends ConsumerState<RecipeGeneratorScreen> {
                       ? null
                       : () {
                           AppHaptics.spinBegun();
-                          ref.read(recipeGeneratorProvider.notifier).write(
-                            ingredients: picked.toList(),
-                            note: _note.text,
-                          );
+                          ref
+                              .read(recipeGeneratorProvider.notifier)
+                              .write(
+                                ingredients: picked.toList(),
+                                note: _note.text,
+                              );
                         },
                 ),
 

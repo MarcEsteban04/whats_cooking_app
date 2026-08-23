@@ -42,9 +42,7 @@ class PantryItem {
       id: row['id'] as String,
       ingredientId: row['ingredient_id'] as String,
       name: ingredient['name'] as String? ?? '',
-      category: IngredientCategory.fromValue(
-        ingredient['category'] as String?,
-      ),
+      category: IngredientCategory.fromValue(ingredient['category'] as String?),
       quantity: (row['quantity'] as num?)?.toDouble(),
       unit: row['unit'] as String? ?? '',
       // `date`, not `timestamptz`. Parsed leniently: an unparseable value is
@@ -149,8 +147,7 @@ class PantryItem {
       ExpiryStatus.none || ExpiryStatus.fine => null,
       ExpiryStatus.gone => days == -1 ? 'Went off yesterday' : 'Past its date',
       ExpiryStatus.today => 'Use today',
-      ExpiryStatus.soon =>
-        days == 1 ? 'Use tomorrow' : 'Use within $days days',
+      ExpiryStatus.soon => days == 1 ? 'Use tomorrow' : 'Use within $days days',
     };
   }
 

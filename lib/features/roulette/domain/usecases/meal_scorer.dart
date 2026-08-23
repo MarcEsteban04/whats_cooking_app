@@ -560,10 +560,7 @@ abstract final class MealScorer {
       // or my household's", so anything not public is ours by construction.
       if (!meal.isPublic) {
         reasons.add(
-          ScoreReason(
-            label: 'One of yours',
-            points: weights.ourOwnMeal,
-          ),
+          ScoreReason(label: 'One of yours', points: weights.ourOwnMeal),
         );
       }
 
@@ -610,7 +607,10 @@ abstract final class MealScorer {
             (meal.calories ?? 0) > 0) {
           final double perHead = meal.calories! / max(1, meal.servings);
           final double lightness =
-              ((_calorieMidpoint - perHead) / _calorieMidpoint).clamp(-1.0, 1.0);
+              ((_calorieMidpoint - perHead) / _calorieMidpoint).clamp(
+                -1.0,
+                1.0,
+              );
           final double direction = mood.calories == CaloriePreference.fewer
               ? lightness
               : -lightness;
@@ -633,12 +633,16 @@ abstract final class MealScorer {
         // necessarily set a budget for the existing one to measure against.
         if (mood.favoursLowCost) {
           final double thrift =
-              ((_cheapPerHead - meal.costPerServing) / _cheapPerHead)
-                  .clamp(-1.0, 1.0);
+              ((_cheapPerHead - meal.costPerServing) / _cheapPerHead).clamp(
+                -1.0,
+                1.0,
+              );
           if (thrift.abs() > 0.15) {
             reasons.add(
               ScoreReason(
-                label: thrift > 0 ? 'Barely costs anything' : 'On the dear side',
+                label: thrift > 0
+                    ? 'Barely costs anything'
+                    : 'On the dear side',
                 points: weights.moodMatch / 3 * thrift,
               ),
             );

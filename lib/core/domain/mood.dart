@@ -63,11 +63,7 @@ enum Mood {
 
   /// Heat. The one mood with a single tag behind it, and no contradiction worth
   /// naming — a dish is spicy or it is not, and nothing is *anti*-spicy.
-  spicy(
-    label: 'Spicy',
-    favours: <String>{'spicy'},
-    discourages: <String>{},
-  ),
+  spicy(label: 'Spicy', favours: <String>{'spicy'}, discourages: <String>{}),
 
   /// The honest version of a bad idea, which is a thing an app should be able to
   /// help with rather than quietly disapprove of.

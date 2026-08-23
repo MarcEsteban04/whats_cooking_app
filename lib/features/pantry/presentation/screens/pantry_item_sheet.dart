@@ -88,9 +88,7 @@ class _PantryItemSheetState extends ConsumerState<PantryItemSheet> {
     // item does not fire a query for a name that has not changed.
     final AsyncValue<List<IngredientSuggestion>> suggestions =
         _isEditing && _term.isEmpty
-        ? const AsyncData<List<IngredientSuggestion>>(
-            <IngredientSuggestion>[],
-          )
+        ? const AsyncData<List<IngredientSuggestion>>(<IngredientSuggestion>[])
         : ref.watch(ingredientSuggestionsProvider(_term));
 
     // **Scrollable, and it has to be.** The sheet's height is capped by its
@@ -108,8 +106,7 @@ class _PantryItemSheetState extends ConsumerState<PantryItemSheet> {
         top: AppSpacing.space5,
         // Clears the keyboard. Without this the unit field sits behind it on a
         // short screen, which is the field somebody is most likely to be in.
-        bottom:
-            AppSpacing.space5 + MediaQuery.viewInsetsOf(context).bottom,
+        bottom: AppSpacing.space5 + MediaQuery.viewInsetsOf(context).bottom,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -304,8 +301,7 @@ class _PantryItemSheetState extends ConsumerState<PantryItemSheet> {
     // by name and carries the amount over, so if it fails nothing has been lost
     // and the original row is still there.
     final bool isRename =
-        existing != null &&
-        name.toLowerCase() != existing.name.toLowerCase();
+        existing != null && name.toLowerCase() != existing.name.toLowerCase();
 
     final AppException? failure = switch ((existing, isRename)) {
       (final PantryItem row, true) => await controller.rename(

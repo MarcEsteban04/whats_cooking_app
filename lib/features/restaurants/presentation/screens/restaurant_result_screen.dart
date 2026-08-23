@@ -9,6 +9,7 @@ import 'package:whats_cooking/core/utils/app_haptics.dart';
 import 'package:whats_cooking/core/utils/formatters.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_button.dart';
 import 'package:whats_cooking/core/widgets/chips/metadata_pill.dart';
+import 'package:whats_cooking/core/widgets/feedback/app_toast.dart';
 import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
 import 'package:whats_cooking/features/restaurants/domain/entities/restaurant.dart';
 import 'package:whats_cooking/features/restaurants/presentation/providers/restaurant_spin_controller.dart';
@@ -24,7 +25,11 @@ import 'package:whats_cooking/features/restaurants/presentation/providers/restau
 /// we get there is the field no API returns, and it is the difference between "we
 /// are going to Ramen Nagi" and knowing what to say when you sit down.
 class RestaurantResultScreen extends ConsumerWidget {
-  const RestaurantResultScreen({required this.restaurantId, this.pick, super.key});
+  const RestaurantResultScreen({
+    required this.restaurantId,
+    this.pick,
+    super.key,
+  });
 
   final String restaurantId;
 
@@ -54,9 +59,8 @@ class RestaurantResultScreen extends ConsumerWidget {
                   ? ErrorState(
                       kind: ErrorStateKind.notFound,
                       body: 'That place is no longer on your list.',
-                      onRetry: () => context.goNamed(
-                        AppRoute.restaurants.routeName,
-                      ),
+                      onRetry: () =>
+                          context.goNamed(AppRoute.restaurants.routeName),
                     )
                   : _Result(place: place),
             ),
@@ -84,7 +88,10 @@ class _ResultState extends ConsumerState<_Result> {
   /// spin cannot put last spin's reason under this spin's place.
   String? get _reason {
     if (ref.watch(restaurantSpinControllerProvider)
-        case RestaurantSpinSettled(:final Restaurant place, :final String? reason)
+        case RestaurantSpinSettled(
+          :final Restaurant place,
+          :final String? reason,
+        )
         when place.id == widget.place.id) {
       return reason;
     }
@@ -242,9 +249,7 @@ class _ResultState extends ConsumerState<_Result> {
             onPressed: _isSaving
                 ? null
                 : () {
-                    ref
-                        .read(restaurantSpinControllerProvider.notifier)
-                        .reset();
+                    ref.read(restaurantSpinControllerProvider.notifier).reset();
                     context.goNamed(AppRoute.home.routeName);
                   },
           ),
@@ -282,9 +287,7 @@ class _ResultState extends ConsumerState<_Result> {
     }
 
     AppHaptics.decided();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${widget.place.name} it is.')),
-    );
+    AppToast.success('${widget.place.name} it is.');
     context.goNamed(AppRoute.home.routeName);
   }
 
@@ -292,9 +295,7 @@ class _ResultState extends ConsumerState<_Result> {
     // Recorded here rather than on the next spin, because leaving by "Not now" or
     // the back gesture is not a rejection — and counting it as one would make the
     // ratio the engine is judged on quietly wrong.
-    ref
-        .read(restaurantSpinControllerProvider.notifier)
-        .reject(widget.place);
+    ref.read(restaurantSpinControllerProvider.notifier).reject(widget.place);
     context.goNamed(AppRoute.restaurantSpin.routeName);
   }
 }

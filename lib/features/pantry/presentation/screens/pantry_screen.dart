@@ -12,9 +12,11 @@ import 'package:whats_cooking/core/utils/formatters.dart';
 import 'package:whats_cooking/core/widgets/buttons/circle_action.dart';
 import 'package:whats_cooking/core/widgets/dashboard/dashboard.dart';
 import 'package:whats_cooking/core/widgets/feedback/app_skeleton.dart';
+import 'package:whats_cooking/core/widgets/feedback/app_toast.dart';
 import 'package:whats_cooking/core/widgets/feedback/empty_state.dart';
 import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
 import 'package:whats_cooking/core/widgets/inputs/app_text_field.dart';
+import 'package:whats_cooking/core/widgets/overlays/confirmation_dialog.dart';
 import 'package:whats_cooking/core/widgets/press_feedback.dart';
 import 'package:whats_cooking/core/widgets/swipe_action.dart';
 import 'package:whats_cooking/features/pantry/domain/entities/pantry_item.dart';
@@ -187,9 +189,7 @@ class _PantryScreenState extends ConsumerState<PantryScreen> {
                           _ => const _Loading(),
                         },
 
-                        const SizedBox(
-                          height: AppLayout.scrollBottomPadding,
-                        ),
+                        const SizedBox(height: AppLayout.scrollBottomPadding),
                       ],
                     ),
                   ),
@@ -447,17 +447,17 @@ class _Loaded extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: <Widget>[
-                    for (final (int index, PantryItem item) in rows.indexed)
-                      ...<Widget>[
-                        // A hairline between rows, not a box around each. Inside
-                        // one card the reference divides with a single pixel.
-                        if (index > 0) const DashboardRule(),
-                        _PantryRow(
-                          item: item,
-                          now: now,
-                          key: ValueKey<String>(item.id),
-                        ),
-                      ],
+                    for (final (int index, PantryItem item)
+                        in rows.indexed) ...<Widget>[
+                      // A hairline between rows, not a box around each. Inside
+                      // one card the reference divides with a single pixel.
+                      if (index > 0) const DashboardRule(),
+                      _PantryRow(
+                        item: item,
+                        now: now,
+                        key: ValueKey<String>(item.id),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -666,7 +666,25 @@ class _PantryRow extends ConsumerWidget {
           );
           return false;
         }
-        return true;
+
+        // **It asks now** (Sprint 57), and the shelf has more to lose than the
+        // shopping list does. A pantry row carries an amount and often a date
+        // somebody typed in, and it is what the roulette's "cook what we have"
+        // filter reads — so a row deleted by a stray thumb quietly narrows what
+        // the app will offer for dinner, which is the last place a mistake shows
+        // up as itself.
+        return ConfirmationDialog.show(
+          context,
+          title:
+              'Take ${AppFormat.sentenceCase(item.name)} out of the kitchen?',
+          body:
+              'The app will stop counting it when it works out what you can '
+              'cook.',
+          confirmLabel: 'Take it out',
+          cancelLabel: 'Keep it',
+          icon: AppIcons.delete,
+          isDestructive: true,
+        );
       },
       onDismissed: (_) async {
         final AppException? failure = await ref
@@ -679,14 +697,12 @@ class _PantryRow extends ConsumerWidget {
 
         // The row has already gone or already come back — the controller rolled
         // its own state. All that is left is to say which happened.
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              failure == null
-                  ? '${AppFormat.sentenceCase(item.name)} is out of the kitchen.'
-                  : failure.displayMessage ?? failure.message,
-            ),
-          ),
+        if (failure case final AppException problem) {
+          AppToast.failure(problem.displayMessage ?? problem.message);
+          return;
+        }
+        AppToast.success(
+          '${AppFormat.sentenceCase(item.name)} is out of the kitchen.',
         );
       },
       child: PressFeedback(

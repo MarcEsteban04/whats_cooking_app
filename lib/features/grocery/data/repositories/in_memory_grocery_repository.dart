@@ -84,7 +84,10 @@ class InMemoryGroceryRepository implements GroceryRepository {
     String id, {
     required bool isCompleted,
   }) async {
-    return _mutate(id, (GroceryItem item) => item.copyWith(isCompleted: isCompleted));
+    return _mutate(
+      id,
+      (GroceryItem item) => item.copyWith(isCompleted: isCompleted),
+    );
   }
 
   @override

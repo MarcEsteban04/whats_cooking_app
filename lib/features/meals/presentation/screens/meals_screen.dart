@@ -13,6 +13,7 @@ import 'package:whats_cooking/core/widgets/buttons/app_icon_button.dart';
 import 'package:whats_cooking/core/widgets/chips/app_filter_chip.dart';
 import 'package:whats_cooking/core/widgets/dashboard/dashboard.dart';
 import 'package:whats_cooking/core/widgets/feedback/app_skeleton.dart';
+import 'package:whats_cooking/core/widgets/feedback/app_toast.dart';
 import 'package:whats_cooking/core/widgets/feedback/empty_state.dart';
 import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
 import 'package:whats_cooking/core/widgets/inputs/app_select.dart';
@@ -114,52 +115,46 @@ class _MealsScreenState extends ConsumerState<MealsScreen> {
 
   /// The header controls when nothing is selected.
   List<Widget> _browseActions(MealsController controller) => <Widget>[
-          _CircleAction(
-            icon: _isSearching
-                ? AppIcons.clear
-                : AppIcons.search,
-            label: _isSearching
-                ? 'Close search'
-                : 'Search meals',
-            onPressed: () {
-              setState(() => _isSearching = !_isSearching);
-              if (!_isSearching) {
-                controller.search('');
-              }
-            },
-          ),
-          // The one exception to "everything else lives in the
-          // panel's action row": the assistant.
-          //
-          // It belongs here because this is the screen where
-          // somebody runs out of ideas — scrolling a catalogue
-          // and not finding it is exactly when asking in words
-          // beats another filter. And it gives Ask a second way
-          // in: Home is the only other one, which for a feature
-          // this new is one route too few.
-          _CircleAction(
-            icon: AppIcons.assistant,
-            label: 'Ask about dinner',
-            onPressed: () => context.pushNamed(
-              AppRoute.assistant.routeName,
-            ),
-          ),
-          // **Two circles, not three.** Sprint 48 put an
-          // "Invent a meal" circle here on the argument that
-          // the row had room. It did not: the logo, three
-          // 40-pixel circles and their gaps leave about 124dp
-          // for the title and the context line on a normal
-          // phone, and "the catalogue and yours" needs more —
-          // so the subtitle ran under the buttons. Fixing the
-          // constraint in `DashboardHeader` stops the overlap
-          // and turns it into a truncation, which is correct
-          // and still not worth reading.
-          //
-          // Inventing a meal keeps its labelled tile on the
-          // Kitchen action row, which was always the stronger
-          // entry point anyway — "what do I do with these three
-          // things" is a question you ask in front of the three
-          // things.
+    _CircleAction(
+      icon: _isSearching ? AppIcons.clear : AppIcons.search,
+      label: _isSearching ? 'Close search' : 'Search meals',
+      onPressed: () {
+        setState(() => _isSearching = !_isSearching);
+        if (!_isSearching) {
+          controller.search('');
+        }
+      },
+    ),
+    // The one exception to "everything else lives in the
+    // panel's action row": the assistant.
+    //
+    // It belongs here because this is the screen where
+    // somebody runs out of ideas — scrolling a catalogue
+    // and not finding it is exactly when asking in words
+    // beats another filter. And it gives Ask a second way
+    // in: Home is the only other one, which for a feature
+    // this new is one route too few.
+    _CircleAction(
+      icon: AppIcons.assistant,
+      label: 'Ask about dinner',
+      onPressed: () => context.pushNamed(AppRoute.assistant.routeName),
+    ),
+    // **Two circles, not three.** Sprint 48 put an
+    // "Invent a meal" circle here on the argument that
+    // the row had room. It did not: the logo, three
+    // 40-pixel circles and their gaps leave about 124dp
+    // for the title and the context line on a normal
+    // phone, and "the catalogue and yours" needs more —
+    // so the subtitle ran under the buttons. Fixing the
+    // constraint in `DashboardHeader` stops the overlap
+    // and turns it into a truncation, which is correct
+    // and still not worth reading.
+    //
+    // Inventing a meal keeps its labelled tile on the
+    // Kitchen action row, which was always the stronger
+    // entry point anyway — "what do I do with these three
+    // things" is a question you ask in front of the three
+    // things.
   ];
 
   /// The header controls while selecting.
@@ -246,7 +241,8 @@ class _MealsScreenState extends ConsumerState<MealsScreen> {
     final bool confirmed = await ConfirmationDialog.show(
       context,
       title: count == 1 ? 'Delete this meal?' : 'Delete $count meals?',
-      body: 'The recipe goes. Anything you have already eaten stays in your '
+      body:
+          'The recipe goes. Anything you have already eaten stays in your '
           'history — and those meals cannot be deleted at all.',
       confirmLabel: 'Delete',
       cancelLabel: 'Keep them',
@@ -291,24 +287,24 @@ class _MealsScreenState extends ConsumerState<MealsScreen> {
       _isDeleting = false;
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          switch ((gone, eaten, failure)) {
-            (0, 0, final AppException e) => e.displayMessage ?? e.message,
-            (0, final int n, _) when n > 0 =>
-              n == 1
-                  ? 'You have eaten that one, so it stays.'
-                  : 'You have eaten those $n, so they stay.',
-            (0, _, _) => 'Nothing was deleted.',
-            (final int n, 0, null) =>
-              n == 1 ? 'The meal is gone.' : '$n meals are gone.',
-            (final int n, final int kept, _) when kept > 0 =>
-              '$n gone — $kept you have eaten stay.',
-            (final int n, _, _) => '$n gone — the rest could not be.',
-          },
-        ),
-      ),
+    AppToast.show(
+      switch ((gone, eaten, failure)) {
+        (0, 0, final AppException e) => e.displayMessage ?? e.message,
+        (0, final int n, _) when n > 0 =>
+          n == 1
+              ? 'You have eaten that one, so it stays.'
+              : 'You have eaten those $n, so they stay.',
+        (0, _, _) => 'Nothing was deleted.',
+        (final int n, 0, null) =>
+          n == 1 ? 'The meal is gone.' : '$n meals are gone.',
+        (final int n, final int kept, _) when kept > 0 =>
+          '$n gone — $kept you have eaten stay.',
+        (final int n, _, _) => '$n gone — the rest could not be.',
+      },
+      // Whether anything went, not whether everything did. "4 gone — 2 you have
+      // eaten stay" is four deletions and a rule being explained, which is a
+      // success with a footnote rather than a failure.
+      tone: gone > 0 ? ToastTone.success : ToastTone.failure,
     );
   }
 
@@ -320,8 +316,7 @@ class _MealsScreenState extends ConsumerState<MealsScreen> {
       for (final MealsLibrary option in MealsLibrary.values)
         (option, option.label),
     ],
-    onSelected: (MealsLibrary picked) =>
-        setState(() => _library = picked),
+    onSelected: (MealsLibrary picked) => setState(() => _library = picked),
   );
 
   final ScrollController _scroll = ScrollController();
@@ -791,8 +786,7 @@ class _SummaryPanel extends StatelessWidget {
                   value: '$mine',
                   fraction: share(mine),
                   color: colors.primary,
-                  onTap: () =>
-                      context.pushNamed(AppRoute.myMeals.routeName),
+                  onTap: () => context.pushNamed(AppRoute.myMeals.routeName),
                 ),
             ],
           ),
@@ -941,9 +935,7 @@ class _CookableToggle extends ConsumerWidget {
     return Align(
       alignment: Alignment.centerLeft,
       child: AppFilterChip(
-        label: query.isCookableOnly
-            ? 'Everything'
-            : 'Can cook now',
+        label: query.isCookableOnly ? 'Everything' : 'Can cook now',
         icon: AppIcons.pantry,
         count: query.isCookableOnly ? null : cookable.length,
         isSelected: query.isCookableOnly,
@@ -1020,7 +1012,6 @@ class _MealTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-
     return DashboardPanel(
       title: 'All meals',
       icon: AppIcons.meals,

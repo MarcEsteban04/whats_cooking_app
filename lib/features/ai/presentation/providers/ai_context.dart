@@ -166,8 +166,7 @@ Future<Map<String, Object?>> householdAiContext(Ref ref) async {
     if (observed case final HomeDashboard week) ...<String, Object?>{
       'recent_cuisines': _cuisineMix(week.cuisineMix),
       if (week.decisions > 0)
-        'this_week':
-            'cooked ${week.mealsCooked}, ate out ${week.nightsOut}',
+        'this_week': 'cooked ${week.mealsCooked}, ate out ${week.nightsOut}',
     },
 
     if (places.isNotEmpty)

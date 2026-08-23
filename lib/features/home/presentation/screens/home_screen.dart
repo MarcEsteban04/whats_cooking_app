@@ -299,7 +299,12 @@ class _GetStarted extends StatelessWidget {
     final AppColorScheme colors = context.colors;
     final List<({String label, String body, bool isDone, HomeSetupStep step})>
     steps = dashboard.setupSteps;
-    final int done = steps.where((({String label, String body, bool isDone, HomeSetupStep step}) s) => s.isDone).length;
+    final int done = steps
+        .where(
+          (({String label, String body, bool isDone, HomeSetupStep step}) s) =>
+              s.isDone,
+        )
+        .length;
 
     return DashboardPanel(
       child: Column(
@@ -318,9 +323,11 @@ class _GetStarted extends StatelessWidget {
             style: context.text.metadata,
           ),
           const SizedBox(height: AppSpacing.space5),
-          for (final (int index,
-                  ({String label, String body, bool isDone, HomeSetupStep step})
-                  step)
+          for (final (
+                int index,
+                ({String label, String body, bool isDone, HomeSetupStep step})
+                step,
+              )
               in steps.indexed) ...<Widget>[
             if (index > 0) const DashboardRule(),
             PressFeedback(
@@ -333,13 +340,9 @@ class _GetStarted extends StatelessWidget {
                 child: Row(
                   children: <Widget>[
                     Icon(
-                      step.isDone
-                          ? AppIcons.success
-                          : AppIcons.forward,
+                      step.isDone ? AppIcons.success : AppIcons.forward,
                       size: AppIconSize.sm,
-                      color: step.isDone
-                          ? colors.series2
-                          : colors.textTertiary,
+                      color: step.isDone ? colors.series2 : colors.textTertiary,
                     ),
                     const SizedBox(width: AppSpacing.space4),
                     Expanded(
@@ -684,4 +687,3 @@ class _Settled extends StatelessWidget {
 
   static const double _markSize = 16;
 }
-

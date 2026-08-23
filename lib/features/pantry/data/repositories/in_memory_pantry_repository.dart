@@ -60,9 +60,10 @@ class InMemoryPantryRepository implements PantryRepository {
     }
 
     final (String, IngredientCategory, String)? known = _vocabulary
-        .where((
-          (String, IngredientCategory, String) entry,
-        ) => entry.$1 == normalised)
+        .where(
+          ((String, IngredientCategory, String) entry) =>
+              entry.$1 == normalised,
+        )
         .firstOrNull;
 
     // Same uniqueness the real table enforces: adding chicken twice replaces the
@@ -100,7 +101,9 @@ class InMemoryPantryRepository implements PantryRepository {
   }) async {
     final int index = _items.indexWhere((PantryItem item) => item.id == id);
     if (index < 0) {
-      throw const NotFoundException(message: 'That is no longer in your pantry.');
+      throw const NotFoundException(
+        message: 'That is no longer in your pantry.',
+      );
     }
 
     final PantryItem updated = _items[index].copyWith(

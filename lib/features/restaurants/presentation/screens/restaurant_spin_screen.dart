@@ -160,7 +160,11 @@ class _RestaurantSpinScreenState extends ConsumerState<RestaurantSpinScreen>
     if (_isReelStopped || !_controller.isAnimating) {
       return;
     }
-    _controller.animateTo(1, duration: AppMotion.fast, curve: AppMotion.curveFast);
+    _controller.animateTo(
+      1,
+      duration: AppMotion.fast,
+      curve: AppMotion.curveFast,
+    );
   }
 
   void _scheduleReveal() {
@@ -185,8 +189,9 @@ class _RestaurantSpinScreenState extends ConsumerState<RestaurantSpinScreen>
     _graceTimer?.cancel();
     _graceTimer = null;
 
-    if (ref.read(restaurantSpinControllerProvider)
-        case RestaurantSpinSettled(:final Restaurant place)) {
+    if (ref.read(restaurantSpinControllerProvider) case RestaurantSpinSettled(
+      :final Restaurant place,
+    )) {
       _hasRevealed = true;
       AppHaptics.reveal();
       context.goNamed(
@@ -242,10 +247,7 @@ class _RestaurantSpinScreenState extends ConsumerState<RestaurantSpinScreen>
         // final answer, and rolled anyway once the timer is up.
         if (next case RestaurantSpinSettled(isAwaitingAssistant: true)) {
           _isAwaitingAssistant = true;
-          _graceTimer ??= Timer(
-            _assistantGrace,
-            () => _startReel(force: true),
-          );
+          _graceTimer ??= Timer(_assistantGrace, () => _startReel(force: true));
         } else {
           _isAwaitingAssistant = false;
           _graceTimer?.cancel();
@@ -431,9 +433,17 @@ class _NoMatch extends ConsumerWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        Text(_title, style: context.text.headlineMedium, textAlign: TextAlign.center),
+        Text(
+          _title,
+          style: context.text.headlineMedium,
+          textAlign: TextAlign.center,
+        ),
         const SizedBox(height: AppSpacing.space3),
-        Text(_body, style: context.text.bodyMedium, textAlign: TextAlign.center),
+        Text(
+          _body,
+          style: context.text.bodyMedium,
+          textAlign: TextAlign.center,
+        ),
         const SizedBox(height: AppSpacing.space6),
         ..._actions(context, ref),
       ],
@@ -495,9 +505,8 @@ class _NoMatch extends ConsumerWidget {
       else if (state.isSessionExhausted)
         AppButton.primary(
           label: 'Start again',
-          onPressed: () => ref
-              .read(restaurantSpinControllerProvider.notifier)
-              .startOver(),
+          onPressed: () =>
+              ref.read(restaurantSpinControllerProvider.notifier).startOver(),
         ),
 
       if (state.mostRelaxable != null) ...<Widget>[

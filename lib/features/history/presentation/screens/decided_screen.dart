@@ -26,11 +26,7 @@ import 'package:whats_cooking/features/meals/domain/entities/meal.dart';
 /// page of pale surfaces the loudest thing left to say is "black" — which is
 /// what §14's "celebratory confirmation" needs to be.
 class DecidedScreen extends ConsumerWidget {
-  const DecidedScreen({
-    required this.historyId,
-    this.addedToList,
-    super.key,
-  });
+  const DecidedScreen({required this.historyId, this.addedToList, super.key});
 
   final String historyId;
 

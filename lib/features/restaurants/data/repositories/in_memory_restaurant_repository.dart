@@ -68,10 +68,7 @@ class InMemoryRestaurantRepository implements RestaurantRepository {
   }
 
   @override
-  Future<Restaurant> setFavorite(
-    String id, {
-    required bool isFavorite,
-  }) async {
+  Future<Restaurant> setFavorite(String id, {required bool isFavorite}) async {
     final int index = _indexOf(id);
     return _restaurants[index] = _restaurants[index].copyWith(
       isFavorite: isFavorite,

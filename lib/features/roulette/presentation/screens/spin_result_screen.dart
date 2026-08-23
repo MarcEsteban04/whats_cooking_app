@@ -213,10 +213,14 @@ class _ResultState extends ConsumerState<_Result> {
       // because a decision that failed to save is not a decision and would
       // flatter the metric; before, because `accept()` resets the spin count the
       // event carries.
-      ref.read(analyticsProvider).mealAccepted(
-        mealId: widget.meal.id,
-        spinCount: ref.read(spinControllerProvider.notifier).spinsThisSession,
-      );
+      ref
+          .read(analyticsProvider)
+          .mealAccepted(
+            mealId: widget.meal.id,
+            spinCount: ref
+                .read(spinControllerProvider.notifier)
+                .spinsThisSession,
+          );
 
       // Whatever the kitchen is short of goes on the shopping list
       // (Sprint 43). **After the history write and not awaited before it**: the
@@ -266,12 +270,16 @@ class _ResultState extends ConsumerState<_Result> {
   /// engine is judged on quietly wrong. This button is the only place somebody
   /// says *no, another one*.
   void _rejectAndRespin() {
-    ref.read(analyticsProvider).record(
-      MealRejected(
-        mealId: widget.meal.id,
-        spinCount: ref.read(spinControllerProvider.notifier).spinsThisSession,
-      ),
-    );
+    ref
+        .read(analyticsProvider)
+        .record(
+          MealRejected(
+            mealId: widget.meal.id,
+            spinCount: ref
+                .read(spinControllerProvider.notifier)
+                .spinsThisSession,
+          ),
+        );
     context.goNamed(AppRoute.roulette.routeName);
   }
 
@@ -281,8 +289,9 @@ class _ResultState extends ConsumerState<_Result> {
   /// the match could not be computed. A result screen that reports on a fridge
   /// list nobody keeps is a result screen nagging about homework.
   String? get _kitchenLine {
-    final PantryMatch? match =
-        ref.watch(pantryMatchesProvider).value?[widget.meal.id];
+    final PantryMatch? match = ref
+        .watch(pantryMatchesProvider)
+        .value?[widget.meal.id];
 
     if (match == null || match.needed == 0) {
       return null;
@@ -606,37 +615,37 @@ class _PickStats extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          for (final (int index, (String, String) column) in _columns.indexed)
-            ...<Widget>[
-              if (index > 0)
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.space2,
-                  ),
-                  child: SizedBox(width: 1, child: ColoredBox(color: divider)),
+          for (final (int index, (String, String) column)
+              in _columns.indexed) ...<Widget>[
+            if (index > 0)
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.space2,
                 ),
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    Text(
-                      column.$1,
-                      style: context.text.overline.copyWith(color: label),
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: AppSpacing.space1),
-                    Text(
-                      column.$2,
-                      style: context.text.titleMedium.copyWith(color: figure),
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                    ),
-                  ],
-                ),
+                child: SizedBox(width: 1, child: ColoredBox(color: divider)),
               ),
-            ],
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Text(
+                    column.$1,
+                    style: context.text.overline.copyWith(color: label),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: AppSpacing.space1),
+                  Text(
+                    column.$2,
+                    style: context.text.titleMedium.copyWith(color: figure),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

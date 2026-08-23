@@ -12,6 +12,7 @@ import 'package:whats_cooking/core/utils/app_haptics.dart';
 import 'package:whats_cooking/core/utils/logger.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_button.dart';
 import 'package:whats_cooking/core/widgets/dashboard/dashboard.dart';
+import 'package:whats_cooking/core/widgets/feedback/app_toast.dart';
 import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
 import 'package:whats_cooking/features/grocery/presentation/providers/grocery_import_controller.dart';
 
@@ -104,7 +105,9 @@ class _GroceryImportScreenState extends ConsumerState<GroceryImportScreen> {
 
                 if (import.candidates.isEmpty)
                   AppButton.inverse(
-                    label: import.hasRead ? 'Try another file' : 'Choose a file',
+                    label: import.hasRead
+                        ? 'Try another file'
+                        : 'Choose a file',
                     leadingIcon: AppIcons.add,
                     isLoading: _isPicking,
                     onPressed: isBusy ? null : _pick,
@@ -222,12 +225,18 @@ class _GroceryImportScreenState extends ConsumerState<GroceryImportScreen> {
     }
 
     AppHaptics.decided();
-    _say(switch (result) {
-      (added: 0, failure: _) => 'Nothing was added.',
-      (added: final int n, failure: null) =>
-        n == 1 ? '1 thing is on your list' : '$n things are on your list',
-      (added: final int n, failure: _) => '$n added — the rest could not be',
-    });
+    _say(
+      switch (result) {
+        (added: 0, failure: _) => 'Nothing was added.',
+        (added: final int n, failure: null) =>
+          n == 1 ? '1 thing is on your list' : '$n things are on your list',
+        (added: final int n, failure: _) => '$n added — the rest could not be',
+      },
+      // The count decides, not the failure: "9 added — the rest could not be" is
+      // nine things on a list, and calling that a failure would be the app
+      // disowning work it did.
+      tone: result.added == 0 ? ToastTone.failure : ToastTone.success,
+    );
 
     // Back to the list, which is where the result is.
     if (result.added > 0) {
@@ -235,13 +244,13 @@ class _GroceryImportScreenState extends ConsumerState<GroceryImportScreen> {
     }
   }
 
-  void _say(String message) {
+  void _say(String message, {ToastTone tone = ToastTone.failure}) {
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    // Failure is the default because two of the three callers are failures — an
+    // empty file and a file that would not open. The one success passes its own.
+    AppToast.show(message, tone: tone);
   }
 
   /// The extension, lower cased, or empty.

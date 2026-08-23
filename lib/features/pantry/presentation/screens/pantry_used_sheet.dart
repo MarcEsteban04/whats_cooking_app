@@ -9,6 +9,7 @@ import 'package:whats_cooking/core/utils/app_haptics.dart';
 import 'package:whats_cooking/core/utils/formatters.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_button.dart';
 import 'package:whats_cooking/core/widgets/dashboard/dashboard.dart';
+import 'package:whats_cooking/core/widgets/feedback/app_toast.dart';
 import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
 import 'package:whats_cooking/features/pantry/domain/entities/pantry_use.dart';
 import 'package:whats_cooking/features/pantry/presentation/providers/pantry_controller.dart';
@@ -167,20 +168,20 @@ class _PantryUsedSheetState extends ConsumerState<PantryUsedSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: <Widget>[
-                    for (final (int index, PantryUse use) in uses.indexed)
-                      ...<Widget>[
-                        if (index > 0) const DashboardRule(),
-                        _UseRow(
-                          use: use,
-                          isKept: !_dropped.contains(use.itemId),
-                          isEnabled: !_isApplying,
-                          onToggle: () => setState(() {
-                            if (!_dropped.remove(use.itemId)) {
-                              _dropped.add(use.itemId);
-                            }
-                          }),
-                        ),
-                      ],
+                    for (final (int index, PantryUse use)
+                        in uses.indexed) ...<Widget>[
+                      if (index > 0) const DashboardRule(),
+                      _UseRow(
+                        use: use,
+                        isKept: !_dropped.contains(use.itemId),
+                        isEnabled: !_isApplying,
+                        onToggle: () => setState(() {
+                          if (!_dropped.remove(use.itemId)) {
+                            _dropped.add(use.itemId);
+                          }
+                        }),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -238,22 +239,17 @@ class _PantryUsedSheetState extends ConsumerState<PantryUsedSheet> {
     AppHaptics.decided();
     context.pop();
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          switch (result) {
-            (changed: 0, failure: final AppException e) =>
-              e.displayMessage ?? e.message,
-            (changed: 0, failure: _) => 'The kitchen is unchanged.',
-            (changed: final int n, failure: null) =>
-              n == 1 ? '1 thing came out of the kitchen' : '$n things came out '
+    AppToast.show(switch (result) {
+      (changed: 0, failure: final AppException e) =>
+        e.displayMessage ?? e.message,
+      (changed: 0, failure: _) => 'The kitchen is unchanged.',
+      (changed: final int n, failure: null) =>
+        n == 1
+            ? '1 thing came out of the kitchen'
+            : '$n things came out '
                   'of the kitchen',
-            (changed: final int n, failure: _) =>
-              '$n came out — the rest could not',
-          },
-        ),
-      ),
-    );
+      (changed: final int n, failure: _) => '$n came out — the rest could not',
+    }, tone: result.changed > 0 ? ToastTone.success : ToastTone.failure);
   }
 }
 
