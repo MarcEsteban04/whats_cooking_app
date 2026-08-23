@@ -161,6 +161,15 @@ enum AppRoute {
 
   restaurants(path: '/eat-out'),
   restaurantCreate(path: '/eat-out/new'),
+
+  /// Where we have been (Sprint 55).
+  ///
+  /// The eat-out twin of [mealHistory], and declared **before** [restaurantEdit]
+  /// on purpose: `/eat-out/history` is a literal segment where that route wants
+  /// an id, and a router that matched the id pattern first would send this screen
+  /// looking for a restaurant called "history".
+  restaurantHistory(path: '/eat-out/history'),
+
   restaurantEdit(path: '/eat-out/:id/edit'),
 
   /// The night-out roulette (Sprint 46).

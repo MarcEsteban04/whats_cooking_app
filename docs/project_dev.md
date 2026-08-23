@@ -737,6 +737,78 @@ Each of these was invisible in every build type reachable from this desk.
   circle on Meals is also gone: three of them plus the logo leave about 124dp for
   the title, and the row never fitted.
 
+## Sprint 54 — The Kitchen Filter, And Keeping It True
+
+> "the narrow it down on spin roulette for meals, it should be connected to
+> pantry, and ai should suggest based on ALL the info of the user."
+
+`PantryReach` on the filter sheet — **Anything / Mostly in / All in** — applied in
+`SpinController` against the server's own match map rather than inside
+`SpinFilters.allows`, because the match is a query result and the filter object is
+a value. A meal the pantry cannot speak about (`null` match) passes: "nothing
+countable" is not "nothing in", and treating it as a miss would hide every meal
+whose ingredients nobody has ever added.
+
+The spin's prompt now carries the *whole* household context — the same
+`householdAiContext` the chat and the recipe writer send — plus the reach the
+reader asked for. The shortlist already encodes the filters, so restating those
+was tokens on a filter that had run; but once the model is the thing **choosing**
+rather than decorating, "which of these twelve suits this household tonight" is
+answered by what the shortlist cannot express.
+
+**And the pantry had to start going down.** Accepting a meal filled the shopping
+list and never touched the shelf, so a household added chicken, cooked it, and the
+app went on believing the chicken was there. Survivable while the pantry was a
+twenty-point nudge; not survivable now it is a filter. `pantry_used_by_meal()`
+(migration 0029) returns the overlap and decides nothing; `PantryUsedSheet` asks.
+That is the whole design — the recipe wanting 500 g says nothing about whether
+that was the last of it, and only the person who cooked knows.
+
+Four confirmation lists now share one square-tick row: the fridge scan, the list
+import, bulk meal selection, and this.
+
+## Sprint 55 — Knowing When The Job Is Done
+
+Three things the app was silent about.
+
+**1. Home did not know tonight was settled.** It asked "What are we eating
+tonight?" over a large accent-coloured SPIN whether or not a decision had been
+made an hour earlier — and spinning again wrote a *second* dinner, so the week's
+count and the spend chart both claimed they ate twice. `decidedNow` keys on
+`MealMoment.mealName` rather than the calendar day, and on a food day starting at
+**04:00** to match `MealMoment.at`'s own boundary: a decision at eight in the
+evening is still the answer at half past midnight. When it is settled the panel
+leads with the name, in ink rather than the accent, and SPIN is demoted to
+"Change our mind".
+
+**2. The eat-out half had a diary it never showed anybody.** `restaurant_history`
+has been written on every accepted night out since Sprint 46 and read by exactly
+one thing: the scorer, which used it to push down places visited recently. So the
+app knew where they had been, quietly used it against them, and had no screen that
+said so — while the cooked side got a whole "What we ate" from the same shape of
+table. `/eat-out/history` is that screen, in the same vocabulary deliberately, and
+it is declared **before** `/eat-out/:id/edit` because `history` is a literal
+segment where that pattern wants an id.
+
+`restaurantVisits` is now the single source both it and Home's settled panel read,
+and `accept()` invalidates it — otherwise deciding to eat out left Home still
+asking the question it had just answered, which is bug 1 reintroduced on the other
+half of the app.
+
+**3. Every recipe is written for four.** A household of two has been dividing in
+their head at the counter since the app shipped, which is exactly the arithmetic a
+computer is for. A stepper on the meal detail, defaulting to the household's own
+`preferredServings`, scales the amounts and **writes nothing** — the meal a partner
+opens on the same phone is the meal as its author wrote it.
+
+`MealIngredient.scaledBy` rounds **countable** units up and leaves measured ones
+alone. Halving four eggs gives two and halving three gives two, because nobody has
+ever used 1.5 eggs; halving 500 g of chicken gives 250 g, and rounding *that* up
+would be the app inventing a hundred grams of meat. A unit not on the countable
+list is treated as measured, which is the safe direction. The caveat is printed:
+the cost and time above did not move, and a screen that quietly rescaled half its
+numbers would be worse than one that rescaled none.
+
 ---
 
 # 🚦 Definition of Done

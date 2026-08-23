@@ -19,6 +19,7 @@ import 'package:whats_cooking/features/restaurants/data/repositories/supabase_re
 import 'package:whats_cooking/features/restaurants/domain/entities/restaurant.dart';
 import 'package:whats_cooking/features/restaurants/domain/entities/restaurant_filters.dart';
 import 'package:whats_cooking/features/restaurants/domain/usecases/restaurant_scorer.dart';
+import 'package:whats_cooking/features/restaurants/presentation/providers/restaurant_visits.dart';
 import 'package:whats_cooking/features/restaurants/presentation/providers/restaurants_controller.dart';
 
 part 'restaurant_spin_controller.g.dart';
@@ -554,6 +555,13 @@ class RestaurantSpinController extends _$RestaurantSpinController {
   Future<AppException?> accept(Restaurant place) async {
     try {
       await ref.read(restaurantHistoryRepositoryProvider).record(place);
+
+      // The history just changed, and two screens read it: "Where we have been"
+      // and Home's settled panel (Sprint 55). Without this, deciding to eat out
+      // leaves Home still asking the question it has just been answered — the
+      // exact bug the settled panel exists to fix, reintroduced on the other
+      // half of the app.
+      ref.invalidate(restaurantVisitsProvider);
 
       ref.read(analyticsProvider).mealAccepted(
         mealId: place.id,

@@ -13,6 +13,7 @@ import 'package:whats_cooking/core/widgets/press_feedback.dart';
 import 'package:whats_cooking/features/grocery/presentation/providers/grocery_controller.dart';
 import 'package:whats_cooking/features/history/presentation/providers/meal_history_controller.dart';
 import 'package:whats_cooking/features/home/presentation/providers/home_dashboard.dart';
+import 'package:whats_cooking/features/home/presentation/providers/tonight.dart';
 import 'package:whats_cooking/features/home/presentation/widgets/dashboard_charts.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/disliked_ingredients_controller.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/dislikes_controller.dart';
@@ -81,6 +82,14 @@ class HomeScreen extends ConsumerWidget {
     // is a panel that does not appear, never a reason Home does not load.
     final HomeDashboard? dashboard = ref.watch(homeDashboardProvider).value;
 
+    // Whether this meal is already settled (Sprint 55).
+    //
+    // `.value` rather than a `switch`, and that is the point: while this is
+    // loading the panel shows the question, which is the *correct* thing to show
+    // if nothing has been decided and a harmless half-second if something has.
+    // A spinner where SPIN belongs would be the app hesitating over its one job.
+    final Decided? decided = ref.watch(decidedNowProvider).value;
+
     // Read, not just warmed: Home says what needs using tonight (Sprint 40), and
     // from Sprint 41 the spin weights meals by what is already in.
     final List<PantryItem> pantry =
@@ -126,6 +135,7 @@ class HomeScreen extends ConsumerWidget {
                       profile.value?.preferences.preferredServings ??
                       AppConstants.defaultPartySize,
                   needsUsing: needsUsing,
+                  decided: decided,
                 ),
 
                 // Where things stand (Sprint 47b).
@@ -380,6 +390,7 @@ class _SpinPanel extends StatelessWidget {
     required this.filters,
     required this.servings,
     this.needsUsing = 0,
+    this.decided,
   });
 
   /// What the next spin will narrow by.
@@ -398,6 +409,10 @@ class _SpinPanel extends StatelessWidget {
   /// evening it matters.
   final int needsUsing;
 
+  /// What was already settled for this meal, or null while it is still open
+  /// (Sprint 55).
+  final Decided? decided;
+
   @override
   Widget build(BuildContext context) {
     final AppColorScheme colors = context.colors;
@@ -406,12 +421,25 @@ class _SpinPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          Text(
-            'What are we eating ${MealMoment.current.phrase}?',
-            style: context.text.displayMedium,
-          ),
-          const SizedBox(height: AppSpacing.space2),
-          Text('Let us decide for you.', style: context.text.bodyMedium),
+          // The answer, when there is one. Otherwise the question.
+          //
+          // **This is the panel admitting its job is done.** It asked "what are
+          // we eating tonight?" over a large accent-coloured SPIN whether or not
+          // the household had decided an hour earlier — and spinning again wrote
+          // a *second* dinner into the history, so the week's count and the spend
+          // chart both claimed they ate twice. For an app that exists to make one
+          // decision an evening, not noticing the decision was the sharpest thing
+          // it could be wrong about.
+          if (decided case final Decided settled)
+            _Settled(decided: settled)
+          else ...<Widget>[
+            Text(
+              'What are we eating ${MealMoment.current.phrase}?',
+              style: context.text.displayMedium,
+            ),
+            const SizedBox(height: AppSpacing.space2),
+            Text('Let us decide for you.', style: context.text.bodyMedium),
+          ],
           const SizedBox(height: AppSpacing.space5),
           StatTrio(
             columns: <StatColumnData>[
@@ -447,13 +475,56 @@ class _SpinPanel extends StatelessWidget {
           const SizedBox(height: AppSpacing.space5),
           const DashboardRule(),
           const SizedBox(height: AppSpacing.space5),
-          // The strongest call to action in the app, and the only thing wearing
-          // the palette's one accent (docs/DESIGN_SYSTEM.md §2.2).
-          AppButton.brand(
-            label: 'SPIN',
-            size: AppButtonSize.large,
-            onPressed: () => context.goNamed(AppRoute.roulette.routeName),
-          ),
+          // Settled: the loudest thing is the decision, and spinning is demoted
+          // to a small line under it.
+          //
+          // **Ink rather than the accent, deliberately.** The palette has one
+          // accent and it belongs to SPIN (docs/DESIGN_SYSTEM.md §2.2) — putting
+          // it on "Open it" would make deciding again the second-loudest thing on
+          // a screen whose question has been answered. The decided screen inverts
+          // to ink for the same reason, and this is the button that opens it.
+          if (decided case final Decided settled) ...<Widget>[
+            if (settled.historyId case final String historyId)
+              AppButton.inverse(
+                label: 'Open it',
+                size: AppButtonSize.large,
+                onPressed: () => context.pushNamed(
+                  AppRoute.decided.routeName,
+                  pathParameters: <String, String>{'historyId': historyId},
+                ),
+              )
+            else
+              // A night out has no history row to open — nothing was cooked, so
+              // there is no recipe, no cooking mode and no shopping list. Where
+              // they have been is the honest destination instead.
+              AppButton.inverse(
+                label: 'Where we have been',
+                size: AppButtonSize.large,
+                onPressed: () =>
+                    context.pushNamed(AppRoute.restaurantHistory.routeName),
+              ),
+            const SizedBox(height: AppSpacing.space3),
+            Center(
+              child: AppButton.tertiary(
+                // Not "SPIN again". Deciding twice in an evening is changing your
+                // mind, and the button should say the thing the person is actually
+                // doing — including that the first decision is about to be
+                // replaced.
+                label: 'Change our mind',
+                size: AppButtonSize.small,
+                leadingIcon: AppIcons.spin,
+                onPressed: () => context.goNamed(AppRoute.roulette.routeName),
+              ),
+            ),
+          ] else ...<Widget>[
+            // The strongest call to action in the app, and the only thing wearing
+            // the palette's one accent (docs/DESIGN_SYSTEM.md §2.2).
+            AppButton.brand(
+              label: 'SPIN',
+              size: AppButtonSize.large,
+              onPressed: () => context.goNamed(AppRoute.roulette.routeName),
+            ),
+          ],
           const SizedBox(height: AppSpacing.space3),
           // Says what *else* is narrowing the spin. The three columns above
           // cannot show a cuisine or a meal type, and a reader who set one
@@ -545,5 +616,72 @@ class _SpinPanel extends StatelessWidget {
   void _openFilters(BuildContext context) {
     context.pushNamed(AppRoute.rouletteFilters.routeName);
   }
+}
+
+/// The answer, where the question used to be (Sprint 55).
+///
+/// **The one place in this app where Home leads with a name rather than a
+/// figure.** The class doc above argues that Home's number would have to be
+/// invented — "60 meals available" is not what anybody in their kitchen at seven
+/// wants to read — so the question is the figure. Once the question has been
+/// answered, the *answer* is the figure, and it is the only thing on the screen
+/// worth setting in display type.
+///
+/// It says when, and it says whether it was cooked or eaten out, because both are
+/// how somebody checks the app is talking about the right meal. An app that says
+/// "Adobo" with no hour attached is asking to be believed rather than checked.
+class _Settled extends StatelessWidget {
+  const _Settled({required this.decided});
+
+  final Decided decided;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppColorScheme colors = context.colors;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        Text(
+          // The moment's own word, so a settled breakfast does not read
+          // "TONIGHT" — the same bug `MealMoment` was written to fix on the
+          // header and the result screen's overline.
+          '${MealMoment.current.mealName} is settled'.toUpperCase(),
+          style: context.text.overline,
+        ),
+        const SizedBox(height: AppSpacing.space1),
+        Text(
+          AppFormat.sentenceCase(decided.name),
+          style: context.text.displayMedium,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: AppSpacing.space2),
+        Row(
+          children: <Widget>[
+            Icon(
+              decided.wasEatenOut ? AppIcons.meals : AppIcons.check,
+              size: _markSize,
+              color: colors.textSecondary,
+            ),
+            const SizedBox(width: AppSpacing.space2),
+            Flexible(
+              child: Text(
+                AppFormat.metadata(<String?>[
+                  decided.wasEatenOut ? 'You ate out' : 'Decided',
+                  AppFormat.timeOfDay(decided.at),
+                ]),
+                style: context.text.bodyMedium,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  static const double _markSize = 16;
 }
 

@@ -23,6 +23,7 @@ import 'package:whats_cooking/features/meals/presentation/providers/meal_detail_
 import 'package:whats_cooking/features/meals/presentation/providers/meal_repository_provider.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/meals_controller.dart';
 import 'package:whats_cooking/features/meals/presentation/providers/my_meals_controller.dart';
+import 'package:whats_cooking/features/profile/presentation/providers/profile_controller.dart';
 
 /// One meal, in full (Sprint 23, docs/design_ui.md §17).
 ///
@@ -624,7 +625,7 @@ class _DietaryPanel extends StatelessWidget {
 }
 
 /// §17's ingredient list: name on the left, amount on the right.
-class _IngredientsPanel extends StatelessWidget {
+class _IngredientsPanel extends ConsumerStatefulWidget {
   const _IngredientsPanel({required this.meal, this.isPending = false});
 
   final Meal meal;
@@ -640,8 +641,50 @@ class _IngredientsPanel extends StatelessWidget {
   final bool isPending;
 
   @override
+  ConsumerState<_IngredientsPanel> createState() => _IngredientsPanelState();
+}
+
+class _IngredientsPanelState extends ConsumerState<_IngredientsPanel> {
+  /// How many people this list is currently written for.
+  ///
+  /// Null until the first build resolves it, so the household's own number can
+  /// win without this screen needing the profile to have arrived before it is
+  /// constructed.
+  int? _servings;
+
+  /// What the recipe was written for, floored at one.
+  ///
+  /// A stored zero would make every scale factor infinite, and the catalogue is
+  /// hand-written data with a nullable column behind it.
+  int get _recipeServings =>
+      widget.meal.servings < 1 ? 1 : widget.meal.servings;
+
+  /// Who is eating, defaulting to the household's usual number.
+  ///
+  /// **This is the feature.** Every recipe in the catalogue is written for four,
+  /// and a household of two has been dividing in their head at the counter since
+  /// the app shipped — which is exactly the arithmetic a computer is for. The
+  /// household's own preferred servings is already stored, already used to work
+  /// out cost a head, and was the one place it was not being spent.
+  int _resolve() {
+    if (_servings case final int chosen) {
+      return chosen;
+    }
+
+    final int? preferred = ref
+        .watch(profileControllerProvider)
+        .value
+        ?.preferences
+        .preferredServings;
+
+    return preferred == null || preferred < 1 ? _recipeServings : preferred;
+  }
+
+  @override
   Widget build(BuildContext context) {
     final AppColorScheme colors = context.colors;
+    final Meal meal = widget.meal;
+    final bool isPending = widget.isPending;
     final List<MealIngredient> ingredients = meal.ingredients;
 
     if (ingredients.isEmpty && isPending) {
@@ -674,6 +717,9 @@ class _IngredientsPanel extends StatelessWidget {
       );
     }
 
+    final int servings = _resolve();
+    final double factor = servings / _recipeServings;
+
     return DashboardPanel(
       title: 'Ingredients',
       icon: AppIcons.pantry,
@@ -684,9 +730,16 @@ class _IngredientsPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          for (final (int index, MealIngredient item)
-              in ingredients.indexed) ...<Widget>[
-            if (index > 0) const DashboardRule(),
+          _ServingsSwitch(
+            servings: servings,
+            onChanged: (int next) => setState(() => _servings = next),
+          ),
+          const SizedBox(height: AppSpacing.space2),
+          // A rule above *every* row now, including the first: the switch sits
+          // where the first row used to, and needs separating from the list it
+          // controls.
+          for (final MealIngredient item in ingredients) ...<Widget>[
+            const DashboardRule(),
             Padding(
               padding: const EdgeInsets.symmetric(vertical: AppSpacing.space3),
               child: Row(
@@ -706,13 +759,29 @@ class _IngredientsPanel extends StatelessWidget {
                     const SizedBox(width: AppSpacing.space3),
                   ],
                   Text(
-                    item.amount,
+                    // Scaled at the point of display and nowhere else. Nothing
+                    // is written, no row is touched, and the meal a partner
+                    // opens on the same phone is the meal as its author wrote
+                    // it — this is a reading aid, not an edit.
+                    item.scaledBy(factor).amount,
                     style: context.text.numeric.copyWith(
                       color: colors.textPrimary,
                     ),
                   ),
                 ],
               ),
+            ),
+          ],
+          if (servings != _recipeServings) ...<Widget>[
+            const SizedBox(height: AppSpacing.space1),
+            Text(
+              // Said out loud, because everything *else* on this screen is
+              // still the recipe's own figures. The cost and the time in the
+              // panel above did not move, and a screen that quietly rescaled
+              // half its numbers would be worse than one that rescaled none.
+              'Scaled from the recipe’s ${AppFormat.servings(_recipeServings)}. '
+              'The cost and time above are for the recipe as written.',
+              style: context.text.metadata,
             ),
           ],
           if (ingredients.any((MealIngredient item) => item.isStaple))
@@ -729,6 +798,81 @@ class _IngredientsPanel extends StatelessWidget {
       ),
     );
   }
+}
+
+/// How many people the list above is written for (Sprint 55).
+///
+/// A stepper rather than a "for 2 / for 4" pair of buttons, and the reason is
+/// that two fixed options would be two guesses. The household's usual number is
+/// stored, the recipe's is stored, and neither is the answer on the evening
+/// somebody's parents are coming — which is precisely the evening the arithmetic
+/// is hardest to do in your head.
+class _ServingsSwitch extends StatelessWidget {
+  const _ServingsSwitch({required this.servings, required this.onChanged});
+
+  final int servings;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppColorScheme colors = context.colors;
+
+    return Row(
+      children: <Widget>[
+        Expanded(
+          child: Text(
+            'COOKING FOR',
+            style: context.text.overline,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        AppIconButton(
+          icon: AppIcons.remove,
+          semanticLabel: 'One fewer person',
+          style: AppIconButtonStyle.muted,
+          iconSize: AppIconSize.xs,
+          visualSize: _controlSize,
+          // Null disables it. Zero people is not a smaller dinner, and a stepper
+          // that walks to nothing is a stepper that can show an empty recipe.
+          onPressed: servings <= _min ? null : () => onChanged(servings - 1),
+        ),
+        SizedBox(
+          width: _figureWidth,
+          child: Text(
+            '$servings',
+            style: context.text.titleMedium.copyWith(
+              // Tabular, so the number does not shift the two buttons sideways
+              // as it crosses from one digit to two.
+              fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ),
+        AppIconButton(
+          icon: AppIcons.add,
+          semanticLabel: 'One more person',
+          style: AppIconButtonStyle.muted,
+          iconSize: AppIconSize.xs,
+          visualSize: _controlSize,
+          onPressed: servings >= _max ? null : () => onChanged(servings + 1),
+        ),
+        const SizedBox(width: AppSpacing.space2),
+        Text(
+          servings == 1 ? 'person' : 'people',
+          style: context.text.metadata.copyWith(color: colors.textSecondary),
+        ),
+      ],
+    );
+  }
+
+  /// One to twelve. Below one there is no meal; above twelve this is catering,
+  /// and a stepper is the wrong control for catering.
+  static const int _min = 1;
+  static const int _max = 12;
+
+  static const double _controlSize = 32;
+  static const double _figureWidth = 34;
 }
 
 /// §17's large numbered steps.

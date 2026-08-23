@@ -74,6 +74,83 @@ class MealIngredient {
     return unit.isEmpty ? figure : '$figure $unit';
   }
 
+  /// The same ingredient for a different number of people (Sprint 55).
+  ///
+  /// **Countable things round up, measured things do not.** Halving a recipe for
+  /// four eggs gives two, and halving one for three gives two as well — because
+  /// the alternative is a screen that asks somebody to use 1.5 eggs, and nobody
+  /// has ever done that. But halving 500 g of chicken gives 250 g, and rounding
+  /// *that* up to 300 would be the app inventing a hundred grams of meat.
+  ///
+  /// So the rule follows the unit: pieces, cloves and slices are things you can
+  /// count, and a fraction of one is not an instruction. Grams and millilitres
+  /// are things you weigh, and the fraction is the answer.
+  ///
+  /// Rounding **up** rather than to nearest, for the countable case: an extra
+  /// clove of garlic is a slightly stronger dinner, and one clove short of a
+  /// recipe that needed two is a different dish.
+  MealIngredient scaledBy(double factor) {
+    if (factor == 1 || quantity == 0) {
+      return this;
+    }
+
+    final double scaled = quantity * factor;
+
+    return MealIngredient(
+      name: name,
+      quantity: _isCountable
+          ? scaled.ceilToDouble()
+          // One decimal, matching what `amount` will print. Rounded here rather
+          // than left at full precision so the value a caller reads back is the
+          // value the screen showed — 166.66666 g displayed as "166.7 g" and
+          // then used in arithmetic is two different numbers.
+          : double.parse(scaled.toStringAsFixed(1)),
+      unit: unit,
+      isOptional: isOptional,
+      isStaple: isStaple,
+    );
+  }
+
+  /// Whether this unit counts whole things rather than measuring them.
+  ///
+  /// An empty unit counts too — "2 onions" is stored with no unit at all, and
+  /// half an onion asked for by a screen is a screen nobody trusts.
+  bool get _isCountable {
+    final String normalized = unit.trim().toLowerCase();
+    return normalized.isEmpty || _countableUnits.contains(normalized);
+  }
+
+  /// Deliberately short, and singular and plural both spelled out.
+  ///
+  /// The unit is free text typed by whoever added the meal, so this cannot be
+  /// exhaustive — and it does not need to be. A unit not on this list is treated
+  /// as measured, which is the safe direction: showing "1.5 tbsp" is a mild
+  /// annoyance, where silently rounding 250 g of beef up to 300 is a wrong
+  /// recipe.
+  static const Set<String> _countableUnits = <String>{
+    'pc',
+    'pcs',
+    'piece',
+    'pieces',
+    'clove',
+    'cloves',
+    'slice',
+    'slices',
+    'egg',
+    'eggs',
+    'can',
+    'cans',
+    'pack',
+    'packs',
+    'bunch',
+    'bunches',
+    'stalk',
+    'stalks',
+    'sheet',
+    'sheets',
+    'whole',
+  };
+
   @override
   bool operator ==(Object other) =>
       other is MealIngredient &&

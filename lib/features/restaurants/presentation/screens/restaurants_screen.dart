@@ -292,6 +292,18 @@ class _Loaded extends StatelessWidget {
                       AppRoute.restaurantCreate.routeName,
                     ),
                   ),
+                  // Where we have been (Sprint 55). Three tiles rather than two,
+                  // and this is the one that was missing: the app has recorded
+                  // every night out since Sprint 46 and used them to push down
+                  // places visited recently, with no screen anywhere that said
+                  // so. A feature nobody can reach is a feature nobody has.
+                  DashboardAction(
+                    label: 'Been to',
+                    icon: AppIcons.plannerActive,
+                    onTap: () => context.pushNamed(
+                      AppRoute.restaurantHistory.routeName,
+                    ),
+                  ),
                   DashboardAction(
                     label: 'Cook instead',
                     icon: AppIcons.spin,

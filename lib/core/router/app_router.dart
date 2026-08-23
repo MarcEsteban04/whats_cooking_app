@@ -47,6 +47,7 @@ import 'package:whats_cooking/features/profile/presentation/screens/profile_scre
 import 'package:whats_cooking/features/profile/presentation/screens/settings_screen.dart';
 import 'package:whats_cooking/features/restaurants/domain/entities/restaurant.dart';
 import 'package:whats_cooking/features/restaurants/presentation/screens/restaurant_form_screen.dart';
+import 'package:whats_cooking/features/restaurants/presentation/screens/restaurant_history_screen.dart';
 import 'package:whats_cooking/features/restaurants/presentation/screens/restaurant_result_screen.dart';
 import 'package:whats_cooking/features/restaurants/presentation/screens/restaurant_spin_screen.dart';
 import 'package:whats_cooking/features/restaurants/presentation/screens/restaurants_screen.dart';
@@ -564,6 +565,15 @@ final List<RouteBase> _fullScreenRoutes = <RouteBase>[
         parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (BuildContext context, GoRouterState state) =>
             const AppSlideUpPage<void>(child: RestaurantFormScreen()),
+      ),
+      // Before the `:id` route below, and it has to stay there: `history` is a
+      // literal segment where that pattern wants an id.
+      GoRoute(
+        path: _relative(AppRoute.restaurantHistory, AppRoute.restaurants),
+        name: AppRoute.restaurantHistory.routeName,
+        parentNavigatorKey: rootNavigatorKey,
+        pageBuilder: (BuildContext context, GoRouterState state) =>
+            const AppSlideUpPage<void>(child: RestaurantHistoryScreen()),
       ),
       GoRoute(
         path: _relative(AppRoute.restaurantEdit, AppRoute.restaurants),
