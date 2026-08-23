@@ -7,6 +7,7 @@ import 'package:whats_cooking/core/errors/app_exception.dart';
 import 'package:whats_cooking/core/errors/error_mapper.dart';
 import 'package:whats_cooking/core/errors/error_presenter.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
+import 'package:whats_cooking/core/utils/app_haptics.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_button.dart';
 import 'package:whats_cooking/core/widgets/buttons/app_icon_button.dart';
 import 'package:whats_cooking/core/widgets/cards/app_card.dart';
@@ -16,6 +17,9 @@ import 'package:whats_cooking/core/widgets/feedback/error_state.dart';
 import 'package:whats_cooking/core/widgets/inputs/app_select.dart';
 import 'package:whats_cooking/core/widgets/inputs/app_text_field.dart';
 import 'package:whats_cooking/core/widgets/overlays/confirmation_dialog.dart';
+import 'package:whats_cooking/features/ai/domain/entities/generated_recipe.dart';
+import 'package:whats_cooking/features/ai/presentation/providers/ai_context.dart';
+import 'package:whats_cooking/features/ai/presentation/providers/assistant_controller.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal.dart';
 import 'package:whats_cooking/features/meals/domain/entities/meal_draft.dart';
 import 'package:whats_cooking/features/meals/domain/repositories/meal_repository.dart';
@@ -86,7 +90,108 @@ class _MealFormScreenState extends ConsumerState<MealFormScreen> {
   AppException? _failure;
   bool _isSaving = false;
 
+  /// True while the assistant is filling the rest of the form in.
+  bool _isFilling = false;
+
+  /// Bumped every time the assistant replaces the draft.
+  ///
+  /// Keys the field subtree — see the `KeyedSubtree` in `build`. Without it the
+  /// text fields keep the text they were built with and the fill is invisible.
+  int _fillGeneration = 0;
+
   void _update(MealDraft draft) => setState(() => _draft = draft);
+
+  /// Fills every field except the name from the name itself.
+  ///
+  /// **A button, not a keystroke listener.** The ask was "when I type the name,
+  /// auto-populate the other fields", and doing that literally would fire a
+  /// billed request on every pause in typing — "adob", "adobo", "adobo " — and
+  /// each reply would overwrite whatever the last one had just written while
+  /// somebody was still reading it. A debounce only moves that around; it does
+  /// not make a request per word cheap or make an answer that arrives mid-edit
+  /// welcome.
+  ///
+  /// So it is one tap, sitting under the name, enabled the moment the name is
+  /// long enough to mean anything. The cost of the difference is one tap; the
+  /// benefit is a request that happens when somebody wants it and lands on a form
+  /// nobody is halfway through.
+  ///
+  /// **It replaces, and it asks first when there is something to lose.** The
+  /// whole point is filling twelve fields at once, so it cannot politely fill
+  /// only the blanks — cuisine, category, difficulty and servings all have
+  /// defaults and are indistinguishable from unset. If the form already holds
+  /// more than a name, the confirmation says so.
+  Future<void> _fillFromName(MealDraft draft) async {
+    final String name = draft.name.trim();
+    if (_isFilling || _isSaving || name.length < _minNameToFill) {
+      return;
+    }
+
+    // Anything beyond the name and the visibility switch counts as work.
+    final bool hasWork =
+        draft != _blank.copyWith(name: draft.name, isShared: draft.isShared);
+
+    if (hasWork) {
+      final bool replace = await ConfirmationDialog.show(
+        context,
+        title: 'Fill this in again?',
+        body: 'Everything except the name will be replaced by what the '
+            'assistant writes.',
+        confirmLabel: 'Replace',
+        cancelLabel: 'Keep mine',
+      );
+
+      if (!replace || !mounted) {
+        return;
+      }
+    }
+
+    setState(() {
+      _isFilling = true;
+      _failure = null;
+    });
+
+    try {
+      final GeneratedRecipe recipe = await ref
+          .read(assistantRepositoryProvider)
+          .generateRecipe(
+            ingredients: const <String>[],
+            dishName: name,
+            // `refresh`, not `read` — the context is a snapshot at the moment of
+            // asking, and a cached one would describe a pantry two edits ago.
+            context: await ref.refresh(householdAiSnapshotProvider.future),
+          );
+
+      if (!mounted) {
+        return;
+      }
+
+      // The typed name wins. The model was told to keep it and usually does, but
+      // "Tita Baby adobo" coming back as "Chicken Adobo" would quietly rename
+      // somebody's own recipe — and the name is the one field they definitely
+      // meant.
+      setState(() {
+        _draft = recipe.toDraft().copyWith(
+          name: name,
+          isShared: draft.isShared,
+        );
+        _isFilling = false;
+        _fillGeneration++;
+      });
+      AppHaptics.reveal();
+    } on Object catch (error, stackTrace) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isFilling = false;
+        _failure = ErrorMapper.map(error, stackTrace);
+      });
+    }
+  }
+
+  /// Short enough for "pho", long enough that a stray letter does not offer it.
+  static const int _minNameToFill = 3;
 
   /// Whether anything has been typed since the form opened.
   ///
@@ -233,7 +338,22 @@ class _MealFormScreenState extends ConsumerState<MealFormScreen> {
                   onCancel: _isSaving ? null : _cancel,
                 ),
                 Expanded(
-                  child: ListView(
+                  // **Keyed on the fill, so the fields actually change.**
+                  //
+                  // Every text field here takes `initialValue` rather than a
+                  // controller — the field owns its text and the draft owns the
+                  // value, which is what stops the two fighting over the cursor on
+                  // every keystroke. The cost is that a draft replaced from
+                  // *outside* the fields does not reach them: the assistant would
+                  // fill twelve values and the form would go on showing the old
+                  // text, which looks exactly like the feature not working.
+                  //
+                  // Changing the key rebuilds the subtree from the new draft. It
+                  // also drops focus, which is the right thing after a fill — the
+                  // keyboard was for the name and the name is done.
+                  child: KeyedSubtree(
+                    key: ValueKey<int>(_fillGeneration),
+                    child: ListView(
                     padding: const EdgeInsets.fromLTRB(
                       AppLayout.screenMargin,
                       AppSpacing.space4,
@@ -258,10 +378,54 @@ class _MealFormScreenState extends ConsumerState<MealFormScreen> {
                             // cursor on every keystroke.
                             initialValue: draft.name,
                             textCapitalization: TextCapitalization.words,
-                            isEnabled: !_isSaving,
+                            isEnabled: !_isSaving && !_isFilling,
                             onChanged: (String value) =>
                                 _update(draft.copyWith(name: value)),
                           ),
+
+                          // **Fill the other eleven fields from the name.**
+                          //
+                          // Directly under the name, because that is the field it
+                          // reads and the moment it is useful — a control for this
+                          // at the bottom of the form is a control nobody finds
+                          // until they have already typed everything it would have
+                          // written.
+                          //
+                          // Enabled on three characters. Disabled-with-a-reason
+                          // rather than hidden, so it is discoverable before there
+                          // is a name to use it on: a button that appears out of
+                          // nowhere mid-typing is a button somebody misses.
+                          const SizedBox(height: AppSpacing.space3),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: AppButton.secondary(
+                              label: _isFilling
+                                  ? 'Writing it'
+                                  : 'Fill in the rest',
+                              size: AppButtonSize.small,
+                              leadingIcon: AppIcons.invent,
+                              isLoading: _isFilling,
+                              onPressed:
+                                  _isSaving ||
+                                      draft.name.trim().length < _minNameToFill
+                                  ? null
+                                  : () => _fillFromName(draft),
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.space2),
+                          Text(
+                            _isFilling
+                                // Says what is happening and roughly how long,
+                                // because three providers may be tried in turn
+                                // and a silent four seconds reads as a stall.
+                                ? 'Working out the cuisine, the time, the cost, '
+                                      'the ingredients and the steps.'
+                                : 'Type a name and the assistant writes '
+                                      'everything below it. You can change any '
+                                      'of it afterwards.',
+                            style: context.text.metadata,
+                          ),
+
                           const SizedBox(height: AppSpacing.space4),
                           AppTextField(
                             label: 'Description',
@@ -426,7 +590,8 @@ class _MealFormScreenState extends ConsumerState<MealFormScreen> {
                           ),
                         ],
                       ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
                 _SaveBar(

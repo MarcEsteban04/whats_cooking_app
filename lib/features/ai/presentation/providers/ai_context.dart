@@ -1,4 +1,4 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:whats_cooking/core/domain/food_preferences.dart';
 import 'package:whats_cooking/core/domain/food_taxonomy.dart';
 import 'package:whats_cooking/core/utils/logger.dart';
@@ -13,6 +13,7 @@ import 'package:whats_cooking/features/pantry/presentation/providers/pantry_cont
 import 'package:whats_cooking/features/profile/presentation/providers/profile_controller.dart';
 import 'package:whats_cooking/features/restaurants/domain/entities/restaurant.dart';
 import 'package:whats_cooking/features/restaurants/presentation/providers/restaurants_controller.dart';
+part 'ai_context.g.dart';
 
 /// What the assistant is told about this household (Sprint 47, extracted 48,
 /// widened 50).
@@ -23,11 +24,17 @@ import 'package:whats_cooking/features/restaurants/presentation/providers/restau
 /// copies would have started drifting, and the drift would show up as the AI
 /// honouring an allergy in the chat and forgetting it in a recipe.
 ///
-/// A plain function over a [Ref] rather than a provider, deliberately. Every call
-/// site wants a *snapshot at the moment of asking*, which is `ref.read` semantics;
-/// a provider would either rebuild on every pantry edit or need invalidating by
-/// hand, and neither buys anything when the result is immediately serialised into
-/// a request body.
+/// A plain function rather than a provider, deliberately. Every call site wants a
+/// *snapshot at the moment of asking*, which is `ref.read` semantics; a provider
+/// would either rebuild on every pantry edit or need invalidating by hand, and
+/// neither buys anything when the result is immediately serialised into a request
+/// body.
+///
+/// A `Ref`, which a widget does not have — so [householdAiSnapshot] wraps it for
+/// the one caller that is a widget rather than a notifier. `Ref` and `WidgetRef`
+/// are unrelated types with an identically-shaped `read`, and threading a reader
+/// closure through instead defeats generic inference on every notifier provider
+/// below.
 ///
 /// ## What goes in, and the arithmetic behind it
 ///
@@ -306,3 +313,17 @@ const int _placeNames = 8;
 const int _librarySample = 12;
 
 const String _logName = 'ai-context';
+
+/// [householdAiContext] as something a widget can read.
+///
+/// The meal form fills its own fields from the assistant, and a widget holds a
+/// `WidgetRef` rather than a `Ref` — so it cannot call the function directly. A
+/// one-line provider bridges it without a second copy of eighty lines of context
+/// assembly.
+///
+/// **Read it with `refresh`, not `read`.** A `FutureProvider` caches, and the
+/// whole contract of this context is that it is a snapshot at the moment of
+/// asking — a cached copy would tell the model about a pantry two edits ago.
+@riverpod
+Future<Map<String, Object?>> householdAiSnapshot(Ref ref) =>
+    householdAiContext(ref);

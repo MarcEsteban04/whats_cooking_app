@@ -67,9 +67,15 @@ abstract interface class AssistantRepository {
   /// behind it, so silence is an answer. This has nothing behind it — somebody
   /// asked for a recipe and is watching a spinner, and the only honest outcomes
   /// are a recipe or a sentence saying why not.
+  ///
+  /// [dishName] names the dish instead of leaving the choice open â the meal
+  /// form uses it to fill its own fields from a name somebody has already typed.
+  /// With it set, the model is told to keep that name rather than to suggest
+  /// something else.
   Future<GeneratedRecipe> generateRecipe({
     required List<String> ingredients,
     String? note,
+    String? dishName,
     Map<String, Object?> context,
   });
 
@@ -285,6 +291,7 @@ class SupabaseAssistantRepository implements AssistantRepository {
   Future<GeneratedRecipe> generateRecipe({
     required List<String> ingredients,
     String? note,
+    String? dishName,
     Map<String, Object?> context = const <String, Object?>{},
   }) async {
     // Not retried, for the same reason `ask` is not: the function has already
@@ -298,7 +305,7 @@ class SupabaseAssistantRepository implements AssistantRepository {
           'messages': <Map<String, Object?>>[
             <String, Object?>{
               'role': 'user',
-              'content': _recipePrompt(ingredients, note),
+              'content': _recipePrompt(ingredients, note, dishName),
             },
           ],
           'context': context,
@@ -350,18 +357,40 @@ class SupabaseAssistantRepository implements AssistantRepository {
   /// most ten ingredients and eight steps" is not a style preference — it is the
   /// difference between a recipe that ends and one that is cut off mid-sentence
   /// where the steps should be.
-  static String _recipePrompt(List<String> ingredients, String? note) {
+  static String _recipePrompt(
+    List<String> ingredients,
+    String? note,
+    String? dishName,
+  ) {
     final String have = ingredients
         .map((String name) => name.trim())
         .where((String name) => name.isNotEmpty)
         .join(', ');
 
+    final String? named = dishName?.trim();
+
     final StringBuffer buffer = StringBuffer()
       ..writeln(
-        have.isEmpty
-            ? 'Invent a dinner this household could cook tonight.'
-            : 'Write one recipe using mostly: $have.',
+        switch ((named, have.isEmpty)) {
+          // **A named dish is a different question.** "Invent a dinner" and
+          // "write the recipe for chicken adobo" want opposite things from the
+          // model: one is free to choose, the other must not. Sending a name
+          // through the invent prompt got a *different* dish back, which on a
+          // form somebody had already typed a name into would be worse than
+          // useless.
+          (final String dish, _) when dish.isNotEmpty =>
+            'Write the recipe for a dish called "$dish". Keep that name — do '
+                'not rename it, do not suggest something else, and if you do not '
+                'recognise it, make the most sensible version of what the name '
+                'describes.',
+          (_, true) => 'Invent a dinner this household could cook tonight.',
+          _ => 'Write one recipe using mostly: $have.',
+        },
       );
+
+    if (named != null && named.isNotEmpty && have.isNotEmpty) {
+      buffer.writeln('They have these in: $have.');
+    }
 
     if (note != null && note.trim().isNotEmpty) {
       // Somebody's own words, and they go in as a *request* rather than as part
@@ -686,6 +715,7 @@ class UnavailableAssistantRepository implements AssistantRepository {
   Future<GeneratedRecipe> generateRecipe({
     required List<String> ingredients,
     String? note,
+    String? dishName,
     Map<String, Object?> context = const <String, Object?>{},
   }) async {
     throw const ServerException(
