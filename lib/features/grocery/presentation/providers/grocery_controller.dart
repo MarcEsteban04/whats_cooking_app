@@ -63,6 +63,41 @@ class GroceryController extends _$GroceryController {
     );
   }
 
+  /// Changes what a line is called (Sprint 57c).
+  ///
+  /// **Not an update, and it cannot be one.** `GroceryItem.name` reads
+  /// `ingredientName ?? customName`, so a line that came from the shared
+  /// vocabulary shows the *ingredient's* name — writing a new `custom_name` on it
+  /// would change a column and nothing on screen. The honest operation is a
+  /// different line: [add] resolves the new name against the vocabulary, which is
+  /// also what puts it in the right aisle.
+  ///
+  /// **Add then remove, in that order**, matching `PantryController.rename`. If
+  /// the add fails nothing has been lost; if the remove fails both lines are on
+  /// the list, which is visible and fixable — unlike a failure that has already
+  /// deleted the only copy.
+  ///
+  /// The tick does not carry over, and that is correct rather than a shortcut:
+  /// what was bought was the old thing.
+  Future<AppException?> rename(
+    GroceryItem item, {
+    required String name,
+    double? quantity,
+    String unit = '',
+  }) async {
+    final AppException? failure = await add(
+      name: name,
+      quantity: quantity,
+      unit: unit,
+    );
+
+    if (failure != null) {
+      return failure;
+    }
+
+    return remove(item);
+  }
+
   /// Puts a meal's missing ingredients on the list (Sprint 43).
   ///
   /// Returns how many lines it touched. **Zero is a good answer** — it means the

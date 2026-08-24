@@ -1037,6 +1037,64 @@ row that only needed saying once per column.
 `MealTableRow.ruleInset` moved from `space3` to `space2` with it — the hairlines
 were lining up with a gap that no longer existed.
 
+## Sprint 57c — Two bugs, one of them mine twice
+
+> "1. theres empty space in meals list, meal names cant even display full, take
+> advantage of that empty space. 2. i cant edit grocery name"
+
+### A loose flex child does not give its allocation back
+
+`DashboardRow` has had three versions of the same twelve lines, and the comment on
+the second one asserted the exact thing that was untrue.
+
+Version one: a bare `Column` for the figure. Non-flex, so it takes its full
+intrinsic width and the `Expanded` title gets the remainder — "Food preferences"
+beside "Filipino, Japanese · 1 avoided" rendered as `Food pr / efere…`.
+
+Version two: `Flexible`. The comment said "a short figure still takes only what it
+needs and the title keeps the rest". **The first half is true and the second is
+not.** Both children carry flex 1, so each is *allocated* half the free space; the
+`Expanded` title fills its half, the loose figure takes only what `₱100` needs —
+and the remainder of the figure's allocation stays where it was, as dead space at
+the end of the row. The title never sees it. A list of sixty prices with a hundred
+pixels of nothing beside each one, and `Fried Siomai R…` on the left.
+
+Version three, and the one that was wanted from the start: **a cap, not a flex.**
+Non-flex children are laid out before the flex pass, so the figure takes its
+intrinsic width and `Expanded` gets every pixel it does not use — while the cap
+stops a long value starving the title, which is the only thing the flex was ever
+for. A fixed 132 dp scaled by the reader's text size rather than a fraction
+measured by a `LayoutBuilder`: a number cannot throw, and `DashboardRow` appears
+in enough layouts that adding a widget which fails under intrinsic sizing is the
+worse trade.
+
+Meal names gained roughly a hundred pixels.
+
+### The grocery sheet could not rename anything
+
+Add-only, on the reasoning that the heading already says the name so a field under
+it would be the same fact twice. Exactly the mistake the pantry sheet made two
+sprints earlier, and the same answer: **a heading is not a control.** A line
+imported from a photo of a shopping list arrives misspelled, a line typed
+one-handed in an aisle arrives wrong, and the only fix available was to delete it
+and start again.
+
+The rename itself cannot be an update. `GroceryItem.name` reads `ingredientName ??
+customName`, so a line that came from the shared vocabulary shows the
+*ingredient's* name — writing a new `custom_name` on it would change a column and
+nothing on screen. So `GroceryController.rename` is **add then remove**, matching
+`PantryController.rename`: `add` resolves the new name against the vocabulary,
+which is also what puts the line in the right aisle, and doing it in that order
+means a failure leaves the original intact rather than deleting the only copy.
+
+The tick does not carry across, which is correct rather than a shortcut — what was
+bought was the old thing. And the suggestion chips now appear on an edit too,
+where they matter more than on an add: a renamed line that misses the vocabulary
+lands in "Everything else".
+
+A case-insensitive comparison decides whether it is a rename at all, so fixing a
+capital stays an update and does not spend a round trip resolving to the same row.
+
 ---
 
 # 🚦 Definition of Done

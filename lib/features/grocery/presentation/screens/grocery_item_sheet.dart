@@ -114,7 +114,10 @@ class _GroceryItemSheetState extends ConsumerState<GroceryItemSheet> {
                     const SizedBox(height: AppSpacing.space1),
                     Text(
                       _isEditing
-                          ? 'Change how much we need.'
+                          // It said "change how much we need", which was an
+                          // accurate description of a sheet that could not do the
+                          // other thing anybody opens it for.
+                          ? 'Fix the name or the amount.'
                           : 'Anything at all. The amount is optional.',
                       style: context.text.metadata,
                     ),
@@ -131,39 +134,56 @@ class _GroceryItemSheetState extends ConsumerState<GroceryItemSheet> {
           ),
           const SizedBox(height: AppSpacing.space5),
 
-          if (!_isEditing) ...<Widget>[
-            AppTextField(
-              controller: _name,
-              label: 'Item',
-              hint: 'Chicken, bay leaves, the good soy sauce',
-              autofocus: true,
-              textCapitalization: TextCapitalization.none,
-              onChanged: (String value) => setState(() => _term = value),
+          // **Shown on an edit too now** (Sprint 57c).
+          //
+          // It was add-only, on the reasoning that the heading already says the
+          // name so a field underneath would be the same fact twice. That was the
+          // same mistake the pantry sheet made and it is the same answer: a
+          // heading is not a control. A line imported from a photo lands
+          // misspelled, a line typed one-handed in a shop lands wrong, and the
+          // only way to correct either was to delete it and start again.
+          //
+          // `autofocus` only when adding. On an edit the name is usually right
+          // and the amount is what is being changed, so opening the keyboard on
+          // the wrong field would cost a tap every time.
+          AppTextField(
+            controller: _name,
+            label: 'Item',
+            hint: 'Chicken, bay leaves, the good soy sauce',
+            autofocus: !_isEditing,
+            textCapitalization: TextCapitalization.none,
+            onChanged: (String value) => setState(() => _term = value),
+          ),
+          // On an edit as well, and it matters more there than on an add: picking
+          // a suggestion resolves the new name against the shared vocabulary,
+          // which is what decides the aisle. A renamed line that misses the
+          // vocabulary lands in "Everything else".
+          //
+          // Empty until something is typed — `_term` only moves `onChanged` — so
+          // opening the sheet to change an amount shows no chips at all.
+          if (suggestions.isNotEmpty) ...<Widget>[
+            const SizedBox(height: AppSpacing.space3),
+            Wrap(
+              spacing: AppSpacing.space2,
+              runSpacing: AppSpacing.space2,
+              children: <Widget>[
+                for (final IngredientSuggestion suggestion in suggestions)
+                  AppFilterChip(
+                    label: suggestion.name,
+                    isSelected: false,
+                    onSelected: (_) {
+                      setState(() {
+                        _name.text = suggestion.name;
+                        _term = suggestion.name;
+                        if (_unit.text.trim().isEmpty) {
+                          _unit.text = suggestion.defaultUnit;
+                        }
+                      });
+                      AppHaptics.reelTick();
+                    },
+                  ),
+              ],
             ),
-            if (suggestions.isNotEmpty) ...<Widget>[
-              const SizedBox(height: AppSpacing.space3),
-              Wrap(
-                spacing: AppSpacing.space2,
-                runSpacing: AppSpacing.space2,
-                children: <Widget>[
-                  for (final IngredientSuggestion suggestion in suggestions)
-                    AppFilterChip(
-                      label: suggestion.name,
-                      isSelected: false,
-                      onSelected: (_) {
-                        setState(() {
-                          _name.text = suggestion.name;
-                          _term = suggestion.name;
-                          if (_unit.text.trim().isEmpty) {
-                            _unit.text = suggestion.defaultUnit;
-                          }
-                        });
-                        AppHaptics.reelTick();
-                      },
-                    ),
-                ],
-              ),
-            ],
           ],
 
           const SizedBox(height: AppSpacing.space4),
@@ -237,14 +257,27 @@ class _GroceryItemSheetState extends ConsumerState<GroceryItemSheet> {
       groceryControllerProvider.notifier,
     );
 
-    final AppException? failure = switch (widget.existing) {
-      final GroceryItem existing => await controller.updateAmount(
-        existing,
+    // Whether this edit changed what the line is called. Case-insensitive, so
+    // fixing a capital is not a rename — `add` would resolve to the same
+    // ingredient and the round trip would buy nothing.
+    final GroceryItem? existing = widget.existing;
+    final bool isRename =
+        existing != null && name.toLowerCase() != existing.name.toLowerCase();
+
+    final AppException? failure = switch ((existing, isRename)) {
+      (final GroceryItem line, true) => await controller.rename(
+        line,
+        name: name,
+        quantity: quantity,
+        unit: _unit.text.trim(),
+      ),
+      (final GroceryItem line, false) => await controller.updateAmount(
+        line,
         quantity: quantity,
         unit: _unit.text.trim(),
         clearQuantity: quantity == null,
       ),
-      null => await controller.add(
+      _ => await controller.add(
         name: name,
         quantity: quantity,
         unit: _unit.text.trim(),

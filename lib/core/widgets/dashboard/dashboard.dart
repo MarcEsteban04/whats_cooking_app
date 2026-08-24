@@ -645,6 +645,19 @@ class DashboardRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final AppTextStyles text = context.text;
 
+    // How wide the figure column may get before it starts ellipsizing.
+    //
+    // A fixed cap that grows with the reader's text size, rather than a fraction
+    // of the row measured by a `LayoutBuilder`. Both work; this one cannot fail,
+    // and `DashboardRow` appears inside enough layouts that introducing a widget
+    // which throws under intrinsic sizing is a worse trade than a number.
+    //
+    // Wide enough for every value in the app that is a phrase — "Match the
+    // phone", "Not reachable" — which means the only thing it ever truncates is
+    // the handful that were being truncated before.
+    final double maxValueWidth = MediaQuery.textScalerOf(context)
+        .scale(_valueCap);
+
     final Widget content = Padding(
       padding: EdgeInsets.symmetric(
         vertical: isDense ? AppSpacing.space2 : AppSpacing.space3,
@@ -680,18 +693,30 @@ class DashboardRow extends StatelessWidget {
           ),
           if (value case final String figure) ...<Widget>[
             const SizedBox(width: AppSpacing.space3),
-            // **`Flexible`, or the value starves the title.**
+            // **Capped, not flexed** (Sprint 57c).
             //
-            // This was a bare `Column`, which in a `Row` is a non-flex child and
-            // therefore takes its full intrinsic width — leaving the `Expanded`
-            // title whatever is left. With a short figure like "₱84" that is
-            // invisible; with a long one it is brutal. "Food preferences" beside
-            // "Filipino, Japanese · 1 avoided" rendered as "Food pr / efere…",
-            // two characters a line.
+            // Two wrong versions came before this one. A bare `Column` is a
+            // non-flex child and takes its full intrinsic width, leaving the
+            // `Expanded` title whatever is left — which for "Food preferences"
+            // beside "Filipino, Japanese · 1 avoided" was two characters a line.
             //
-            // Loose flex, so a short figure still takes only what it needs and the
-            // title keeps the rest — the common case is unchanged.
-            Flexible(
+            // `Flexible` fixed that and introduced a quieter fault, which the
+            // comment here claimed it had avoided: **a loose flex child does not
+            // give its unused allocation back.** Both children have flex 1, so
+            // each is allocated half the free space; the title fills its half and
+            // the figure takes only what "₱100" needs — and the rest of the
+            // figure's half sits at the end of the row as dead space, while the
+            // title it was taken from ellipsizes. A meal list with a hundred
+            // pixels of nothing beside every price and "Fried Siomai R…" on the
+            // left.
+            //
+            // A cap is what was actually wanted all along: the figure is laid out
+            // *before* the flex pass, so it takes its intrinsic width and the
+            // title's `Expanded` gets every pixel it does not use — and the cap
+            // stops a long value from starving the title, which is the whole
+            // reason the flex was reached for.
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxValueWidth),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 mainAxisSize: MainAxisSize.min,
@@ -739,6 +764,12 @@ class DashboardRow extends StatelessWidget {
       ),
     );
   }
+
+  /// The figure column's ceiling at 1x text, in logical pixels.
+  ///
+  /// Comfortable for a two-word phrase and about two and a half times what a peso
+  /// figure needs, so on a table of prices the title gets the rest.
+  static const double _valueCap = 132;
 
   /// Places [trailing] beside [row], outside whatever tap region [row] carries.
   Widget _withTrailing(Widget row) {
