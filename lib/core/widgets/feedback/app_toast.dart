@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:whats_cooking/core/theme/app_colors.dart';
 import 'package:whats_cooking/core/theme/theme.dart';
 
 /// What kind of thing happened (Sprint 57).
@@ -288,7 +289,14 @@ class _ToastLayerState extends State<_ToastLayer>
                 // the pill appears near the top of the screen either way, and a
                 // long slide turns a confirmation into an animation.
                 offset: Offset(0, (t - 1) * _slide),
-                child: child,
+                // And grows the last few per cent into place. This is the whole
+                // difference between a rectangle appearing and an object
+                // arriving — and it is deliberately small, because a pill that
+                // bounces is a pill somebody watches instead of reads.
+                child: Transform.scale(
+                  scale: _minScale + ((1 - _minScale) * t),
+                  child: child,
+                ),
               ),
             ),
           );
@@ -301,15 +309,30 @@ class _ToastLayerState extends State<_ToastLayer>
   }
 
   static const double _slide = 24;
+
+  /// Where the grow starts. Small on purpose — see the builder.
+  static const double _minScale = 0.94;
 }
 
-/// The pill itself.
+/// The island itself.
 ///
-/// Ink, not a tint. The palette has one accent and it belongs to SPIN
-/// (docs/DESIGN_SYSTEM.md §2.2), and a full-width coloured banner across the top
-/// of every screen would be the loudest thing in the app for three seconds. So
-/// the ground is the same inverse ink the decided screen and the primary buttons
-/// use, and the *glyph* carries the tone.
+/// **Dark in both themes, and that is the correction.** The first version used
+/// `surfaceInverse`, which is the right token for "the opposite of the page" and
+/// the wrong one for this: in the dark theme it resolves to near-white, so the
+/// pill landed as a glaring white slab over a black screen. A notification is not
+/// an inversion of the page, it is an object *above* it — and the thing this was
+/// modelled on is darker than what it floats over, in every wallpaper.
+///
+/// So the ground is ink at both ends, with a hairline in the dark theme to lift
+/// it off a background of nearly the same value, and a real shadow rather than a
+/// polite one. That reads as a layer instead of a rectangle.
+///
+/// **The tone lives in a filled disc with the glyph knocked out of it**, which is
+/// the app's own vocabulary — `ConfirmationDialog`'s tinted circle,
+/// `DashboardActionRow`'s filled square. A bare coloured glyph on ink was the
+/// weakest possible version: at 16 px, a mid-green tick and an amber warning read
+/// as the same grey mark, so the one thing the pill exists to distinguish was the
+/// thing you could not see.
 class _Pill extends StatelessWidget {
   const _Pill({required this.message});
 
@@ -318,18 +341,37 @@ class _Pill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final AppColorScheme colors = context.colors;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final (IconData icon, Color tint) = switch (message.tone) {
-      ToastTone.success => (AppIcons.success, colors.success.color),
-      ToastTone.failure => (AppIcons.warning, colors.error.color),
-      ToastTone.neutral => (AppIcons.info, colors.textOnInverse),
+    final (IconData icon, Color disc, Color onDisc) = switch (message.tone) {
+      ToastTone.success => (
+        AppIcons.check,
+        colors.success.color,
+        colors.success.onColor,
+      ),
+      ToastTone.failure => (
+        AppIcons.warning,
+        colors.error.color,
+        colors.error.onColor,
+      ),
+      // No disc for a plain statement — see `_Disc`. The colours are still
+      // passed so the switch stays exhaustive over one shape.
+      ToastTone.neutral => (
+        AppIcons.info,
+        colors.outlineStrong,
+        _onInk(isDark),
+      ),
     };
 
-    return Padding(
+    return Padding
+    // Clear of the status bar, and inset from the edges rather than flush: an
+    // object that touches both sides of the screen is a banner, and a banner is
+    // part of the page.
+    (
       padding: const EdgeInsets.fromLTRB(
-        AppLayout.screenMargin,
+        AppSpacing.space4,
         AppSpacing.space2,
-        AppLayout.screenMargin,
+        AppSpacing.space4,
         0,
       ),
       child: Center(
@@ -340,49 +382,87 @@ class _Pill extends StatelessWidget {
           child: Semantics(
             liveRegion: true,
             container: true,
-            child: GestureDetector(
-              // Tap anywhere that is not the action to send it away. Swipe up
-              // too, because that is the direction it came from and the gesture
-              // people try on anything at the top of a screen.
-              onTap: AppToast.dismiss,
-              onVerticalDragEnd: (DragEndDetails details) {
-                if ((details.primaryVelocity ?? 0) < 0) {
-                  AppToast.dismiss();
-                }
-              },
+            // **A real `Material`, and it fixes two things that looked like
+            // design problems.**
+            //
+            // This layer hangs off `MaterialApp.builder`, so it is under the
+            // theme but under no `Material` — and a `Text` there merges its
+            // style with `WidgetsApp`'s fallback `DefaultTextStyle`, which
+            // carries a **double yellow underline**. Every message in the app was
+            // being drawn with it, because none of the typography sets
+            // `decoration` and a null field is what `merge` fills in.
+            //
+            // The action's `InkWell` had the same root cause from the other end:
+            // no `Material` ancestor means no ink, so the one tappable thing in
+            // here gave no feedback at all.
+            child: Material(
+              color: _ink(isDark),
+              elevation: 0,
+              borderRadius: AppRadius.borderFull,
+              clipBehavior: Clip.antiAlias,
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: colors.surfaceInverse,
                   borderRadius: AppRadius.borderFull,
-                  boxShadow: context.shadows.md,
+                  border: isDark
+                      // Only in the dark theme. On a pale page the shadow does
+                      // the separating; on a dark one there is barely a value
+                      // difference to shadow *against*, and the hairline is what
+                      // stops the pill dissolving into the background.
+                      ? Border.all(color: colors.outlineStrong)
+                      : null,
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.space4,
-                    vertical: AppSpacing.space3,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      Icon(icon, size: AppIconSize.xs, color: tint),
-                      const SizedBox(width: AppSpacing.space3),
-                      Flexible(
-                        child: Text(
-                          message.text,
-                          style: context.text.bodySmall.copyWith(
-                            color: colors.textOnInverse,
-                          ),
-                          // Two lines. Every message in this app fits, and a
-                          // third would make the pill a panel.
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                child: GestureDetector(
+                  // Tap anywhere that is not the action to send it away. Swipe up
+                  // too, because that is the direction it came from and the
+                  // gesture people try on anything at the top of a screen.
+                  onTap: AppToast.dismiss,
+                  onVerticalDragEnd: (DragEndDetails details) {
+                    if ((details.primaryVelocity ?? 0) < 0) {
+                      AppToast.dismiss();
+                    }
+                  },
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      AppSpacing.space2,
+                      AppSpacing.space2,
+                      // Tighter on the right when an action is carried: the
+                      // label has padding of its own, and both would put an
+                      // unbalanced gap after the last word.
+                      message.hasAction ? AppSpacing.space1 : AppSpacing.space4,
+                      AppSpacing.space2,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        _Disc(
+                          icon: icon,
+                          background: disc,
+                          foreground: onDisc,
+                          isOutlineOnly: message.tone == ToastTone.neutral,
                         ),
-                      ),
-                      if (message.hasAction) ...<Widget>[
                         const SizedBox(width: AppSpacing.space3),
-                        _Action(message: message),
+                        Flexible(
+                          child: Text(
+                            message.text,
+                            style: context.text.titleSmall.copyWith(
+                              color: _onInk(isDark),
+                              // Belt and braces on top of the `Material` above.
+                              // The one thing this widget must never do is
+                              // decorate its own text.
+                              decoration: TextDecoration.none,
+                            ),
+                            // Two lines. Every message in this app fits inside
+                            // that, and a third would make the pill a panel.
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (message.hasAction) ...<Widget>[
+                          const SizedBox(width: AppSpacing.space2),
+                          _Action(message: message, isDark: isDark),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -392,13 +472,66 @@ class _Pill extends StatelessWidget {
       ),
     );
   }
+
+  /// The ground. Ink at both ends of the theme — see the class doc.
+  static Color _ink(bool isDark) =>
+      isDark ? AppColors.darkSurfaceHigh : AppColors.neutral900;
+
+  /// What reads on [_ink].
+  static Color _onInk(bool isDark) =>
+      isDark ? AppColors.darkTextPrimary : AppColors.neutral50;
+}
+
+/// The tone, as a filled circle with the glyph knocked out.
+///
+/// Filled for success and failure, because those are the two the reader has to
+/// tell apart at a glance and a solid disc of colour does it before the glyph is
+/// even resolved. Outlined for a plain statement, which is not news and should not
+/// arrive wearing a colour.
+class _Disc extends StatelessWidget {
+  const _Disc({
+    required this.icon,
+    required this.background,
+    required this.foreground,
+    required this.isOutlineOnly,
+  });
+
+  final IconData icon;
+  final Color background;
+  final Color foreground;
+  final bool isOutlineOnly;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: isOutlineOnly ? Colors.transparent : background,
+        shape: BoxShape.circle,
+        border: isOutlineOnly ? Border.all(color: background) : null,
+      ),
+      child: SizedBox.square(
+        dimension: _size,
+        child: Center(
+          child: Icon(
+            icon,
+            size: _glyph,
+            color: isOutlineOnly ? background : foreground,
+          ),
+        ),
+      ),
+    );
+  }
+
+  static const double _size = 26;
+  static const double _glyph = 16;
 }
 
 /// The offer on the right, when there is one.
 class _Action extends StatelessWidget {
-  const _Action({required this.message});
+  const _Action({required this.message, required this.isDark});
 
   final ToastMessage message;
+  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
@@ -415,14 +548,17 @@ class _Action extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.space3,
-          vertical: AppSpacing.space1,
+          vertical: AppSpacing.space2,
         ),
         child: Text(
           message.actionLabel!.toUpperCase(),
           style: context.text.overline.copyWith(
-            // The one place the accent is allowed here: it is a button inside a
-            // notification, and it has to look like one at a glance.
-            color: colors.primary,
+            // The one place the accent is allowed in here: it is a button inside
+            // a notification and has to look like one at a glance. Read on ink at
+            // both ends of the theme, which the terracotta does — it is the same
+            // relationship SPIN has with the pale page.
+            color: colors.primaryBrand,
+            decoration: TextDecoration.none,
           ),
           maxLines: 1,
         ),

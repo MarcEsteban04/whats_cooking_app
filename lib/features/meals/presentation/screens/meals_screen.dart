@@ -1058,6 +1058,10 @@ class _MealTable extends StatelessWidget {
 class _TableHead extends StatelessWidget {
   const _TableHead();
 
+  /// The heart's own width plus the gap `DashboardRow` puts before it, so
+  /// `COST A HEAD` lands over the figures rather than over the control.
+  static const double _heartColumn = 36 + AppSpacing.space2;
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -1065,8 +1069,13 @@ class _TableHead extends StatelessWidget {
       child: Row(
         children: <Widget>[
           Expanded(child: Text('MEAL', style: context.text.overline)),
-          Text('COST', style: context.text.overline),
-          const SizedBox(width: AppSpacing.space5),
+          // Carries the unit now, so the sixty rows below do not each repeat it
+          // (Sprint 57b). A column label is the one place "a head" belongs: said
+          // once, at the top, about the whole column.
+          Text('COST A HEAD', style: context.text.overline),
+          // Clears the heart, so the heading sits over the figures rather than
+          // over the control beside them.
+          const SizedBox(width: _heartColumn),
         ],
       ),
     );

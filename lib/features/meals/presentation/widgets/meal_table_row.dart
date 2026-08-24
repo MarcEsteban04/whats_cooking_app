@@ -50,7 +50,11 @@ class MealTableRow extends ConsumerWidget {
 
   /// Where the hairline above a row should start, so it runs under the text
   /// rather than through the cuisine dot.
-  static const double ruleInset = _dotSize + AppSpacing.space3;
+  ///
+  /// `space2`, matching the gap a dense [DashboardRow] puts after its leading
+  /// widget. It was `space3` and the rows are dense now, which left every
+  /// hairline four pixels past the text it was supposed to line up with.
+  static const double ruleInset = _dotSize + AppSpacing.space2;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -74,16 +78,37 @@ class MealTableRow extends ConsumerWidget {
         color: colors.accentFor(meal.cuisine.label).foreground,
       ),
       title: meal.name,
+
+      // **One line, and it does not truncate any more** (Sprint 57b).
+      //
+      // It had four items in it and could only ever fit two, so what a reader
+      // actually saw was `FILIPINO · 30 MI…` — the cuisine they already knew from
+      // the dot, and a cooking time cut in half. The difficulty never rendered at
+      // all, on any row, on any screen width.
+      //
+      // Difficulty is gone. It was the least load-bearing of the four — nothing
+      // in the app filters on it and the time already says most of what it meant
+      // — and dropping it is what buys the cooking time enough room to be a
+      // number rather than an ellipsis.
       subtitle: AppFormat.metadata(<String?>[
         // First, because it changes what the rest of the row means: this meal
         // will not be suggested, however cheap or quick it is.
         if (isHidden) 'Hidden',
         meal.cuisine.label,
         AppFormat.cookingTime(meal.cookingTimeMinutes),
-        meal.difficulty.label,
       ]),
       value: AppFormat.peso(meal.costPerServing),
-      unit: 'a head',
+
+      // **No unit.** "A HEAD" under every figure is the same three letters sixty
+      // times, and it was doing active harm: the value column is `Flexible`, so
+      // it took the width of the longest thing in it — and the longest thing was
+      // the caption, not the price. Six characters of boilerplate were squeezing
+      // the cooking time off the row above.
+      //
+      // The table's `COST A HEAD` heading says it once, which is where a column
+      // label belongs.
+      titleMaxLines: 1,
+      isDense: true,
       trailing:
           trailing ??
           (isFavorite == null

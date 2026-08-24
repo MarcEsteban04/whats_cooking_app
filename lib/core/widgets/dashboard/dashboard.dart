@@ -603,10 +603,26 @@ class DashboardRow extends StatelessWidget {
     this.unit,
     this.trailing,
     this.onTap,
+    this.titleMaxLines = 2,
+    this.isDense = false,
     super.key,
   });
 
   final String title;
+
+  /// How many lines the name may take.
+  ///
+  /// Two by default, because most rows in the app are one of a handful and a
+  /// wrapped name is better than a truncated one. **One for a long table**: sixty
+  /// meals where two names in ten wrap is a list of uneven rows, and uneven rows
+  /// are what "messy" means — the eye stops being able to use the rhythm to scan.
+  final int titleMaxLines;
+
+  /// Tightens the vertical padding, for a table long enough to scroll.
+  ///
+  /// The default spacing is right for a panel holding four rows. At sixty it is
+  /// two thirds of a screen spent on air, so the meal table asks for less.
+  final bool isDense;
 
   /// A glyph, an avatar, or a coloured series dot.
   final Widget? leading;
@@ -630,12 +646,14 @@ class DashboardRow extends StatelessWidget {
     final AppTextStyles text = context.text;
 
     final Widget content = Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.space3),
+      padding: EdgeInsets.symmetric(
+        vertical: isDense ? AppSpacing.space2 : AppSpacing.space3,
+      ),
       child: Row(
         children: <Widget>[
           if (leading case final Widget widget) ...<Widget>[
             widget,
-            const SizedBox(width: AppSpacing.space3),
+            SizedBox(width: isDense ? AppSpacing.space2 : AppSpacing.space3),
           ],
           Expanded(
             child: Column(
@@ -645,7 +663,7 @@ class DashboardRow extends StatelessWidget {
                 Text(
                   title,
                   style: text.titleSmall,
-                  maxLines: 2,
+                  maxLines: titleMaxLines,
                   overflow: TextOverflow.ellipsis,
                 ),
                 if (subtitle case final String caps) ...<Widget>[

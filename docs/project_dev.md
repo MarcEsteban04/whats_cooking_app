@@ -965,6 +965,78 @@ stored: removing an ingredient row from an unsaved meal draft, un-picking a name
 on the recipe generator, and the pantry deduction sheet — which *is* a
 confirmation.
 
+## Sprint 57b — The Island, Properly, And A Table You Can Scan
+
+> "1. make the dynamic island alert DESIGN 100x BETTER! 2. why the meals list so
+> messy? make it 100x better and more compact!"
+
+### Three bugs the first pill was wearing as a style
+
+**A double yellow underline under every message.** The toast layer hangs off
+`MaterialApp.builder`, so it is under the theme and under **no `Material`** — and
+a `Text` there merges its style with `WidgetsApp`'s fallback `DefaultTextStyle`,
+which carries `decoration: underline, decorationColor: yellow, decorationStyle:
+double`. None of this app's typography sets `decoration`, and a null field is
+exactly what `merge` fills in. So every confirmation in the app was drawn with
+Flutter's own "you forgot a Material" marker on it, and it read as a design
+choice.
+
+**The action gave no feedback.** Same root cause from the other end: an `InkWell`
+with no `Material` ancestor has nothing to paint ink on. The one tappable thing in
+the pill did nothing visible when pressed.
+
+**And in the dark theme it was a white slab.** `surfaceInverse` is the right token
+for "the opposite of the page" and the wrong one for this. A notification is not
+an inversion of the page, it is an object *above* it — and the thing being
+modelled here is darker than what it floats over, in every wallpaper. It is now
+ink at both ends of the theme, with a hairline in the dark one, because with no
+value difference to shadow against a shadow separates nothing.
+
+### And the design
+
+* **The tone is a filled disc with the glyph knocked out of it** — the app's own
+  vocabulary, from `ConfirmationDialog`'s tinted circle and
+  `DashboardActionRow`'s filled square. A bare coloured glyph on ink was the
+  weakest possible version: at 16 px a mid-green tick and an amber warning read as
+  the same grey mark, so the one thing the pill exists to distinguish was the one
+  thing invisible.
+* **Outlined, not filled, for a plain statement.** Not news, so it does not arrive
+  wearing a colour.
+* **It grows the last six per cent into place** alongside the slide. That is the
+  whole difference between a rectangle appearing and an object arriving, and it is
+  deliberately small — a pill that bounces is a pill somebody watches instead of
+  reads.
+* Inset from both edges rather than flush. An object touching both sides of the
+  screen is a banner, and a banner is part of the page.
+
+### The meals table
+
+Four things, and every one of them was the same mistake: saying something once per
+row that only needed saying once per column.
+
+* **`A HEAD` under sixty figures.** Six characters of boilerplate, and it was
+  doing active harm rather than just taking space: the value column is `Flexible`,
+  so it took the width of the *longest thing in it* — and the longest thing was
+  the caption, not the price. That is what was squeezing the cooking time off the
+  line above. It now sits once in the `COST A HEAD` heading, which is where a
+  column label belongs.
+* **`FILIPINO · 30 MI…`** The metadata line had four items and room for two, so
+  what a reader saw was a cuisine the coloured dot already gave them and a cooking
+  time cut in half. Difficulty never rendered on any row at any width — nothing in
+  the app filters on it and the time says most of what it meant — so it is gone,
+  and that is what buys the time enough room to be a number.
+* **Names wrapping to two lines.** "Garlic Fried Rice and Egg" made its row taller
+  than its neighbours, and a list of uneven rows is what "messy" means: the eye
+  stops being able to use the rhythm to scan. `DashboardRow` takes
+  `titleMaxLines` now, defaulting to two so every other screen is unchanged, and
+  the table asks for one.
+* **A panel's spacing on a table's rows.** `DashboardRow` gained `isDense`. The
+  default is right for four rows and wrong for sixty, where it was two thirds of a
+  screen spent on air. Roughly a third more meals per screen.
+
+`MealTableRow.ruleInset` moved from `space3` to `space2` with it — the hairlines
+were lining up with a gap that no longer existed.
+
 ---
 
 # 🚦 Definition of Done
